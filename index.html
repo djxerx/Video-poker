@@ -669,8 +669,7 @@ function renderCards(showFaces, animate){
 
     cardEl.appendChild(inner);
 
-    // Click to toggle hold during holding phase
-    cardEl.addEventListener('click',()=>toggleHold(i));
+    // Tapping handled via event delegation on #cards-row (see init)
 
     wrap.appendChild(badge);
     wrap.appendChild(cardEl);
@@ -690,6 +689,7 @@ function renderCardsBack(){
     badge.textContent='HOLD';
     const cardEl=document.createElement('div');
     cardEl.className='card';
+    cardEl.dataset.index=i;
     const inner=document.createElement('div');
     inner.className='card-inner';
     inner.appendChild(buildCardBack());
@@ -892,6 +892,14 @@ function init(){
   document.getElementById('btn-deal').addEventListener('click',    deal);
   document.getElementById('btn-bet-one').addEventListener('click', betOne);
   document.getElementById('btn-bet-max').addEventListener('click', betMax);
+
+  // Delegated card tap — works for both mouse click and iOS touch
+  document.getElementById('cards-row').addEventListener('click', e => {
+    const cardEl = e.target.closest('.card');
+    if (!cardEl) return;
+    const i = parseInt(cardEl.dataset.index);
+    if (!isNaN(i)) toggleHold(i);
+  });
 
   rescale();
 
