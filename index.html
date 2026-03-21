@@ -58,7 +58,7 @@
 
     /* ─── Terminal Shell ────────────────────────────────────── */
     #terminal {
-      width: min(820px, 100vw);
+      width: 820px;
       padding: 12px 16px 18px;
       background: linear-gradient(180deg, #0d2255 0%, #091840 100%);
       border: 3px solid #2a4a9a;
@@ -68,6 +68,8 @@
       flex-direction: column;
       gap: 10px;
       user-select: none;
+      visibility: hidden;           /* hidden until rescale() runs */
+      transform-origin: center center;
     }
 
     /* ─── Title Bar ─────────────────────────────────────────── */
@@ -192,6 +194,8 @@
       padding: 4px 7px;
       cursor: pointer;
       transition: all 0.15s;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
     }
     .denom-btn:hover  { background: #2a3a80; border-color: var(--gold); color: var(--gold); }
     .denom-btn.active { background: var(--gold-dark); border-color: var(--gold); color: #000; }
@@ -245,6 +249,8 @@
       position: relative;
       transition: transform 0.15s, box-shadow 0.15s;
       perspective: 600px;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
     }
     .card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.7); }
     .card.held  { transform: translateY(-10px); box-shadow: 0 12px 30px rgba(240,192,64,0.5); }
@@ -337,6 +343,8 @@
       cursor: pointer;
       transition: all 0.15s;
       min-width: 90px;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
     }
     .btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
@@ -885,6 +893,8 @@ function init(){
   document.getElementById('btn-bet-one').addEventListener('click', betOne);
   document.getElementById('btn-bet-max').addEventListener('click', betMax);
 
+  rescale();
+
   // Keyboard shortcuts
   document.addEventListener('keydown', e=>{
     if(e.code==='Space' || e.code==='Enter') { e.preventDefault(); deal(); }
@@ -898,6 +908,25 @@ function init(){
 }
 
 init();
+
+// ════════════════════════════════════════════════════════════
+//  RESPONSIVE SCALING
+//  Scales the fixed-width terminal to fill any screen size,
+//  from iPhone SE landscape up to iPad Pro.
+// ════════════════════════════════════════════════════════════
+function rescale() {
+  const t = document.getElementById('terminal');
+  t.style.transform = 'none';              // reset so offsetWidth is natural
+  const scale = Math.min(
+    (window.innerWidth  - 8) / t.offsetWidth,
+    (window.innerHeight - 8) / t.offsetHeight,
+    1.4                                    // max: allow upscale on iPad
+  );
+  t.style.transform = `scale(${scale})`;
+  t.style.visibility = 'visible';          // show after first scale is applied
+}
+window.addEventListener('resize', rescale);
+window.addEventListener('orientationchange', () => setTimeout(rescale, 200));
 
 // ════════════════════════════════════════════════════════════
 //  SERVICE WORKER REGISTRATION
