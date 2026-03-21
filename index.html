@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+
+  <!-- PWA / iOS full-screen -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Video Poker" />
+  <meta name="theme-color" content="#0a1a3a" />
+  <meta name="description" content="Jacks or Better video poker — 9/6 pay table" />
+
+  <!-- Web App Manifest -->
+  <link rel="manifest" href="/manifest.json" />
+
+  <!-- Apple Touch Icons -->
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180.svg" />
+  <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.svg" />
+
+  <!-- Standard favicon -->
+  <link rel="icon" type="image/svg+xml" href="/icons/icon-192.svg" />
+
+  <title>Jacks or Better</title>
+  <style>
+    /* ─── Reset & Base ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0a1a3a;
+      --bg2:         #0d2050;
+      --gold:        #f0c040;
+      --gold-dark:   #c89a20;
+      --silver:      #c0c8d8;
+      --green:       #1a7a3a;
+      --green-dark:  #145e2c;
+      --red:         #cc2222;
+      --white:       #ffffff;
+      --card-back:   #cc2222;
+      --card-front:  #fdf6e3;
+      --card-radius: 10px;
+      --shadow:      0 4px 18px rgba(0,0,0,0.6);
+    }
+
+    html, body {
+      height: 100%;
+      /* Account for iOS notch / home bar */
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      background: var(--bg);
+      font-family: 'Courier New', Courier, monospace;
+      color: var(--white);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ─── Terminal Shell ────────────────────────────────────── */
+    #terminal {
+      width: min(820px, 100vw);
+      padding: 12px 16px 18px;
+      background: linear-gradient(180deg, #0d2255 0%, #091840 100%);
+      border: 3px solid #2a4a9a;
+      border-radius: 18px;
+      box-shadow: 0 0 40px rgba(20,60,180,0.5), inset 0 0 30px rgba(0,0,50,0.4);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      user-select: none;
+    }
+
+    /* ─── Title Bar ─────────────────────────────────────────── */
+    #title-bar {
+      text-align: center;
+      font-size: clamp(18px, 4vw, 28px);
+      font-weight: bold;
+      letter-spacing: 4px;
+      color: var(--gold);
+      text-shadow: 0 0 12px rgba(240,192,64,0.7), 0 2px 0 #6a4000;
+      text-transform: uppercase;
+      padding: 4px 0 2px;
+      border-bottom: 2px solid #2a4a9a;
+    }
+    #title-bar span { color: #fff; }
+
+    /* ─── Pay Table ─────────────────────────────────────────── */
+    #paytable {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 2px;
+      font-size: clamp(8px, 1.5vw, 11px);
+    }
+    .pt-hand {
+      background: #0a1a50;
+      border: 1px solid #1a3a8a;
+      border-radius: 4px;
+      padding: 3px 2px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .pt-hand.highlight {
+      background: var(--gold);
+      color: #000;
+      border-color: #fff;
+      font-weight: bold;
+    }
+    .pt-name {
+      font-size: clamp(6px, 1.2vw, 9px);
+      color: var(--gold);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      line-height: 1.1;
+    }
+    .pt-hand.highlight .pt-name { color: #000; }
+    .pt-vals {
+      display: flex;
+      justify-content: space-around;
+      gap: 1px;
+    }
+    .pt-val {
+      flex: 1;
+      background: #000c30;
+      border-radius: 3px;
+      padding: 1px 2px;
+      color: var(--white);
+      font-size: clamp(7px, 1.3vw, 10px);
+      font-weight: bold;
+      text-align: center;
+    }
+    .pt-val.active-bet {
+      background: var(--gold-dark);
+      color: #000;
+    }
+    .pt-hand.highlight .pt-val { background: #fff3cc; color: #000; }
+    .pt-hand.highlight .pt-val.active-bet { background: #ff8c00; color: #fff; }
+
+    /* ─── Credit & Bet Display ──────────────────────────────── */
+    #info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .info-box {
+      flex: 1;
+      background: #000c30;
+      border: 2px solid #2a4a9a;
+      border-radius: 8px;
+      padding: 6px 10px;
+      text-align: center;
+    }
+    .info-label {
+      font-size: clamp(8px, 1.5vw, 10px);
+      color: var(--silver);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    .info-value {
+      font-size: clamp(18px, 4vw, 28px);
+      font-weight: bold;
+      color: var(--gold);
+      text-shadow: 0 0 8px rgba(240,192,64,0.5);
+      letter-spacing: 2px;
+    }
+    #denomination-row {
+      flex: 1.2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    #denomination-row .info-label {
+      font-size: clamp(7px, 1.3vw, 9px);
+      color: var(--silver);
+      letter-spacing: 2px;
+    }
+    .denom-btns {
+      display: flex;
+      gap: 4px;
+    }
+    .denom-btn {
+      background: #1a2a60;
+      border: 2px solid #3a5aaa;
+      border-radius: 6px;
+      color: var(--silver);
+      font-family: 'Courier New', monospace;
+      font-size: clamp(8px, 1.4vw, 11px);
+      font-weight: bold;
+      padding: 4px 7px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .denom-btn:hover  { background: #2a3a80; border-color: var(--gold); color: var(--gold); }
+    .denom-btn.active { background: var(--gold-dark); border-color: var(--gold); color: #000; }
+
+    /* ─── Message Banner ────────────────────────────────────── */
+    #message {
+      text-align: center;
+      font-size: clamp(14px, 3vw, 20px);
+      font-weight: bold;
+      letter-spacing: 3px;
+      color: var(--gold);
+      text-shadow: 0 0 10px rgba(240,192,64,0.6);
+      min-height: 28px;
+      text-transform: uppercase;
+    }
+
+    /* ─── Card Area ─────────────────────────────────────────── */
+    #cards-row {
+      display: flex;
+      justify-content: center;
+      gap: clamp(6px, 1.5vw, 12px);
+    }
+
+    .card-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+    }
+
+    /* HOLD badge */
+    .hold-badge {
+      font-size: clamp(9px, 1.8vw, 13px);
+      font-weight: bold;
+      letter-spacing: 2px;
+      color: var(--gold);
+      text-shadow: 0 0 6px rgba(240,192,64,0.8);
+      visibility: hidden;
+      text-transform: uppercase;
+      min-height: 16px;
+    }
+    .hold-badge.visible { visibility: visible; }
+
+    /* Card face */
+    .card {
+      width: clamp(90px, 14vw, 130px);
+      height: clamp(126px, 20vw, 182px);
+      border-radius: var(--card-radius);
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.15s, box-shadow 0.15s;
+      perspective: 600px;
+    }
+    .card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.7); }
+    .card.held  { transform: translateY(-10px); box-shadow: 0 12px 30px rgba(240,192,64,0.5); }
+
+    .card-inner {
+      width: 100%; height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.4s ease;
+    }
+    .card.flipping .card-inner { animation: flip 0.4s ease forwards; }
+
+    @keyframes flip {
+      0%   { transform: rotateY(0deg); }
+      50%  { transform: rotateY(90deg); }
+      100% { transform: rotateY(0deg); }
+    }
+
+    .card-face, .card-back {
+      position: absolute;
+      inset: 0;
+      border-radius: var(--card-radius);
+      backface-visibility: hidden;
+    }
+
+    /* ── Card Back ── */
+    .card-back {
+      background: var(--card-back);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card-back-pattern {
+      width: 85%; height: 85%;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-radius: 6px;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      grid-template-rows: repeat(7, 1fr);
+      gap: 2px;
+      padding: 4px;
+    }
+    .dot {
+      background: rgba(255,255,255,0.75);
+      border-radius: 50%;
+    }
+
+    /* ── Card Front ── */
+    .card-face {
+      background: var(--card-front);
+      padding: 5px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .card-face.red  { color: #cc0000; }
+    .card-face.black { color: #111; }
+
+    .corner { display: flex; flex-direction: column; align-items: center; line-height: 1; }
+    .corner.tl { align-self: flex-start; }
+    .corner.br { align-self: flex-end; transform: rotate(180deg); }
+    .corner .rank { font-size: clamp(14px, 2.5vw, 20px); font-weight: 900; }
+    .corner .suit { font-size: clamp(12px, 2vw, 16px); }
+
+    .center-suit {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: clamp(32px, 6vw, 52px);
+      line-height: 1;
+    }
+
+    /* ─── Buttons Row ───────────────────────────────────────── */
+    #buttons-row {
+      display: flex;
+      justify-content: center;
+      gap: clamp(6px, 2vw, 14px);
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      font-family: 'Courier New', monospace;
+      font-size: clamp(10px, 2vw, 14px);
+      font-weight: bold;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: clamp(8px, 1.5vw, 12px) clamp(14px, 3vw, 26px);
+      border-radius: 8px;
+      border: 2px solid;
+      cursor: pointer;
+      transition: all 0.15s;
+      min-width: 90px;
+    }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    .btn-deal {
+      background: linear-gradient(180deg, #2a8a4a, #1a6a34);
+      border-color: #4acc6a;
+      color: #fff;
+      box-shadow: 0 0 12px rgba(42,180,74,0.4);
+    }
+    .btn-deal:hover:not(:disabled) {
+      background: linear-gradient(180deg, #3aaa5a, #2a8a44);
+      box-shadow: 0 0 20px rgba(42,220,84,0.6);
+    }
+
+    .btn-bet-one {
+      background: linear-gradient(180deg, #2a4aaa, #1a2a7a);
+      border-color: #5a7acc;
+      color: #fff;
+    }
+    .btn-bet-one:hover:not(:disabled) {
+      background: linear-gradient(180deg, #3a5acc, #2a3a9a);
+      box-shadow: 0 0 12px rgba(80,120,220,0.5);
+    }
+
+    .btn-bet-max {
+      background: linear-gradient(180deg, #aa4a00, #7a3000);
+      border-color: #ff8c30;
+      color: var(--gold);
+    }
+    .btn-bet-max:hover:not(:disabled) {
+      background: linear-gradient(180deg, #cc5a00, #993800);
+      box-shadow: 0 0 16px rgba(255,140,48,0.6);
+    }
+
+    /* ─── Win Flash ─────────────────────────────────────────── */
+    @keyframes winFlash {
+      0%, 100% { color: var(--gold); }
+      50%       { color: #fff; text-shadow: 0 0 20px #fff; }
+    }
+    #message.winning { animation: winFlash 0.5s ease 3; }
+  </style>
+</head>
+<body>
+<div id="terminal">
+
+  <!-- Title -->
+  <div id="title-bar">Jacks <span>or</span> Better</div>
+
+  <!-- Pay Table -->
+  <div id="paytable"></div>
+
+  <!-- Credits / Bet / Denomination -->
+  <div id="info-row">
+    <div class="info-box">
+      <div class="info-label">Credits</div>
+      <div class="info-value" id="credits-display">100</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Bet</div>
+      <div class="info-value" id="bet-display">5</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Win</div>
+      <div class="info-value" id="win-display">0</div>
+    </div>
+    <div id="denomination-row">
+      <div class="info-label">Denomination</div>
+      <div class="denom-btns" id="denom-btns"></div>
+    </div>
+  </div>
+
+  <!-- Message Banner -->
+  <div id="message">Insert Coin — Press Deal</div>
+
+  <!-- Cards -->
+  <div id="cards-row"></div>
+
+  <!-- Buttons -->
+  <div id="buttons-row">
+    <button class="btn btn-bet-one" id="btn-bet-one">Bet One</button>
+    <button class="btn btn-bet-max" id="btn-bet-max">Bet Max</button>
+    <button class="btn btn-deal"    id="btn-deal">Deal</button>
+  </div>
+
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+//  CONSTANTS
+// ════════════════════════════════════════════════════════════
+const SUITS      = ['♠','♥','♦','♣'];
+const RANKS      = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+const SUIT_COLOR = { '♠':'black','♣':'black','♥':'red','♦':'red' };
+
+const DENOMINATIONS = [
+  { label:'¢25',  value: 0.25 },
+  { label:'$1',   value: 1    },
+  { label:'$5',   value: 5    },
+  { label:'$25',  value: 25   },
+];
+
+// Pay table: [name, short-name, payouts-per-coin x1..x5]
+// For Royal Flush at 5 coins the payout is 4000 (800× per coin special)
+const PAY_TABLE = [
+  { name:'Royal Flush',      short:'Royal\nFlush',    pays:[250,500,750,1000,4000] },
+  { name:'Straight Flush',   short:'Str.\nFlush',     pays:[50,100,150,200,250]   },
+  { name:'Four of a Kind',   short:'Four\nof a Kind', pays:[25,50,75,100,125]     },
+  { name:'Full House',       short:'Full\nHouse',     pays:[9,18,27,36,45]        },
+  { name:'Flush',            short:'Flush',           pays:[6,12,18,24,30]        },
+  { name:'Straight',         short:'Straight',        pays:[4,8,12,16,20]        },
+  { name:'Three of a Kind',  short:'Three\nof a Kind',pays:[3,6,9,12,15]         },
+  { name:'Two Pair',         short:'Two\nPair',       pays:[2,4,6,8,10]          },
+  { name:'Jacks or Better',  short:'Jacks\nor Better',pays:[1,2,3,4,5]           },
+  { name:'Nothing',          short:'',                pays:[0,0,0,0,0]           },
+];
+
+// ════════════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════════════
+let credits    = 100;
+let coinBet    = 5;           // 1–5 coins
+let denomIdx   = 1;           // index into DENOMINATIONS ($1 default)
+let deck       = [];
+let hand       = [];          // 5 card objects {rank, suit}
+let held       = [false,false,false,false,false];
+let phase      = 'betting';   // 'betting' | 'holding' | 'result'
+let lastWin    = 0;
+let lastHandIdx= -1;
+
+// ════════════════════════════════════════════════════════════
+//  DECK
+// ════════════════════════════════════════════════════════════
+function buildDeck(){
+  deck = [];
+  for(const s of SUITS) for(const r of RANKS) deck.push({rank:r,suit:s});
+}
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+}
+function dealCard(){ return deck.pop(); }
+
+// ════════════════════════════════════════════════════════════
+//  HAND EVALUATION
+// ════════════════════════════════════════════════════════════
+function rankIndex(r){ return RANKS.indexOf(r); }
+
+function evaluate(cards){
+  const ri   = cards.map(c=>rankIndex(c.rank)).sort((a,b)=>a-b);
+  const suits = cards.map(c=>c.suit);
+  const ranks  = cards.map(c=>c.rank);
+
+  const isFlush    = suits.every(s=>s===suits[0]);
+  const isStraight = (ri[4]-ri[0]===4 && new Set(ri).size===5) ||
+                     // A-2-3-4-5 wheel
+                     (ri.join(',') === '0,1,2,3,12');
+
+  // counts
+  const freq={};
+  ranks.forEach(r=>freq[r]=(freq[r]||0)+1);
+  const counts=Object.values(freq).sort((a,b)=>b-a);
+
+  const isRoyal = isFlush && isStraight && ri[4]===12 && ri[3]===11;
+
+  if(isRoyal)                         return 0; // Royal Flush
+  if(isFlush  && isStraight)          return 1; // Straight Flush
+  if(counts[0]===4)                   return 2; // Four of a Kind
+  if(counts[0]===3 && counts[1]===2)  return 3; // Full House
+  if(isFlush)                         return 4; // Flush
+  if(isStraight)                      return 5; // Straight
+  if(counts[0]===3)                   return 6; // Three of a Kind
+  if(counts[0]===2 && counts[1]===2)  return 7; // Two Pair
+  // Jacks or Better: pair of J,Q,K,A
+  if(counts[0]===2){
+    const paired=Object.keys(freq).filter(r=>freq[r]===2);
+    if(paired.some(r=>['J','Q','K','A'].includes(r))) return 8;
+  }
+  return 9; // Nothing
+}
+
+// ════════════════════════════════════════════════════════════
+//  UI BUILDERS
+// ════════════════════════════════════════════════════════════
+function buildPayTable(){
+  const pt = document.getElementById('paytable');
+  pt.innerHTML = '';
+  PAY_TABLE.forEach((row, idx)=>{
+    if(row.name === 'Nothing') return; // skip "nothing" row
+    const div = document.createElement('div');
+    div.className = 'pt-hand' + (idx===lastHandIdx ? ' highlight' : '');
+    div.id = `pt-row-${idx}`;
+
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'pt-name';
+    nameDiv.innerHTML = row.short.replace('\n','<br>');
+    div.appendChild(nameDiv);
+
+    const valsDiv = document.createElement('div');
+    valsDiv.className = 'pt-vals';
+    row.pays.forEach((p,ci)=>{
+      const v = document.createElement('div');
+      v.className = 'pt-val' + (ci===coinBet-1 ? ' active-bet' : '');
+      v.textContent = p;
+      valsDiv.appendChild(v);
+    });
+    div.appendChild(valsDiv);
+    pt.appendChild(div);
+  });
+}
+
+function buildDenomButtons(){
+  const row = document.getElementById('denom-btns');
+  row.innerHTML='';
+  DENOMINATIONS.forEach((d,i)=>{
+    const b=document.createElement('button');
+    b.className='denom-btn'+(i===denomIdx?' active':'');
+    b.textContent=d.label;
+    b.onclick=()=>{ denomIdx=i; updateDenomButtons(); updateInfoRow(); };
+    row.appendChild(b);
+  });
+}
+
+function updateDenomButtons(){
+  document.querySelectorAll('.denom-btn').forEach((b,i)=>{
+    b.classList.toggle('active', i===denomIdx);
+  });
+}
+
+function updateInfoRow(){
+  const denom = DENOMINATIONS[denomIdx].value;
+  document.getElementById('credits-display').textContent =
+    formatMoney(credits * denom);
+  document.getElementById('bet-display').textContent =
+    formatMoney(coinBet * denom);
+  document.getElementById('win-display').textContent =
+    formatMoney(lastWin * denom);
+}
+
+function formatMoney(v){
+  if(v < 1) return '¢' + Math.round(v*100);
+  if(Number.isInteger(v)) return '$' + v;
+  return '$' + v.toFixed(2);
+}
+
+// ════════════════════════════════════════════════════════════
+//  CARD RENDERING
+// ════════════════════════════════════════════════════════════
+function buildCardBack(){
+  const pat = document.createElement('div');
+  pat.className = 'card-back-pattern';
+  for(let i=0;i<35;i++){
+    const d=document.createElement('div');
+    d.className='dot';
+    pat.appendChild(d);
+  }
+  const back=document.createElement('div');
+  back.className='card-back';
+  back.appendChild(pat);
+  return back;
+}
+
+function buildCardFace(card){
+  const face=document.createElement('div');
+  face.className='card-face '+(SUIT_COLOR[card.suit]);
+
+  const tl=document.createElement('div');
+  tl.className='corner tl';
+  tl.innerHTML=`<span class="rank">${card.rank}</span><span class="suit">${card.suit}</span>`;
+
+  const center=document.createElement('div');
+  center.className='center-suit';
+  center.textContent=card.suit;
+
+  const br=document.createElement('div');
+  br.className='corner br';
+  br.innerHTML=`<span class="rank">${card.rank}</span><span class="suit">${card.suit}</span>`;
+
+  face.appendChild(tl);
+  face.appendChild(center);
+  face.appendChild(br);
+  return face;
+}
+
+function renderCards(showFaces, animate){
+  const row=document.getElementById('cards-row');
+  row.innerHTML='';
+
+  hand.forEach((card,i)=>{
+    const wrap=document.createElement('div');
+    wrap.className='card-wrap';
+
+    // HOLD badge
+    const badge=document.createElement('div');
+    badge.className='hold-badge'+(held[i]?' visible':'');
+    badge.textContent='HOLD';
+
+    // Card element
+    const cardEl=document.createElement('div');
+    cardEl.className='card'+(held[i]?' held':'');
+    cardEl.dataset.index=i;
+
+    const inner=document.createElement('div');
+    inner.className='card-inner';
+
+    const back=buildCardBack();
+    const face=buildCardFace(card);
+
+    // Always render both; show face by making back hidden when revealed
+    inner.appendChild(back);
+    inner.appendChild(face);
+
+    if(showFaces || (phase==='holding' && held[i])){
+      back.style.display='none';
+    } else if(phase==='holding' && !held[i]){
+      // face down for unselected cards in holding phase? no — show all during holding
+      back.style.display='none';
+    } else {
+      face.style.display='none';
+    }
+
+    cardEl.appendChild(inner);
+
+    // Click to toggle hold during holding phase
+    cardEl.addEventListener('click',()=>toggleHold(i));
+
+    wrap.appendChild(badge);
+    wrap.appendChild(cardEl);
+    row.appendChild(wrap);
+  });
+}
+
+function renderCardsBack(){
+  // Show card backs only (initial deal animation start)
+  const row=document.getElementById('cards-row');
+  row.innerHTML='';
+  for(let i=0;i<5;i++){
+    const wrap=document.createElement('div');
+    wrap.className='card-wrap';
+    const badge=document.createElement('div');
+    badge.className='hold-badge';
+    badge.textContent='HOLD';
+    const cardEl=document.createElement('div');
+    cardEl.className='card';
+    const inner=document.createElement('div');
+    inner.className='card-inner';
+    inner.appendChild(buildCardBack());
+    cardEl.appendChild(inner);
+    wrap.appendChild(badge);
+    wrap.appendChild(cardEl);
+    row.appendChild(wrap);
+  }
+}
+
+// Flip a specific card to its face with animation
+function flipCard(i, delay){
+  return new Promise(resolve=>{
+    setTimeout(()=>{
+      const cardEls=document.querySelectorAll('.card');
+      if(!cardEls[i]) { resolve(); return; }
+      const inner=cardEls[i].querySelector('.card-inner');
+      const back =inner.querySelector('.card-back');
+      const face =inner.querySelector('.card-face');
+      // Add face element if not present
+      if(!face){
+        const f=buildCardFace(hand[i]);
+        inner.appendChild(f);
+      } else {
+        // rebuild face in case it's stale
+        inner.removeChild(face);
+        inner.appendChild(buildCardFace(hand[i]));
+      }
+      // Run flip animation
+      cardEls[i].classList.add('flipping');
+      const mid=200;
+      setTimeout(()=>{
+        if(back) back.style.display='none';
+        inner.querySelector('.card-face').style.display='';
+      }, mid);
+      setTimeout(()=>{
+        cardEls[i].classList.remove('flipping');
+        resolve();
+      }, 420);
+    }, delay);
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  HOLD LOGIC
+// ════════════════════════════════════════════════════════════
+function toggleHold(i){
+  if(phase !== 'holding') return;
+  held[i] = !held[i];
+
+  const cardEls = document.querySelectorAll('.card');
+  const badges  = document.querySelectorAll('.hold-badge');
+  cardEls[i].classList.toggle('held', held[i]);
+  badges[i].classList.toggle('visible', held[i]);
+}
+
+// ════════════════════════════════════════════════════════════
+//  GAME FLOW
+// ════════════════════════════════════════════════════════════
+function setButtons(betting){
+  document.getElementById('btn-bet-one').disabled = !betting;
+  document.getElementById('btn-bet-max').disabled = !betting;
+  document.getElementById('btn-deal').textContent = betting ? 'Deal' : 'Draw';
+  document.getElementById('btn-deal').disabled    = false;
+}
+
+async function deal(){
+  if(phase === 'betting'){
+    // Deduct bet (in credits = coins)
+    if(credits < coinBet){
+      setMessage('Not enough credits!', false);
+      return;
+    }
+    credits -= coinBet;
+    lastWin   = 0;
+    lastHandIdx = -1;
+    updateInfoRow();
+    buildPayTable();
+
+    buildDeck();
+    shuffle(deck);
+    hand  = [dealCard(),dealCard(),dealCard(),dealCard(),dealCard()];
+    held  = [false,false,false,false,false];
+
+    // Show backs first
+    renderCardsBack();
+    setMessage('Deal your cards...', false);
+    setButtons(false);
+
+    // Flip cards one by one
+    for(let i=0;i<5;i++) await flipCard(i, i*150);
+
+    phase = 'holding';
+    setMessage('Select cards to hold, then Draw', false);
+
+  } else if(phase === 'holding'){
+    // Draw: replace non-held cards
+    for(let i=0;i<5;i++){
+      if(!held[i]) hand[i]=dealCard();
+    }
+
+    // Animate draw of new cards
+    const cardEls=document.querySelectorAll('.card');
+    const promises=[];
+    for(let i=0;i<5;i++){
+      if(!held[i]){
+        // reset card to back
+        const inner=cardEls[i].querySelector('.card-inner');
+        const oldFace=inner.querySelector('.card-face');
+        if(oldFace) oldFace.remove();
+        const back=inner.querySelector('.card-back');
+        if(back) back.style.display='';
+        promises.push(flipCard(i, i*100));
+      }
+    }
+    await Promise.all(promises);
+
+    // Evaluate
+    const handIdx=evaluate(hand);
+    lastHandIdx = handIdx;
+    const winCoins = PAY_TABLE[handIdx].pays[coinBet-1];
+    lastWin = winCoins;
+    credits += winCoins;
+    updateInfoRow();
+    buildPayTable();
+
+    if(winCoins > 0){
+      const msg = handIdx===0 && coinBet===5
+        ? '🎰 ROYAL FLUSH — JACKPOT! 🎰'
+        : PAY_TABLE[handIdx].name.toUpperCase() + '  +' + winCoins + ' CREDITS!';
+      setMessage(msg, true);
+    } else {
+      setMessage('No winner — try again', false);
+    }
+
+    phase = 'result';
+    setButtons(true);
+
+    // After result, allow re-deal
+    setTimeout(()=>{
+      phase = 'betting';
+      if(winCoins===0) setMessage('Better luck next time!', false);
+    }, 2200);
+
+  } else if(phase === 'result'){
+    phase = 'betting';
+    deal();
+  }
+}
+
+function betOne(){
+  if(phase!=='betting') return;
+  coinBet = (coinBet % 5) + 1;
+  buildPayTable();
+  updateInfoRow();
+}
+
+function betMax(){
+  if(phase!=='betting') return;
+  coinBet = 5;
+  buildPayTable();
+  updateInfoRow();
+  deal();
+}
+
+function setMessage(msg, win){
+  const el=document.getElementById('message');
+  el.textContent=msg;
+  el.classList.toggle('winning', win);
+}
+
+// ════════════════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════════════════
+function init(){
+  buildPayTable();
+  buildDenomButtons();
+  updateInfoRow();
+
+  // Render empty card backs as placeholders
+  const row=document.getElementById('cards-row');
+  row.innerHTML='';
+  for(let i=0;i<5;i++){
+    const wrap=document.createElement('div');
+    wrap.className='card-wrap';
+    const badge=document.createElement('div');
+    badge.className='hold-badge';
+    badge.textContent='HOLD';
+    const cardEl=document.createElement('div');
+    cardEl.className='card';
+    const inner=document.createElement('div');
+    inner.className='card-inner';
+    inner.appendChild(buildCardBack());
+    cardEl.appendChild(inner);
+    wrap.appendChild(badge);
+    wrap.appendChild(cardEl);
+    row.appendChild(wrap);
+  }
+
+  document.getElementById('btn-deal').addEventListener('click',    deal);
+  document.getElementById('btn-bet-one').addEventListener('click', betOne);
+  document.getElementById('btn-bet-max').addEventListener('click', betMax);
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', e=>{
+    if(e.code==='Space' || e.code==='Enter') { e.preventDefault(); deal(); }
+    if(e.code==='KeyB') betOne();
+    if(e.code==='KeyM') betMax();
+    if(phase==='holding'){
+      const keys={'Digit1':0,'Digit2':1,'Digit3':2,'Digit4':3,'Digit5':4};
+      if(keys[e.code]!==undefined) toggleHold(keys[e.code]);
+    }
+  });
+}
+
+init();
+
+// ════════════════════════════════════════════════════════════
+//  SERVICE WORKER REGISTRATION
+// ════════════════════════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .catch(err => console.warn('SW registration failed:', err));
+  });
+}
+</script>
+</body>
+</html>
