@@ -93,7 +93,7 @@
     /* ─── Pay Table ─────────────────────────────────────────── */
     #paytable {
       display: grid;
-      grid-template-columns: repeat(10, 1fr);
+      grid-template-columns: repeat(9, 1fr);
       gap: 2px;
       font-size: clamp(8px, 1.5vw, 11px);
     }
@@ -105,7 +105,7 @@
       text-align: center;
       display: flex;
       flex-direction: column;
-      gap: 1px;
+      justify-content: space-between;
     }
     .pt-hand.highlight {
       background: var(--gold);
@@ -121,27 +121,17 @@
       line-height: 1.1;
     }
     .pt-hand.highlight .pt-name { color: #000; }
-    .pt-vals {
-      display: flex;
-      justify-content: space-around;
-      gap: 1px;
-    }
-    .pt-val {
-      flex: 1;
+    /* Single payout value — only the active bet column is shown */
+    .pt-pay {
       background: #000c30;
       border-radius: 3px;
-      padding: 1px 2px;
-      color: var(--white);
-      font-size: clamp(7px, 1.3vw, 10px);
+      padding: 2px 3px;
+      color: var(--gold);
+      font-size: clamp(9px, 1.5vw, 13px);
       font-weight: bold;
       text-align: center;
     }
-    .pt-val.active-bet {
-      background: var(--gold-dark);
-      color: #000;
-    }
-    .pt-hand.highlight .pt-val { background: #fff3cc; color: #000; }
-    .pt-hand.highlight .pt-val.active-bet { background: #ff8c00; color: #fff; }
+    .pt-hand.highlight .pt-pay { background: #ff8c00; color: #fff; }
 
     /* ─── Credit & Bet Display ──────────────────────────────── */
     #info-row {
@@ -352,6 +342,26 @@
     }
     .btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
+    .btn-reset {
+      background: linear-gradient(180deg, #6a1a1a, #4a0a0a);
+      border-color: #cc4444;
+      color: #ffaaaa;
+    }
+    .btn-reset:hover:not(:disabled) {
+      background: linear-gradient(180deg, #8a2222, #6a1010);
+      box-shadow: 0 0 12px rgba(200,60,60,0.5);
+    }
+
+    .btn-add-credits {
+      background: linear-gradient(180deg, #5a2a8a, #3a1a6a);
+      border-color: #aa66dd;
+      color: #ddb8ff;
+    }
+    .btn-add-credits:hover:not(:disabled) {
+      background: linear-gradient(180deg, #7a3aaa, #4a2280);
+      box-shadow: 0 0 12px rgba(170,102,220,0.5);
+    }
+
     .btn-deal {
       background: linear-gradient(180deg, #2a8a4a, #1a6a34);
       border-color: #4acc6a;
@@ -428,9 +438,11 @@
 
   <!-- Buttons -->
   <div id="buttons-row">
-    <button class="btn btn-bet-one" id="btn-bet-one">Bet One</button>
-    <button class="btn btn-bet-max" id="btn-bet-max">Bet Max</button>
-    <button class="btn btn-deal"    id="btn-deal">Deal</button>
+    <button class="btn btn-reset"       id="btn-reset">Reset</button>
+    <button class="btn btn-add-credits" id="btn-add-credits">Add</button>
+    <button class="btn btn-bet-one"     id="btn-bet-one">Bet One</button>
+    <button class="btn btn-bet-max"     id="btn-bet-max">Bet Max</button>
+    <button class="btn btn-deal"        id="btn-deal">Deal</button>
   </div>
 
 </div>
@@ -472,6 +484,23 @@ let credits    = 100;
 let coinBet    = 5;           // 1–5 coins
 let denomIdx   = 1;           // index into DENOMINATIONS ($1 default)
 let deck       = [];
+
+// ── Persistence helpers ──────────────────────────────────────
+const SAVE_KEY = 'vp_state';
+function saveState() {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ credits, coinBet, denomIdx }));
+  } catch(e) {}
+}
+function loadState() {
+  try {
+    const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+    if (!s) return;
+    if (typeof s.credits  === 'number' && s.credits  >= 0)           credits  = s.credits;
+    if (typeof s.coinBet  === 'number' && s.coinBet  >= 1 && s.coinBet  <= 5) coinBet  = s.coinBet;
+    if (typeof s.denomIdx === 'number' && s.denomIdx >= 0 && s.denomIdx <  4) denomIdx = s.denomIdx;
+  } catch(e) {}
+}
 let hand       = [];          // 5 card objects {rank, suit}
 let held       = [false,false,false,false,false];
 let phase      = 'betting';   // 'betting' | 'holding' | 'result'
@@ -548,15 +577,12 @@ function buildPayTable(){
     nameDiv.innerHTML = row.short.replace('\n','<br>');
     div.appendChild(nameDiv);
 
-    const valsDiv = document.createElement('div');
-    valsDiv.className = 'pt-vals';
-    row.pays.forEach((p,ci)=>{
-      const v = document.createElement('div');
-      v.className = 'pt-val' + (ci===coinBet-1 ? ' active-bet' : '');
-      v.textContent = p;
-      valsDiv.appendChild(v);
-    });
-    div.appendChild(valsDiv);
+    // Only show the payout for the current bet size
+    const payDiv = document.createElement('div');
+    payDiv.className = 'pt-pay';
+    payDiv.textContent = row.pays[coinBet - 1];
+    div.appendChild(payDiv);
+
     pt.appendChild(div);
   });
 }
@@ -568,7 +594,16 @@ function buildDenomButtons(){
     const b=document.createElement('button');
     b.className='denom-btn'+(i===denomIdx?' active':'');
     b.textContent=d.label;
-    b.onclick=()=>{ denomIdx=i; updateDenomButtons(); updateInfoRow(); };
+    b.onclick=()=>{
+      // Convert coin count so dollar value of credits stays the same
+      const oldDenom = DENOMINATIONS[denomIdx].value;
+      const newDenom = DENOMINATIONS[i].value;
+      credits = Math.round(credits * oldDenom / newDenom);
+      denomIdx = i;
+      saveState();
+      updateDenomButtons();
+      updateInfoRow();
+    };
     row.appendChild(b);
   });
 }
@@ -768,6 +803,7 @@ async function deal(){
       return;
     }
     credits -= coinBet;
+    saveState();
     lastWin   = 0;
     lastHandIdx = -1;
     updateInfoRow();
@@ -817,6 +853,7 @@ async function deal(){
     const winCoins = PAY_TABLE[handIdx].pays[coinBet-1];
     lastWin = winCoins;
     credits += winCoins;
+    saveState();
     updateInfoRow();
     buildPayTable();
 
@@ -851,6 +888,34 @@ function betOne(){
   updateInfoRow();
 }
 
+function addCredits(){
+  const input = prompt('How many credits would you like to add?');
+  if(input === null) return;               // user cancelled
+  const n = parseInt(input, 10);
+  if(isNaN(n) || n <= 0){
+    alert('Please enter a positive whole number.');
+    return;
+  }
+  credits += n;
+  saveState();
+  updateInfoRow();
+  setMessage('Added ' + n + ' credits!', false);
+}
+
+function resetCredits(){
+  const input = prompt('Reset credits to what amount?');
+  if(input === null) return;               // user cancelled
+  const n = parseInt(input, 10);
+  if(isNaN(n) || n < 0){
+    alert('Please enter a whole number of 0 or more.');
+    return;
+  }
+  credits = n;
+  saveState();
+  updateInfoRow();
+  setMessage('Credits reset to ' + n, false);
+}
+
 function betMax(){
   if(phase!=='betting') return;
   coinBet = 5;
@@ -869,6 +934,7 @@ function setMessage(msg, win){
 //  INIT
 // ════════════════════════════════════════════════════════════
 function init(){
+  loadState();           // restore credits, coinBet, denomIdx from last session
   buildPayTable();
   buildDenomButtons();
   updateInfoRow();
@@ -893,9 +959,11 @@ function init(){
     row.appendChild(wrap);
   }
 
-  document.getElementById('btn-deal').addEventListener('click',    deal);
-  document.getElementById('btn-bet-one').addEventListener('click', betOne);
-  document.getElementById('btn-bet-max').addEventListener('click', betMax);
+  document.getElementById('btn-deal').addEventListener('click',        deal);
+  document.getElementById('btn-bet-one').addEventListener('click',     betOne);
+  document.getElementById('btn-bet-max').addEventListener('click',     betMax);
+  document.getElementById('btn-add-credits').addEventListener('click', addCredits);
+  document.getElementById('btn-reset').addEventListener('click',       resetCredits);
 
   // Delegated card tap — works for both mouse click and iOS touch
   document.getElementById('cards-row').addEventListener('click', e => {
