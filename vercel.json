@@ -1,4 +1,8 @@
 {
+  "rewrites": [
+    { "source": "/apple-touch-icon.png",             "destination": "/icons/icon-180.png" },
+    { "source": "/apple-touch-icon-precomposed.png", "destination": "/icons/icon-180.png" }
+  ],
   "headers": [
     {
       "source": "/sw.js",
