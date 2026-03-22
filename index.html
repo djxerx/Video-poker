@@ -241,8 +241,8 @@
 
     /* Card face */
     .card {
-      width: clamp(90px, 14vw, 130px);
-      height: clamp(126px, 20vw, 182px);
+      width: 124px;
+      height: 174px;
       border-radius: var(--card-radius);
       box-shadow: var(--shadow);
       cursor: pointer;
@@ -312,14 +312,14 @@
     .corner { display: flex; flex-direction: column; align-items: center; line-height: 1; }
     .corner.tl { align-self: flex-start; }
     .corner.br { align-self: flex-end; transform: rotate(180deg); }
-    .corner .rank { font-size: clamp(14px, 2.5vw, 20px); font-weight: 900; }
-    .corner .suit { font-size: clamp(12px, 2vw, 16px); }
+    .corner .rank { font-size: 40px; font-weight: 900; }
+    .corner .suit { font-size: 26px; }
 
     .center-suit {
       position: absolute;
       top: 50%; left: 50%;
       transform: translate(-50%, -50%);
-      font-size: clamp(32px, 6vw, 52px);
+      font-size: 78px;
       line-height: 1;
     }
 
@@ -924,16 +924,27 @@ init();
 // ════════════════════════════════════════════════════════════
 function rescale() {
   const t = document.getElementById('terminal');
-  t.style.transform = 'none';              // reset so offsetWidth is natural
+  t.style.transform = 'none';              // reset to measure natural size
+
+  // visualViewport gives the true usable area, respecting safe-zone insets
+  // on iPad/iPhone PWA full-screen — falls back to window for desktop
+  const vp = window.visualViewport || { width: window.innerWidth, height: window.innerHeight };
+
   const scale = Math.min(
-    (window.innerWidth  - 8) / t.offsetWidth,
-    (window.innerHeight - 8) / t.offsetHeight,
+    (vp.width  - 8) / t.offsetWidth,
+    (vp.height - 8) / t.offsetHeight,
     1.4                                    // max: allow upscale on iPad
   );
   t.style.transform = `scale(${scale})`;
   t.style.visibility = 'visible';          // show after first scale is applied
 }
-window.addEventListener('resize', rescale);
+
+// visualViewport fires its own resize; fall back to window for desktop
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', rescale);
+} else {
+  window.addEventListener('resize', rescale);
+}
 window.addEventListener('orientationchange', () => setTimeout(rescale, 200));
 
 // ════════════════════════════════════════════════════════════
