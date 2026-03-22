@@ -926,17 +926,21 @@ function rescale() {
   const t = document.getElementById('terminal');
   t.style.transform = 'none';              // reset to measure natural size
 
-  // visualViewport gives the true usable area, respecting safe-zone insets
-  // on iPad/iPhone PWA full-screen — falls back to window for desktop
   const vp = window.visualViewport || { width: window.innerWidth, height: window.innerHeight };
 
+  // Subtract body's safe-area padding (env(safe-area-inset-*)) so the
+  // scaled terminal doesn't overflow into the iPad's rounded-corner zones
+  const bs   = getComputedStyle(document.body);
+  const hPad = parseFloat(bs.paddingLeft)  + parseFloat(bs.paddingRight);
+  const vPad = parseFloat(bs.paddingTop)   + parseFloat(bs.paddingBottom);
+
   const scale = Math.min(
-    (vp.width  - 8) / t.offsetWidth,
-    (vp.height - 8) / t.offsetHeight,
+    (vp.width  - hPad - 8) / t.offsetWidth,
+    (vp.height - vPad - 8) / t.offsetHeight,
     1.4                                    // max: allow upscale on iPad
   );
   t.style.transform = `scale(${scale})`;
-  t.style.visibility = 'visible';          // show after first scale is applied
+  t.style.visibility = 'visible';
 }
 
 // visualViewport fires its own resize; fall back to window for desktop
