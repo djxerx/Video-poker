@@ -79,16 +79,17 @@
     /* ─── Title Bar ─────────────────────────────────────────── */
     #title-bar {
       text-align: center;
+      font-family: Arial, Helvetica, sans-serif;
       font-size: clamp(18px, 4vw, 28px);
       font-weight: bold;
       letter-spacing: 4px;
-      color: var(--gold);
-      text-shadow: 0 0 12px rgba(240,192,64,0.7), 0 2px 0 #6a4000;
+      text-shadow: 0 2px 0 rgba(0,0,0,0.4);
       text-transform: uppercase;
       padding: 4px 0 2px;
       border-bottom: 2px solid #2a4a9a;
     }
-    #title-bar span { color: #fff; }
+    #title-bar .t-red    { color: #ff3333; text-shadow: 0 0 10px rgba(255,60,60,0.5), 0 2px 0 #6a0000; }
+    #title-bar .t-yellow { color: var(--gold); text-shadow: 0 0 10px rgba(240,192,64,0.6), 0 2px 0 #6a4000; }
 
     /* ─── Pay Table ─────────────────────────────────────────── */
     #paytable {
@@ -114,6 +115,7 @@
       font-weight: bold;
     }
     .pt-name {
+      font-family: Arial, Helvetica, sans-serif;
       font-size: clamp(6px, 1.2vw, 9px);
       color: var(--gold);
       text-transform: uppercase;
@@ -155,6 +157,7 @@
       text-transform: uppercase;
     }
     .info-value {
+      font-family: Impact, 'Arial Narrow', sans-serif;
       font-size: clamp(18px, 4vw, 28px);
       font-weight: bold;
       color: var(--gold);
@@ -178,6 +181,7 @@
       gap: 4px;
     }
     .denom-btn {
+      font-family: Arial, Helvetica, sans-serif;
       background: #1a2a60;
       border: 2px solid #3a5aaa;
       border-radius: 6px;
@@ -308,12 +312,12 @@
 
     .corner { display: flex; flex-direction: column; align-items: center; line-height: 1; }
     .corner.tl { align-self: flex-start; }
-    .corner .rank { font-size: 64px; font-weight: 900; line-height: 1; }
+    .corner .rank { font-family: Georgia, 'Times New Roman', serif; font-size: 64px; font-weight: 900; line-height: 1; }
 
     /* Suit symbol sits at the bottom-center of the card */
     .bottom-suit {
       align-self: center;
-      font-size: 109px;
+      font-size: 131px;
       line-height: 1;
       margin-bottom: 6px;
     }
@@ -327,7 +331,7 @@
     }
 
     .btn {
-      font-family: 'Courier New', monospace;
+      font-family: Impact, 'Arial Narrow', sans-serif;
       font-size: clamp(10px, 2vw, 14px);
       font-weight: bold;
       letter-spacing: 2px;
@@ -406,7 +410,7 @@
 <div id="terminal">
 
   <!-- Title -->
-  <div id="title-bar">Jacks <span>or</span> Better</div>
+  <div id="title-bar"><span class="t-red">Jacks</span> <span class="t-yellow">or</span> <span class="t-red">Better</span></div>
 
   <!-- Pay Table -->
   <div id="paytable"></div>
