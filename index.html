@@ -15,9 +15,8 @@
   <!-- Web App Manifest -->
   <link rel="manifest" href="/manifest.json" />
 
-  <!-- Apple Touch Icons (must be PNG for iOS home screen) -->
-  <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180.png" />
-  <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png" />
+  <!-- Apple Touch Icon — no sizes attr, root path, most reliable for iOS -->
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
   <!-- Standard favicon -->
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
@@ -41,6 +40,11 @@
       --card-front:  #fdf6e3;
       --card-radius: 10px;
       --shadow:      0 4px 18px rgba(0,0,0,0.6);
+      /* Safe-area insets as custom properties so JS can read computed px values */
+      --sal: env(safe-area-inset-left,   0px);
+      --sar: env(safe-area-inset-right,  0px);
+      --sat: env(safe-area-inset-top,    0px);
+      --sab: env(safe-area-inset-bottom, 0px);
     }
 
     html, body {
@@ -923,23 +927,26 @@ init();
 //  from iPhone SE landscape up to iPad Pro.
 // ════════════════════════════════════════════════════════════
 function rescale() {
-  const t = document.getElementById('terminal');
-  t.style.transform = 'none';              // reset to measure natural size
+  const t  = document.getElementById('terminal');
+  t.style.zoom = '1';                      // reset zoom so offsetWidth is natural
+
+  // Read safe-area insets via CSS custom properties — more reliable than
+  // reading paddingLeft directly since env() values resolve correctly here
+  const cs   = getComputedStyle(document.documentElement);
+  const safeW = parseFloat(cs.getPropertyValue('--sal')) + parseFloat(cs.getPropertyValue('--sar')) || 0;
+  const safeH = parseFloat(cs.getPropertyValue('--sat')) + parseFloat(cs.getPropertyValue('--sab')) || 0;
 
   const vp = window.visualViewport || { width: window.innerWidth, height: window.innerHeight };
 
-  // Subtract body's safe-area padding (env(safe-area-inset-*)) so the
-  // scaled terminal doesn't overflow into the iPad's rounded-corner zones
-  const bs   = getComputedStyle(document.body);
-  const hPad = parseFloat(bs.paddingLeft)  + parseFloat(bs.paddingRight);
-  const vPad = parseFloat(bs.paddingTop)   + parseFloat(bs.paddingBottom);
-
-  const scale = Math.min(
-    (vp.width  - hPad - 8) / t.offsetWidth,
-    (vp.height - vPad - 8) / t.offsetHeight,
-    1.4                                    // max: allow upscale on iPad
+  const zoom = Math.min(
+    (vp.width  - safeW - 8) / t.offsetWidth,
+    (vp.height - safeH - 8) / t.offsetHeight,
+    1.4                                    // max upscale for iPad
   );
-  t.style.transform = `scale(${scale})`;
+
+  // zoom affects layout (unlike transform:scale), so the body flex container
+  // naturally recenters the terminal after zoom — no overflow clipping issues
+  t.style.zoom       = zoom;
   t.style.visibility = 'visible';
 }
 
