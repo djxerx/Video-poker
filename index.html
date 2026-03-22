@@ -222,14 +222,14 @@
 
     /* HOLD badge */
     .hold-badge {
-      font-size: clamp(9px, 1.8vw, 13px);
+      font-size: clamp(18px, 3.6vw, 26px);
       font-weight: bold;
       letter-spacing: 2px;
       color: var(--gold);
       text-shadow: 0 0 6px rgba(240,192,64,0.8);
       visibility: hidden;
       text-transform: uppercase;
-      min-height: 16px;
+      min-height: 28px;
     }
     .hold-badge.visible { visibility: visible; }
 
@@ -282,14 +282,17 @@
       border: 2px solid rgba(255,255,255,0.4);
       border-radius: 6px;
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      grid-template-rows: repeat(7, 1fr);
-      gap: 2px;
+      grid-template-columns: repeat(7, 1fr);
+      grid-template-rows: repeat(10, 1fr);
+      gap: 1px;
       padding: 4px;
     }
     .dot {
       background: rgba(255,255,255,0.75);
       border-radius: 50%;
+      width: 3px;
+      height: 3px;
+      margin: auto;
     }
 
     /* ── Card Front ── */
@@ -305,16 +308,14 @@
 
     .corner { display: flex; flex-direction: column; align-items: center; line-height: 1; }
     .corner.tl { align-self: flex-start; }
-    .corner.br { align-self: flex-end; transform: rotate(180deg); }
-    .corner .rank { font-size: 40px; font-weight: 900; }
-    .corner .suit { font-size: 26px; }
+    .corner .rank { font-size: 64px; font-weight: 900; line-height: 1; }
 
-    .center-suit {
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      font-size: 78px;
+    /* Suit symbol sits at the bottom-center of the card */
+    .bottom-suit {
+      align-self: center;
+      font-size: 109px;
       line-height: 1;
+      margin-bottom: 6px;
     }
 
     /* ─── Buttons Row ───────────────────────────────────────── */
@@ -636,7 +637,7 @@ function formatMoney(v){
 function buildCardBack(){
   const pat = document.createElement('div');
   pat.className = 'card-back-pattern';
-  for(let i=0;i<35;i++){
+  for(let i=0;i<70;i++){
     const d=document.createElement('div');
     d.className='dot';
     pat.appendChild(d);
@@ -651,21 +652,18 @@ function buildCardFace(card){
   const face=document.createElement('div');
   face.className='card-face '+(SUIT_COLOR[card.suit]);
 
+  // Top-left: rank only (no suit symbol beneath it)
   const tl=document.createElement('div');
   tl.className='corner tl';
-  tl.innerHTML=`<span class="rank">${card.rank}</span><span class="suit">${card.suit}</span>`;
+  tl.innerHTML=`<span class="rank">${card.rank}</span>`;
 
-  const center=document.createElement('div');
-  center.className='center-suit';
-  center.textContent=card.suit;
-
-  const br=document.createElement('div');
-  br.className='corner br';
-  br.innerHTML=`<span class="rank">${card.rank}</span><span class="suit">${card.suit}</span>`;
+  // Bottom-center: large suit symbol
+  const bottom=document.createElement('div');
+  bottom.className='bottom-suit';
+  bottom.textContent=card.suit;
 
   face.appendChild(tl);
-  face.appendChild(center);
-  face.appendChild(br);
+  face.appendChild(bottom);
   return face;
 }
 
