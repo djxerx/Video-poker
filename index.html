@@ -200,6 +200,7 @@
 
     /* ─── Message Banner ────────────────────────────────────── */
     #message {
+      font-family: Arial, Helvetica, sans-serif;
       text-align: center;
       font-size: clamp(14px, 3vw, 20px);
       font-weight: bold;
@@ -259,7 +260,7 @@
       transform-style: preserve-3d;
       transition: transform 0.4s ease;
     }
-    .card.flipping .card-inner { animation: flip 0.4s ease forwards; }
+    .card.flipping .card-inner { animation: flip 0.56s ease forwards; }
 
     @keyframes flip {
       0%   { transform: rotateY(0deg); }
@@ -303,23 +304,32 @@
     .card-face {
       background: var(--card-front);
       padding: 5px;
+      /* position:absolute + inset:0 come from the shared .card-face,.card-back rule
+         above — absolute elements are still valid positioning anchors for their
+         own absolutely-positioned children (the rank badge) */
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
+      justify-content: flex-end;   /* bottom-suit stays at the bottom */
     }
     .card-face.red  { color: #cc0000; }
     .card-face.black { color: #111; }
 
-    .corner { display: flex; flex-direction: column; align-items: center; line-height: 1; }
-    .corner.tl { align-self: flex-start; }
-    .corner .rank { font-family: Georgia, 'Times New Roman', serif; font-size: 64px; font-weight: 900; line-height: 1; }
+    /* Rank is pinned to a fixed distance from the top-left corner so it
+       never shifts regardless of which glyph is rendered */
+    .corner.tl {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      line-height: 1;
+    }
+    .corner .rank { font-family: Arial, Helvetica, sans-serif; font-size: 45px; font-weight: 900; line-height: 1; }
 
     /* Suit symbol sits at the bottom-center of the card */
     .bottom-suit {
       align-self: center;
-      font-size: 131px;
+      font-size: 105px;
       line-height: 1;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
     }
 
     /* ─── Buttons Row ───────────────────────────────────────── */
@@ -761,7 +771,7 @@ function flipCard(i, delay){
       }
       // Run flip animation
       cardEls[i].classList.add('flipping');
-      const mid=200;
+      const mid=280;
       setTimeout(()=>{
         if(back) back.style.display='none';
         inner.querySelector('.card-face').style.display='';
@@ -769,7 +779,7 @@ function flipCard(i, delay){
       setTimeout(()=>{
         cardEls[i].classList.remove('flipping');
         resolve();
-      }, 420);
+      }, 590);
     }, delay);
   });
 }
@@ -821,8 +831,9 @@ async function deal(){
     setMessage('Deal your cards...', false);
     setButtons(false);
 
-    // Flip cards one by one
-    for(let i=0;i<5;i++) await flipCard(i, i*150);
+    // Flip all 5 cards with staggered delays fired simultaneously —
+    // using Promise.all keeps the 150ms gap between each card constant
+    await Promise.all([0,1,2,3,4].map(i => flipCard(i, i*350)));
 
     phase = 'holding';
     setMessage('Select cards to hold, then Draw', false);
@@ -844,7 +855,7 @@ async function deal(){
         if(oldFace) oldFace.remove();
         const back=inner.querySelector('.card-back');
         if(back) back.style.display='';
-        promises.push(flipCard(i, i*100));
+        promises.push(flipCard(i, i*350));
       }
     }
     await Promise.all(promises);
