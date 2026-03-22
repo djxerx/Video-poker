@@ -324,10 +324,12 @@
     }
     .corner .rank { font-family: Arial, Helvetica, sans-serif; font-size: 45px; font-weight: 900; line-height: 1; }
 
-    /* Suit symbol sits at the bottom-center of the card */
+    /* Suit symbol sits at the bottom-center of the card.
+       74px ≈ 60% of the 124px card width — stays proportional
+       on every screen size since CSS zoom scales both together. */
     .bottom-suit {
       align-self: center;
-      font-size: 105px;
+      font-size: 74px;
       line-height: 1;
       margin-bottom: 4px;
     }
@@ -365,6 +367,16 @@
     .btn-reset:hover:not(:disabled) {
       background: linear-gradient(180deg, #8a2222, #6a1010);
       box-shadow: 0 0 12px rgba(200,60,60,0.5);
+    }
+
+    .btn-graph {
+      background: linear-gradient(180deg, #1a6a6a, #0e4444);
+      border-color: #3acccc;
+      color: #aaffff;
+    }
+    .btn-graph:hover:not(:disabled) {
+      background: linear-gradient(180deg, #2a8a8a, #1a5a5a);
+      box-shadow: 0 0 12px rgba(58,204,204,0.5);
     }
 
     .btn-add-credits {
@@ -453,6 +465,7 @@
 
   <!-- Buttons -->
   <div id="buttons-row">
+    <button class="btn btn-graph"       id="btn-graph">Graph</button>
     <button class="btn btn-reset"       id="btn-reset">Reset</button>
     <button class="btn btn-add-credits" id="btn-add-credits">Add</button>
     <button class="btn btn-bet-one"     id="btn-bet-one">Bet One</button>
@@ -495,26 +508,42 @@ const PAY_TABLE = [
 // ════════════════════════════════════════════════════════════
 //  STATE
 // ════════════════════════════════════════════════════════════
-let credits    = 100;
-let coinBet    = 5;           // 1–5 coins
-let denomIdx   = 1;           // index into DENOMINATIONS ($1 default)
-let deck       = [];
+let credits     = 100;
+let coinBet     = 5;           // 1–5 coins
+let denomIdx    = 1;           // index into DENOMINATIONS ($1 default)
+let deck        = [];
+let handHistory = [];          // [{credits, delta, type}] — last 1000 entries, persisted
 
 // ── Persistence helpers ──────────────────────────────────────
 const SAVE_KEY = 'vp_state';
 function saveState() {
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ credits, coinBet, denomIdx }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify(
+      { credits, coinBet, denomIdx, handHistory }
+    ));
   } catch(e) {}
 }
 function loadState() {
   try {
     const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
     if (!s) return;
-    if (typeof s.credits  === 'number' && s.credits  >= 0)           credits  = s.credits;
-    if (typeof s.coinBet  === 'number' && s.coinBet  >= 1 && s.coinBet  <= 5) coinBet  = s.coinBet;
-    if (typeof s.denomIdx === 'number' && s.denomIdx >= 0 && s.denomIdx <  4) denomIdx = s.denomIdx;
+    if (typeof s.credits  === 'number' && s.credits  >= 0)                    credits     = s.credits;
+    if (typeof s.coinBet  === 'number' && s.coinBet  >= 1 && s.coinBet  <= 5) coinBet     = s.coinBet;
+    if (typeof s.denomIdx === 'number' && s.denomIdx >= 0 && s.denomIdx <  4) denomIdx    = s.denomIdx;
+    if (Array.isArray(s.handHistory))                                          handHistory = s.handHistory.slice(-1000);
   } catch(e) {}
+}
+
+// Record one completed hand (called after credits are finalised)
+function recordHand(winCoins) {
+  handHistory.push({ credits, delta: winCoins - coinBet, type: 'hand' });
+  if (handHistory.length > 1000) handHistory.shift();
+}
+
+// Record a manual credit event (add or reset) — shown green on the graph
+function recordEvent(type, delta) {
+  handHistory.push({ credits, delta, type });   // type: 'add' | 'reset'
+  if (handHistory.length > 1000) handHistory.shift();
 }
 let hand       = [];          // 5 card objects {rank, suit}
 let held       = [false,false,false,false,false];
@@ -640,9 +669,32 @@ function updateInfoRow(){
 }
 
 function formatMoney(v){
-  if(v < 1) return '¢' + Math.round(v*100);
+  if(v === 0)  return '$0';               // always show $0, never ¢0
+  if(v < 1)    return '¢' + Math.round(v*100);
   if(Number.isInteger(v)) return '$' + v;
   return '$' + v.toFixed(2);
+}
+
+// Animate the credits display counting up from `from` to `to` coins.
+// Base rate: 5 steps/sec (200ms each). For large wins the interval shrinks
+// so the count always completes within 3 seconds maximum.
+let _creditTimer = null;
+function animateCredits(from, to){
+  if(_creditTimer) clearInterval(_creditTimer);   // cancel any in-flight animation
+  const diff = to - from;
+  if(diff <= 0){ updateInfoRow(); return; }
+  const interval = Math.min(200, 3000 / diff);    // ms per step
+  const denom    = DENOMINATIONS[denomIdx].value;
+  const el       = document.getElementById('credits-display');
+  let current    = from;
+  _creditTimer   = setInterval(()=>{
+    current++;
+    el.textContent = formatMoney(current * denom);
+    if(current >= to){
+      clearInterval(_creditTimer);
+      _creditTimer = null;
+    }
+  }, interval);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -844,9 +896,12 @@ async function deal(){
       if(!held[i]) hand[i]=dealCard();
     }
 
-    // Animate draw of new cards
+    // Animate draw of new cards.
+    // Use drawIdx (not i) for the delay so held cards don't create
+    // a leading pause — the first drawn card always starts immediately.
     const cardEls=document.querySelectorAll('.card');
     const promises=[];
+    let drawIdx=0;
     for(let i=0;i<5;i++){
       if(!held[i]){
         // reset card to back
@@ -855,7 +910,8 @@ async function deal(){
         if(oldFace) oldFace.remove();
         const back=inner.querySelector('.card-back');
         if(back) back.style.display='';
-        promises.push(flipCard(i, i*350));
+        promises.push(flipCard(i, drawIdx*350));
+        drawIdx++;
       }
     }
     await Promise.all(promises);
@@ -865,10 +921,13 @@ async function deal(){
     lastHandIdx = handIdx;
     const winCoins = PAY_TABLE[handIdx].pays[coinBet-1];
     lastWin = winCoins;
+    const prevCredits = credits;
     credits += winCoins;
+    recordHand(winCoins);   // log this hand before saving
     saveState();
-    updateInfoRow();
+    updateInfoRow();          // updates Win and Bet displays immediately
     buildPayTable();
+    if(winCoins > 0) animateCredits(prevCredits, credits);  // counts up credits
 
     if(winCoins > 0){
       const msg = handIdx===0 && coinBet===5
@@ -910,6 +969,7 @@ function addCredits(){
     return;
   }
   credits += n;
+  recordEvent('add', n);
   saveState();
   updateInfoRow();
   setMessage('Added ' + n + ' credits!', false);
@@ -924,6 +984,7 @@ function resetCredits(){
     return;
   }
   credits = n;
+  recordEvent('reset', 0);
   saveState();
   updateInfoRow();
   setMessage('Credits reset to ' + n, false);
@@ -941,6 +1002,278 @@ function setMessage(msg, win){
   const el=document.getElementById('message');
   el.textContent=msg;
   el.classList.toggle('winning', win);
+}
+
+// ════════════════════════════════════════════════════════════
+//  GRAPH MODAL
+// ════════════════════════════════════════════════════════════
+function showGraph(){
+  const history = handHistory.slice();   // full copy, up to 1000
+
+  // ── Overlay ──────────────────────────────────────────────
+  const overlay = document.createElement('div');
+  overlay.style.cssText = [
+    'position:fixed','inset:0','z-index:9999',
+    'background:rgba(0,5,25,0.88)',
+    'display:flex','align-items:center','justify-content:center',
+    'font-family:Arial,Helvetica,sans-serif',
+  ].join(';');
+
+  // ── Panel ────────────────────────────────────────────────
+  const panel = document.createElement('div');
+  panel.style.cssText = [
+    'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)',
+    'border:2px solid #2a4a9a',
+    'border-radius:14px',
+    'box-shadow:0 0 30px rgba(20,60,180,0.6)',
+    'padding:16px',
+    'width:min(720px,92vw)',
+    'display:flex','flex-direction:column','gap:10px',
+  ].join(';');
+
+  // ── Range state (1-based, inclusive) ─────────────────────
+  let rangeStart = 1;
+  let rangeEnd   = history.length;
+
+  // ── Title ─────────────────────────────────────────────────
+  const title = document.createElement('div');
+  title.style.cssText = [
+    'text-align:center','font-size:16px','font-weight:bold',
+    'color:#f0c040','letter-spacing:3px','text-transform:uppercase',
+    'text-shadow:0 0 8px rgba(240,192,64,0.5)',
+  ].join(';');
+
+  function updateTitle(){
+    const total = history.length;
+    const shown = rangeEnd - rangeStart + 1;
+    title.textContent = total === 0
+      ? 'Session History — No Entries'
+      : rangeStart === 1 && rangeEnd === total
+        ? `Session History — ${total} Entr${total!==1?'ies':'y'}`
+        : `Session History — Entries ${rangeStart}–${rangeEnd} of ${total}`;
+  }
+  updateTitle();
+
+  // ── Canvas ────────────────────────────────────────────────
+  const canvas = document.createElement('canvas');
+  const cw = Math.min(688, Math.round(window.innerWidth * 0.86));
+  canvas.width  = cw;
+  canvas.height = Math.round(cw * 0.46);
+  canvas.style.cssText = 'width:100%;height:auto;display:block;border-radius:6px;';
+
+  function redraw(){
+    updateTitle();
+    const slice = history.slice(rangeStart-1, rangeEnd);
+    drawGraph(canvas, slice, rangeStart - 1);
+  }
+
+  // ── Button row ────────────────────────────────────────────
+  const btnRow = document.createElement('div');
+  btnRow.style.cssText = 'display:flex;gap:8px;justify-content:center;flex-wrap:wrap;';
+
+  function makeModalBtn(label, bg, border, color){
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.style.cssText = [
+      `font-family:Arial,Helvetica,sans-serif`,
+      `font-size:12px`,`font-weight:bold`,`letter-spacing:1px`,
+      `text-transform:uppercase`,`padding:7px 18px`,
+      `background:${bg}`,`border:2px solid ${border}`,
+      `border-radius:7px`,`color:${color}`,
+      `cursor:pointer`,`touch-action:manipulation`,
+    ].join(';');
+    return b;
+  }
+
+  // Range button
+  const rangeBtn = makeModalBtn('Range','linear-gradient(180deg,#1a6a6a,#0e4444)','#3acccc','#aaffff');
+  rangeBtn.addEventListener('click', () => {
+    const total = history.length;
+    if(total === 0){ alert('No entries to filter.'); return; }
+    const s = parseInt(prompt(`Start entry (1–${total}):`, rangeStart), 10);
+    if(isNaN(s) || s < 1 || s > total){ alert('Invalid start entry.'); return; }
+    const e = parseInt(prompt(`End entry (${s}–${total}):`, Math.min(rangeEnd, total)), 10);
+    if(isNaN(e) || e < s || e > total){ alert('Invalid end entry.'); return; }
+    rangeStart = s;
+    rangeEnd   = e;
+    redraw();
+  });
+
+  // Reset range button (show all)
+  const allBtn = makeModalBtn('Show All','linear-gradient(180deg,#2a4aaa,#1a2a7a)','#5a7acc','#fff');
+  allBtn.addEventListener('click', () => {
+    rangeStart = 1;
+    rangeEnd   = history.length || 1;
+    redraw();
+  });
+
+  // Clear history button
+  const clearBtn = makeModalBtn('Reset Log','linear-gradient(180deg,#8a2020,#601414)','#cc4444','#ffaaaa');
+  clearBtn.addEventListener('click', () => {
+    if(!confirm('Clear all session history? This cannot be undone.')) return;
+    handHistory = [];
+    saveState();
+    history.splice(0);     // clear the local copy too
+    rangeStart = 1;
+    rangeEnd   = 0;
+    redraw();
+  });
+
+  // Close button
+  const closeBtn = makeModalBtn('Close','linear-gradient(180deg,#3a3a3a,#1a1a1a)','#666','#ccc');
+  const close = () => { if(overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+  closeBtn.addEventListener('click', close);
+  overlay.addEventListener('click', e => { if(e.target===overlay) close(); });
+
+  btnRow.appendChild(rangeBtn);
+  btnRow.appendChild(allBtn);
+  btnRow.appendChild(clearBtn);
+  btnRow.appendChild(closeBtn);
+
+  panel.appendChild(title);
+  panel.appendChild(canvas);
+  panel.appendChild(btnRow);
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+
+  redraw();
+}
+
+// ── Canvas chart ─────────────────────────────────────────────
+// offset = index of history[0] in the full handHistory array (for x-axis labels)
+function drawGraph(canvas, history, offset=0){
+  const ctx  = canvas.getContext('2d');
+  const W    = canvas.width;
+  const H    = canvas.height;
+  const pad  = { top:28, right:20, bottom:38, left:68 };
+  const cW   = W - pad.left - pad.right;
+  const cH   = H - pad.top  - pad.bottom;
+  const denom = DENOMINATIONS[denomIdx].value;
+
+  // Background
+  ctx.fillStyle = '#040d22';
+  ctx.fillRect(0, 0, W, H);
+
+  if(history.length === 0){
+    ctx.fillStyle    = '#f0c040';
+    ctx.font         = 'bold 15px Arial';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('No hands played yet — deal a few hands first!', W/2, H/2);
+    return;
+  }
+
+  const values = history.map(h => h.credits);
+  const minV   = Math.min(...values);
+  const maxV   = Math.max(...values);
+  const range  = maxV - minV || 10;
+  const yMin   = minV - range * 0.12;
+  const yMax   = maxV + range * 0.12;
+
+  const toX = i  => pad.left + (history.length > 1 ? (i/(history.length-1))*cW : cW/2);
+  const toY = v  => pad.top  + cH - ((v - yMin)/(yMax - yMin))*cH;
+
+  // ── Horizontal grid lines & Y labels ───────────────────
+  const GRID = 5;
+  for(let g=0; g<=GRID; g++){
+    const y = pad.top + (g/GRID)*cH;
+    const v = yMax - (g/GRID)*(yMax-yMin);
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+    ctx.lineWidth   = 1;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left+cW, y); ctx.stroke();
+
+    ctx.fillStyle    = '#8899bb';
+    ctx.font         = '11px Arial';
+    ctx.textAlign    = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(formatMoney(Math.round(v)*denom), pad.left-6, y);
+  }
+
+  // ── X-axis labels (1-based, adjusted for range offset) ─
+  const lblCount = Math.min(history.length, 10);
+  ctx.fillStyle    = '#8899bb';
+  ctx.font         = '11px Arial';
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'top';
+  for(let k=0; k<lblCount; k++){
+    const idx = lblCount===1 ? 0 : Math.round(k*(history.length-1)/(lblCount-1));
+    ctx.fillText(offset + idx + 1, toX(idx), pad.top+cH+6);
+  }
+
+  // ── Axis label ─────────────────────────────────────────
+  ctx.fillStyle    = '#c0c8d8';
+  ctx.font         = 'bold 10px Arial';
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText('HAND  NUMBER', pad.left+cW/2, H-1);
+
+  // ── Filled area under line ──────────────────────────────
+  if(history.length > 1){
+    ctx.beginPath();
+    ctx.moveTo(toX(0), toY(values[0]));
+    for(let i=1; i<values.length; i++) ctx.lineTo(toX(i), toY(values[i]));
+    ctx.lineTo(toX(values.length-1), pad.top+cH);
+    ctx.lineTo(toX(0),               pad.top+cH);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(240,192,64,0.13)';
+    ctx.fill();
+  }
+
+  // ── Line — segment by segment so runs into a green event are green ──
+  const isEvent = i => history[i] && (history[i].type==='add' || history[i].type==='reset');
+  ctx.lineWidth = 2;
+  ctx.lineJoin  = 'round';
+  // Walk through segments; flush the current path whenever the colour changes
+  let currentColor = isEvent(0) ? '#3cdc64' : '#f0c040';
+  ctx.beginPath();
+  ctx.moveTo(toX(0), toY(values[0]));
+  for(let i=1; i<values.length; i++){
+    const segColor = isEvent(i) ? '#3cdc64' : '#f0c040';
+    if(segColor !== currentColor){
+      // Stroke what we have so far, then start a new sub-path from this point
+      ctx.strokeStyle = currentColor;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(toX(i-1), toY(values[i-1]));
+      currentColor = segColor;
+    }
+    ctx.lineTo(toX(i), toY(values[i]));
+  }
+  ctx.strokeStyle = currentColor;
+  ctx.stroke();
+
+  // ── Dots: gold for normal hands, green for add/reset events ─
+  const dotR = values.length > 30 ? 2 : 3;
+  for(let i=0; i<values.length; i++){
+    const isEvent = history[i].type === 'add' || history[i].type === 'reset';
+    // Always draw event markers; skip plain hand dots when > 50 to avoid clutter
+    if(!isEvent && values.length > 50) continue;
+    if(isEvent){
+      // Green vertical marker line
+      ctx.strokeStyle = 'rgba(60,220,100,0.55)';
+      ctx.lineWidth   = 1;
+      ctx.setLineDash([3,3]);
+      ctx.beginPath();
+      ctx.moveTo(toX(i), pad.top);
+      ctx.lineTo(toX(i), pad.top+cH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.beginPath();
+    ctx.arc(toX(i), toY(values[i]), isEvent ? dotR+1 : dotR, 0, Math.PI*2);
+    ctx.fillStyle = isEvent ? '#3cdc64' : '#f0c040';
+    ctx.fill();
+  }
+
+  // ── Axes ───────────────────────────────────────────────
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+  ctx.lineWidth   = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.left, pad.top);
+  ctx.lineTo(pad.left,       pad.top+cH);
+  ctx.lineTo(pad.left+cW,    pad.top+cH);
+  ctx.stroke();
 }
 
 // ════════════════════════════════════════════════════════════
@@ -977,6 +1310,7 @@ function init(){
   document.getElementById('btn-bet-max').addEventListener('click',     betMax);
   document.getElementById('btn-add-credits').addEventListener('click', addCredits);
   document.getElementById('btn-reset').addEventListener('click',       resetCredits);
+  document.getElementById('btn-graph').addEventListener('click',       showGraph);
 
   // Delegated card tap — works for both mouse click and iOS touch
   document.getElementById('cards-row').addEventListener('click', e => {
