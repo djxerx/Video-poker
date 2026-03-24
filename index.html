@@ -164,6 +164,7 @@
       text-shadow: 0 0 8px rgba(240,192,64,0.5);
       letter-spacing: 2px;
     }
+    /* ─── Denomination (right column of info-row) ──────────────── */
     #denomination-row {
       flex: 1.2;
       display: flex;
@@ -171,10 +172,36 @@
       align-items: center;
       gap: 4px;
     }
-    #denomination-row .info-label {
+    .denom-label {
+      font-family: Arial, Helvetica, sans-serif;
       font-size: clamp(7px, 1.3vw, 9px);
       color: var(--silver);
       letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    .denom-util-row {
+      display: flex;
+      gap: 4px;
+    }
+    .btn-denom-util {
+      font-family: Arial, Helvetica, sans-serif;
+      background: #1a2a60;
+      border: 2px solid var(--gold);
+      border-radius: 6px;
+      color: var(--gold);
+      font-size: clamp(8px, 1.4vw, 11px);
+      font-weight: bold;
+      padding: 4px 10px;
+      cursor: pointer;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-denom-util:hover {
+      background: var(--gold-dark);
+      border-color: var(--gold);
+      color: #000;
     }
     .denom-btns {
       display: flex;
@@ -379,6 +406,16 @@
       box-shadow: 0 0 12px rgba(58,204,204,0.5);
     }
 
+    .btn-analyze {
+      background: linear-gradient(180deg, #7a6a00, #4a4000);
+      border-color: #ccaa00;
+      color: #ffee88;
+    }
+    .btn-analyze:hover:not(:disabled) {
+      background: linear-gradient(180deg, #9a8800, #5a5000);
+      box-shadow: 0 0 12px rgba(204,170,0,0.5);
+    }
+
     .btn-add-credits {
       background: linear-gradient(180deg, #5a2a8a, #3a1a6a);
       border-color: #aa66dd;
@@ -437,7 +474,7 @@
   <!-- Pay Table -->
   <div id="paytable"></div>
 
-  <!-- Credits / Bet / Denomination -->
+  <!-- Credits / Bet / Win / Denomination -->
   <div id="info-row">
     <div class="info-box">
       <div class="info-label">Credits</div>
@@ -452,8 +489,12 @@
       <div class="info-value" id="win-display">0</div>
     </div>
     <div id="denomination-row">
-      <div class="info-label">Denomination</div>
+      <div class="denom-label">Denomination</div>
       <div class="denom-btns" id="denom-btns"></div>
+      <div class="denom-util-row">
+        <button class="btn-denom-util" id="btn-reset">Reset</button>
+        <button class="btn-denom-util" id="btn-add-credits">Add</button>
+      </div>
     </div>
   </div>
 
@@ -465,12 +506,11 @@
 
   <!-- Buttons -->
   <div id="buttons-row">
-    <button class="btn btn-graph"       id="btn-graph">Graph</button>
-    <button class="btn btn-reset"       id="btn-reset">Reset</button>
-    <button class="btn btn-add-credits" id="btn-add-credits">Add</button>
-    <button class="btn btn-bet-one"     id="btn-bet-one">Bet One</button>
-    <button class="btn btn-bet-max"     id="btn-bet-max">Bet Max</button>
-    <button class="btn btn-deal"        id="btn-deal">Deal</button>
+    <button class="btn btn-graph"   id="btn-graph">Graph</button>
+    <button class="btn btn-analyze" id="btn-analyze" disabled>Analyze</button>
+    <button class="btn btn-bet-one" id="btn-bet-one">Bet One</button>
+    <button class="btn btn-bet-max" id="btn-bet-max">Bet Max</button>
+    <button class="btn btn-deal"    id="btn-deal">Deal</button>
   </div>
 
 </div>
@@ -512,7 +552,8 @@ let credits     = 100;
 let coinBet     = 5;           // 1–5 coins
 let denomIdx    = 1;           // index into DENOMINATIONS ($1 default)
 let deck        = [];
-let handHistory = [];          // [{credits, delta, type}] — last 1000 entries, persisted
+let handHistory     = [];      // [{credits, delta, type}] — last 1000 entries, persisted
+let analysisResults = null;   // pre-computed EV table; populated as soon as cards are dealt
 
 // ── Persistence helpers ──────────────────────────────────────
 const SAVE_KEY = 'vp_state';
@@ -857,6 +898,8 @@ function setButtons(betting){
   document.getElementById('btn-bet-max').disabled = !betting;
   document.getElementById('btn-deal').textContent = betting ? 'Deal' : 'Draw';
   document.getElementById('btn-deal').disabled    = false;
+  // Analyze is only meaningful during the holding phase (before draw)
+  document.getElementById('btn-analyze').disabled = betting;
 }
 
 async function deal(){
@@ -1002,6 +1045,338 @@ function setMessage(msg, win){
   const el=document.getElementById('message');
   el.textContent=msg;
   el.classList.toggle('winning', win);
+}
+
+// ════════════════════════════════════════════════════════════
+//  ANALYSIS ENGINE
+// ════════════════════════════════════════════════════════════
+
+// Iterate every k-combination of arr, reusing a single buffer for speed
+function iterCombos(arr, k, fn) {
+  const n   = arr.length;
+  const idx = Array.from({length:k}, (_,i)=>i);
+  const buf = new Array(k);
+  for(;;) {
+    for(let j=0;j<k;j++) buf[j] = arr[idx[j]];
+    fn(buf);
+    let i = k-1;
+    while(i>=0 && idx[i]===n-k+i) i--;
+    if(i<0) break;
+    idx[i]++;
+    for(let j=i+1;j<k;j++) idx[j]=idx[j-1]+1;
+  }
+}
+
+// Kick off EV computation in the background as soon as the hand is dealt.
+// Snapshots hand/deck so changes during the hold phase don't corrupt results.
+function startAnalysisAsync() {
+  analysisResults = null;
+  const snapHand = hand.slice();
+  const snapDeck = deck.slice();
+  setTimeout(() => { analysisResults = computeAllEVs(snapHand, snapDeck); }, 0);
+}
+
+// Compute EV for all 32 hold bitmasks; tracks per-hand-type expected contribution.
+// Returns array sorted best→worst, each entry:
+//   { mask, heldCards, ev, handEV[0..8] }  (handEV[i] = expected coins from hand type i)
+function computeAllEVs(snapHand, snapDeck) {
+  const rh  = new Array(5);  // reused buffer — avoids per-iteration allocation
+  const out = [];
+
+  for(let mask=0; mask<32; mask++) {
+    const heldCards = [];
+    for(let i=0;i<5;i++) if(mask & (1<<i)) heldCards.push(snapHand[i]);
+    const drawN = 5 - heldCards.length;
+    for(let i=0;i<heldCards.length;i++) rh[i] = heldCards[i];
+
+    // handSum[i]    = total coins paid by hand-type i across all draws for this mask
+    // handCounts[i] = number of draws that produced hand-type i (for odds)
+    const handSum    = new Float64Array(10);
+    const handCounts = new Int32Array(10);
+    let cnt = 0;
+
+    if(drawN === 0){
+      const hi = evaluate(snapHand);
+      handSum[hi]    += PAY_TABLE[hi].pays[coinBet-1];
+      handCounts[hi] += 1;
+      cnt = 1;
+    } else {
+      iterCombos(snapDeck, drawN, combo => {
+        for(let i=0;i<drawN;i++) rh[heldCards.length+i] = combo[i];
+        const hi = evaluate(rh);
+        handSum[hi]    += PAY_TABLE[hi].pays[coinBet-1];
+        handCounts[hi] += 1;
+        cnt++;
+      });
+    }
+
+    // Convert totals → per-draw expected values and probabilities
+    const handEV   = Array.from(handSum,    v => v / cnt);
+    const handOdds = Array.from(handCounts, c => c / cnt);
+    out.push({ mask, heldCards, ev: handEV.reduce((s,v)=>s+v,0), handEV, handOdds });
+  }
+  return out.sort((a,b) => b.ev - a.ev);
+}
+
+function showAnalysis() {
+  const denom = DENOMINATIONS[denomIdx].value;
+
+  let playerMask = 0;
+  for(let i=0;i<5;i++) if(held[i]) playerMask |= (1<<i);
+
+  // Column order: most common → rarest
+  const HAND_COLS = [
+    { label:'Jacks+', idx:8 },
+    { label:'2Pair',  idx:7 },
+    { label:'3Kind',  idx:6 },
+    { label:'Str',    idx:5 },
+    { label:'Flush',  idx:4 },
+    { label:'Full H', idx:3 },
+    { label:'4Kind',  idx:2 },
+    { label:'Str.Fl', idx:1 },
+    { label:'Royal',  idx:0 },
+  ];
+
+  // ── Mode state ─────────────────────────────────────────────
+  let oddsMode = false;   // false = payouts, true = odds %
+
+  // ── Overlay ────────────────────────────────────────────────
+  const overlay = document.createElement('div');
+  overlay.style.cssText = [
+    'position:fixed','inset:0','z-index:9999',
+    'background:rgba(0,5,25,0.92)',
+    'display:flex','align-items:center','justify-content:center',
+    'font-family:Arial,Helvetica,sans-serif',
+  ].join(';');
+
+  // ── Panel ──────────────────────────────────────────────────
+  const panel = document.createElement('div');
+  panel.style.cssText = [
+    'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)',
+    'border:2px solid #2a4a9a','border-radius:14px',
+    'box-shadow:0 0 30px rgba(20,60,180,0.6)',
+    'padding:16px','width:min(960px,96vw)',
+    'display:flex','flex-direction:column','gap:10px',
+    'max-height:92vh','overflow:hidden',
+  ].join(';');
+
+  // ── Title ──────────────────────────────────────────────────
+  const title = document.createElement('div');
+  title.style.cssText = [
+    'text-align:center','font-size:15px','font-weight:bold',
+    'color:#f0c040','letter-spacing:3px','text-transform:uppercase',
+    'text-shadow:0 0 8px rgba(240,192,64,0.5)','flex-shrink:0',
+  ].join(';');
+  title.textContent = 'Optimal Hold Analysis';
+
+  const handLine = document.createElement('div');
+  handLine.style.cssText = 'text-align:center;font-size:12px;color:#c0c8d8;letter-spacing:1px;flex-shrink:0;';
+  handLine.textContent = 'Hand:  ' + hand.map(c=>c.rank+c.suit).join('   ');
+
+  // ── Scrollable table wrapper ───────────────────────────────
+  const scroll = document.createElement('div');
+  scroll.style.cssText = 'overflow:auto;flex:1;';
+
+  const content = document.createElement('div');
+  const computing = document.createElement('div');
+  computing.style.cssText = 'text-align:center;color:#f0c040;font-size:14px;padding:24px 0;';
+  computing.textContent   = 'Computing all hold combinations…';
+  content.appendChild(computing);
+  scroll.appendChild(content);
+
+  // ── Bottom bar: toggle + close ─────────────────────────────
+  const bottomBar = document.createElement('div');
+  bottomBar.style.cssText = 'display:flex;justify-content:center;align-items:center;gap:16px;flex-shrink:0;';
+
+  // Toggle button — green="Odds", white="Payouts"
+  const toggleBtn = document.createElement('button');
+  const applyToggleStyle = () => {
+    if(!oddsMode){
+      // currently showing payouts → button offers "Odds"
+      toggleBtn.textContent = 'Odds';
+      toggleBtn.style.cssText = [
+        'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
+        'letter-spacing:2px','text-transform:uppercase','padding:8px 22px',
+        'background:linear-gradient(180deg,#1a7a3a,#0e4e24)',
+        'border:2px solid #3cdc64','border-radius:8px',
+        'color:#3cdc64','cursor:pointer','touch-action:manipulation',
+      ].join(';');
+    } else {
+      // currently showing odds → button offers "Payouts"
+      toggleBtn.textContent = 'Payouts';
+      toggleBtn.style.cssText = [
+        'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
+        'letter-spacing:2px','text-transform:uppercase','padding:8px 22px',
+        'background:linear-gradient(180deg,#d0d8e8,#a0aac0)',
+        'border:2px solid #e0e8f8','border-radius:8px',
+        'color:#0a1a3a','cursor:pointer','touch-action:manipulation',
+      ].join(';');
+    }
+  };
+  applyToggleStyle();
+
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = 'Close';
+  closeBtn.style.cssText = [
+    'font-family:Arial,Helvetica,sans-serif',
+    'font-size:13px','font-weight:bold','letter-spacing:2px',
+    'text-transform:uppercase','padding:8px 28px',
+    'background:linear-gradient(180deg,#2a4aaa,#1a2a7a)',
+    'border:2px solid #5a7acc','border-radius:8px',
+    'color:#fff','cursor:pointer','touch-action:manipulation',
+  ].join(';');
+
+  const close = () => { if(overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+  closeBtn.addEventListener('click', close);
+  overlay.addEventListener('click', e => { if(e.target===overlay) close(); });
+
+  bottomBar.appendChild(toggleBtn);
+  bottomBar.appendChild(closeBtn);
+
+  panel.appendChild(title);
+  panel.appendChild(handLine);
+  panel.appendChild(scroll);
+  panel.appendChild(bottomBar);
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+
+  // ── Render function — redraws the table in current mode ────
+  let lastRanked = null;
+
+  function render(ranked) {
+    lastRanked = ranked;
+    const top5       = ranked.slice(0, 5);
+    const playerRank = ranked.findIndex(r => r.mask === playerMask) + 1;
+
+    // ── Cell helpers ──────────────────────────────────────
+    const thStyle = (extra='') =>
+      `padding:5px 4px;border-bottom:2px solid #2a4a9a;` +
+      `font-weight:bold;font-size:17px;white-space:nowrap;text-align:right;` +
+      (oddsMode ? 'color:#3cdc64;' : 'color:#f0c040;') + extra;
+
+    // Payout cell (dollar amounts)
+    const tdPay = (val, bold) => {
+      const td = document.createElement('td');
+      td.style.cssText = `text-align:right;padding:5px 4px;font-size:17px;` +
+        `color:${val > 0 ? '#e0e8f8' : '#3a4a6a'};` +
+        (bold ? 'font-weight:bold;color:#f0c040;' : '');
+      if(val <= 0){
+        td.textContent = '—';
+      } else {
+        const d = +(val * denom).toFixed(2);
+        td.textContent = d < 1 ? '$' + d.toFixed(2)
+                       : Number.isInteger(d) ? '$' + d
+                       : '$' + d.toFixed(2);
+      }
+      return td;
+    };
+
+    // Odds cell (percentage)
+    const tdOdds = (val, bold) => {
+      const td = document.createElement('td');
+      td.style.cssText = `text-align:right;padding:5px 4px;font-size:17px;` +
+        `color:${val > 0 ? '#3cdc64' : '#1a3a1a'};` +
+        (bold ? 'font-weight:bold;' : '');
+      if(val <= 0){
+        td.textContent = '—';
+      } else {
+        const pct = val * 100;
+        td.textContent = pct < 0.001 ? pct.toFixed(4) + '%'
+                       : pct < 0.1   ? pct.toFixed(3) + '%'
+                       : pct < 10    ? pct.toFixed(2) + '%'
+                       :               pct.toFixed(1) + '%';
+      }
+      return td;
+    };
+
+    const tdCell = oddsMode
+      ? (val, bold) => tdOdds(val, bold)
+      : (val, bold) => tdPay(val, bold);
+
+    // ── Table ─────────────────────────────────────────────
+    const tbl = document.createElement('table');
+    tbl.style.cssText = 'border-collapse:collapse;width:100%;min-width:600px;';
+
+    const thead = tbl.createTHead();
+    const hr    = thead.insertRow();
+    const addTH = (text, extra='') => {
+      const th = document.createElement('th');
+      th.textContent = text;
+      th.style.cssText = thStyle(extra);
+      hr.appendChild(th);
+    };
+    addTH('#',            'width:24px;text-align:center;');
+    addTH('Cards to Hold','text-align:left;min-width:90px;');
+    addTH('Total',        'border-right:1px solid #2a4a9a;');
+    HAND_COLS.forEach(c => addTH(c.label));
+
+    const tbody = tbl.createTBody();
+    top5.forEach((combo, ri) => {
+      const isPlayer = combo.mask === playerMask;
+      const row = tbody.insertRow();
+      row.style.cssText = isPlayer
+        ? 'background:rgba(240,192,64,0.13);'
+        : (ri%2===0 ? '' : 'background:rgba(255,255,255,0.03);');
+
+      // # cell
+      const rnkTd = row.insertCell();
+      rnkTd.textContent = ri+1;
+      rnkTd.style.cssText = 'text-align:center;padding:5px 4px;font-weight:bold;color:#f0c040;font-size:18px;';
+
+      // Hold label
+      const holdTd = row.insertCell();
+      let label;
+      if(combo.mask === 0b11111) label = 'Hold all 5';
+      else if(combo.mask === 0)  label = 'Draw 5 new';
+      else label = combo.heldCards.map(c=>c.rank+c.suit).join(' ');
+      holdTd.style.cssText = `padding:5px 4px;font-size:17px;white-space:nowrap;` +
+        (isPlayer ? 'color:#f0c040;font-weight:bold;' : 'color:#c0c8d8;');
+      holdTd.textContent = label + (isPlayer ? ' ← you' : '');
+
+      // Total cell
+      const totVal = oddsMode
+        ? HAND_COLS.reduce((s, c) => s + combo.handOdds[c.idx], 0)
+        : combo.ev;
+      const totTd = tdCell(totVal, true);
+      totTd.style.borderRight = '1px solid #2a4a9a';
+      row.appendChild(totTd);
+
+      // Per-hand columns
+      HAND_COLS.forEach(c => row.appendChild(
+        tdCell(oddsMode ? combo.handOdds[c.idx] : combo.handEV[c.idx], false)
+      ));
+    });
+
+    // Footer
+    const footer = document.createElement('div');
+    footer.style.cssText = 'text-align:center;font-size:15px;color:#8899bb;padding:6px 0 2px;';
+    if(playerRank === 1){
+      footer.textContent = '✓ Optimal hold selected';
+      footer.style.color = '#3cdc64';
+    } else if(playerRank > 5){
+      footer.textContent =
+        `Your hold ranks #${playerRank} of 32  ` +
+        `(expected: ${formatMoney(+(ranked[playerRank-1].ev * denom).toFixed(2))})`;
+    } else {
+      footer.textContent = `Your hold ranks #${playerRank} of 32`;
+    }
+
+    content.innerHTML = '';
+    content.appendChild(tbl);
+    content.appendChild(footer);
+  }
+
+  // Toggle handler — flips mode and rerenders without recomputing
+  toggleBtn.addEventListener('click', () => {
+    oddsMode = !oddsMode;
+    applyToggleStyle();
+    if(lastRanked) render(lastRanked);
+  });
+
+  // Compute on button press; modal renders first
+  setTimeout(() => {
+    render(computeAllEVs(hand.slice(), deck.slice()));
+  }, 30);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1311,6 +1686,7 @@ function init(){
   document.getElementById('btn-add-credits').addEventListener('click', addCredits);
   document.getElementById('btn-reset').addEventListener('click',       resetCredits);
   document.getElementById('btn-graph').addEventListener('click',       showGraph);
+  document.getElementById('btn-analyze').addEventListener('click',     showAnalysis);
 
   // Delegated card tap — works for both mouse click and iOS touch
   document.getElementById('cards-row').addEventListener('click', e => {
