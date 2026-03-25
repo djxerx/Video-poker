@@ -282,7 +282,7 @@
       transform-style: preserve-3d;
       transition: transform 0.4s ease;
     }
-    .card.flipping .card-inner { animation: flip 0.56s ease forwards; }
+    .card.flipping .card-inner { animation: flip var(--flip-duration, 0.56s) ease forwards; }
 
     @keyframes flip {
       0%   { transform: rotateY(0deg); }
@@ -396,6 +396,25 @@
       box-shadow: 0 0 12px rgba(200,60,60,0.5);
     }
 
+    .btn-settings {
+      background: linear-gradient(180deg, #2a2a4a, #1a1a3a);
+      border-color: #6a6a9a;
+      color: #aaaacc;
+      font-size: 26px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 14px;
+      min-width: 0;
+    }
+    .btn-settings:hover:not(:disabled) {
+      background: linear-gradient(180deg, #3a3a6a, #2a2a4a);
+      border-color: #aaaadd;
+      color: #ddddff;
+      box-shadow: 0 0 10px rgba(160,160,220,0.4);
+    }
+
     .btn-graph {
       background: linear-gradient(180deg, #1a6a6a, #0e4444);
       border-color: #3acccc;
@@ -506,7 +525,8 @@
 
   <!-- Buttons -->
   <div id="buttons-row">
-    <button class="btn btn-graph"   id="btn-graph">Graph</button>
+    <button class="btn btn-settings" id="btn-settings" title="Settings">⚙</button>
+    <button class="btn btn-graph"    id="btn-graph">Graph</button>
     <button class="btn btn-analyze" id="btn-analyze" disabled>Analyze</button>
     <button class="btn btn-bet-one" id="btn-bet-one">Bet One</button>
     <button class="btn btn-bet-max" id="btn-bet-max">Bet Max</button>
@@ -548,10 +568,12 @@ const PAY_TABLE = [
 // ════════════════════════════════════════════════════════════
 //  STATE
 // ════════════════════════════════════════════════════════════
-let credits     = 100;
-let coinBet     = 5;           // 1–5 coins
-let denomIdx    = 1;           // index into DENOMINATIONS ($1 default)
-let deck        = [];
+let credits      = 100;
+let coinBet      = 5;           // 1–5 coins
+let denomIdx     = 1;           // index into DENOMINATIONS ($1 default)
+let flipDuration = 560;         // ms — total card flip animation (0 = instant)
+let dealDelay    = 350;         // ms — stagger between each card being dealt
+let deck         = [];
 let handHistory     = [];      // [{credits, delta, type}] — last 1000 entries, persisted
 let analysisResults = null;   // pre-computed EV table; populated as soon as cards are dealt
 
@@ -560,7 +582,7 @@ const SAVE_KEY = 'vp_state';
 function saveState() {
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(
-      { credits, coinBet, denomIdx, handHistory }
+      { credits, coinBet, denomIdx, handHistory, flipDuration, dealDelay }
     ));
   } catch(e) {}
 }
@@ -569,10 +591,19 @@ function loadState() {
     const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
     if (!s) return;
     if (typeof s.credits  === 'number' && s.credits  >= 0)                    credits     = s.credits;
-    if (typeof s.coinBet  === 'number' && s.coinBet  >= 1 && s.coinBet  <= 5) coinBet     = s.coinBet;
-    if (typeof s.denomIdx === 'number' && s.denomIdx >= 0 && s.denomIdx <  4) denomIdx    = s.denomIdx;
-    if (Array.isArray(s.handHistory))                                          handHistory = s.handHistory.slice(-1000);
+    if (typeof s.coinBet      === 'number' && s.coinBet  >= 1 && s.coinBet  <= 5)   coinBet      = s.coinBet;
+    if (typeof s.denomIdx     === 'number' && s.denomIdx >= 0 && s.denomIdx <  4)   denomIdx     = s.denomIdx;
+    if (Array.isArray(s.handHistory))                                                handHistory  = s.handHistory.slice(-1000);
+    if (typeof s.flipDuration === 'number' && s.flipDuration >= 0)                  flipDuration = s.flipDuration;
+    if (typeof s.dealDelay    === 'number' && s.dealDelay    >= 0)                  dealDelay    = s.dealDelay;
   } catch(e) {}
+}
+
+// Apply flipDuration + dealDelay to the live CSS custom property
+function applyAnimSettings() {
+  document.documentElement.style.setProperty(
+    '--flip-duration', (flipDuration / 1000).toFixed(3) + 's'
+  );
 }
 
 // Record one completed hand (called after credits are finalised)
@@ -863,9 +894,19 @@ function flipCard(i, delay){
       // Ensure back is showing before animation starts
       if(back) back.style.display = '';
 
-      // Run flip animation
+      // Run flip animation (durations driven by the flipDuration setting)
+      const mid     = Math.round(flipDuration / 2);
+      const cleanup = flipDuration + 30;
+
+      if(flipDuration < 20){
+        // Instant flip — skip animation, just swap back→face immediately
+        if(back) back.style.display='none';
+        inner.querySelector('.card-face').style.display='';
+        resolve();
+        return;
+      }
+
       cardEls[i].classList.add('flipping');
-      const mid=280;
       setTimeout(()=>{
         // Card is edge-on and invisible at this moment — swap back→face unseen
         if(back) back.style.display='none';
@@ -874,7 +915,7 @@ function flipCard(i, delay){
       setTimeout(()=>{
         cardEls[i].classList.remove('flipping');
         resolve();
-      }, 590);
+      }, cleanup);
     }, delay);
   });
 }
@@ -930,7 +971,7 @@ async function deal(){
 
     // Flip all 5 cards with staggered delays fired simultaneously —
     // using Promise.all keeps the 150ms gap between each card constant
-    await Promise.all([0,1,2,3,4].map(i => flipCard(i, i*350)));
+    await Promise.all([0,1,2,3,4].map(i => flipCard(i, i*dealDelay)));
 
     phase = 'holding';
     setMessage('Select cards to hold, then Draw', false);
@@ -955,7 +996,7 @@ async function deal(){
         if(oldFace) oldFace.remove();
         const back=inner.querySelector('.card-back');
         if(back) back.style.display='';
-        promises.push(flipCard(i, drawIdx*350));
+        promises.push(flipCard(i, drawIdx*dealDelay));
         drawIdx++;
       }
     }
@@ -1382,6 +1423,134 @@ function showAnalysis() {
 }
 
 // ════════════════════════════════════════════════════════════
+//  SETTINGS MODAL
+// ════════════════════════════════════════════════════════════
+function showSettings() {
+  // Slider range mapping helpers
+  // Card Flip Speed: 0–100 maps to 0–800 ms  (at 70% → 560 ms default)
+  // Deal Delay:      0–100 maps to 0–500 ms  (at 70% → 350 ms default)
+  const FLIP_MAX  = 800;
+  const DELAY_MAX = 500;
+  const toSlider  = (val, max) => Math.round(val / max * 100);
+  const fromSlider = (pct, max) => Math.round(pct / 100 * max);
+
+  // ── Overlay ──────────────────────────────────────────────
+  const overlay = document.createElement('div');
+  overlay.style.cssText = [
+    'position:fixed','inset:0','z-index:9999',
+    'background:rgba(0,5,25,0.88)',
+    'display:flex','align-items:center','justify-content:center',
+    'font-family:Arial,Helvetica,sans-serif',
+  ].join(';');
+
+  // ── Panel ────────────────────────────────────────────────
+  const panel = document.createElement('div');
+  panel.style.cssText = [
+    'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)',
+    'border:2px solid #2a4a9a','border-radius:14px',
+    'box-shadow:0 0 30px rgba(20,60,180,0.6)',
+    'padding:20px 28px','width:min(480px,92vw)',
+    'display:flex','flex-direction:column','gap:22px',
+  ].join(';');
+
+  // ── Title ────────────────────────────────────────────────
+  const title = document.createElement('div');
+  title.style.cssText = [
+    'text-align:center','font-size:18px','font-weight:bold',
+    'color:#f0c040','letter-spacing:4px','text-transform:uppercase',
+    'text-shadow:0 0 8px rgba(240,192,64,0.5)',
+  ].join(';');
+  title.textContent = '⚙  Settings';
+
+  // ── Slider builder ───────────────────────────────────────
+  function makeSlider(labelText, currentVal, max, onChange) {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
+
+    // Label row: name on left, current value on right
+    const topRow = document.createElement('div');
+    topRow.style.cssText = 'display:flex;justify-content:space-between;align-items:baseline;';
+
+    const lbl = document.createElement('div');
+    lbl.style.cssText = 'font-size:15px;font-weight:bold;color:#c0c8d8;letter-spacing:1px;';
+    lbl.textContent = labelText;
+
+    const valDisplay = document.createElement('div');
+    valDisplay.style.cssText = 'font-size:13px;color:#f0c040;font-weight:bold;min-width:60px;text-align:right;';
+    valDisplay.textContent = currentVal === 0 ? 'Instant' : currentVal + ' ms';
+
+    topRow.appendChild(lbl);
+    topRow.appendChild(valDisplay);
+
+    // Slider
+    const slider = document.createElement('input');
+    slider.type  = 'range';
+    slider.min   = '0';
+    slider.max   = '100';
+    slider.value = String(toSlider(currentVal, max));
+    slider.style.cssText = [
+      'width:100%','accent-color:#f0c040','height:6px',
+      'cursor:pointer','touch-action:manipulation',
+    ].join(';');
+
+    slider.addEventListener('input', () => {
+      const ms = fromSlider(parseInt(slider.value), max);
+      valDisplay.textContent = ms === 0 ? 'Instant' : ms + ' ms';
+      onChange(ms);
+    });
+
+    // End labels
+    const endRow = document.createElement('div');
+    endRow.style.cssText = 'display:flex;justify-content:space-between;';
+    const mkEnd = t => {
+      const s = document.createElement('span');
+      s.style.cssText = 'font-size:11px;color:#6a7a9a;';
+      s.textContent = t;
+      return s;
+    };
+    endRow.appendChild(mkEnd(labelText === 'Card Flip Speed' ? 'Instant' : 'No Delay'));
+    endRow.appendChild(mkEnd('Slow'));
+
+    wrap.appendChild(topRow);
+    wrap.appendChild(slider);
+    wrap.appendChild(endRow);
+    return wrap;
+  }
+
+  // ── Done button ──────────────────────────────────────────
+  const doneBtn = document.createElement('button');
+  doneBtn.textContent = 'Done';
+  doneBtn.style.cssText = [
+    'align-self:center',
+    'font-family:Arial,Helvetica,sans-serif','font-size:14px',
+    'font-weight:bold','letter-spacing:2px','text-transform:uppercase',
+    'padding:9px 32px',
+    'background:linear-gradient(180deg,#2a4aaa,#1a2a7a)',
+    'border:2px solid #5a7acc','border-radius:8px',
+    'color:#fff','cursor:pointer','touch-action:manipulation',
+  ].join(';');
+
+  const close = () => { if(overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+  doneBtn.addEventListener('click', close);
+  overlay.addEventListener('click', e => { if(e.target===overlay) close(); });
+
+  // ── Assemble ─────────────────────────────────────────────
+  panel.appendChild(title);
+  panel.appendChild(makeSlider('Card Flip Speed', flipDuration, FLIP_MAX, ms => {
+    flipDuration = ms;
+    applyAnimSettings();
+    saveState();
+  }));
+  panel.appendChild(makeSlider('Deal Delay', dealDelay, DELAY_MAX, ms => {
+    dealDelay = ms;
+    saveState();
+  }));
+  panel.appendChild(doneBtn);
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+}
+
+// ════════════════════════════════════════════════════════════
 //  GRAPH MODAL
 // ════════════════════════════════════════════════════════════
 function showGraph(){
@@ -1657,7 +1826,8 @@ function drawGraph(canvas, history, offset=0){
 //  INIT
 // ════════════════════════════════════════════════════════════
 function init(){
-  loadState();           // restore credits, coinBet, denomIdx from last session
+  loadState();           // restore credits, coinBet, denomIdx, flipDuration, dealDelay
+  applyAnimSettings();   // push loaded values into the CSS custom property
   buildPayTable();
   buildDenomButtons();
   updateInfoRow();
@@ -1687,6 +1857,7 @@ function init(){
   document.getElementById('btn-bet-max').addEventListener('click',     betMax);
   document.getElementById('btn-add-credits').addEventListener('click', addCredits);
   document.getElementById('btn-reset').addEventListener('click',       resetCredits);
+  document.getElementById('btn-settings').addEventListener('click',    showSettings);
   document.getElementById('btn-graph').addEventListener('click',       showGraph);
   document.getElementById('btn-analyze').addEventListener('click',     showAnalysis);
 
