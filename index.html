@@ -49,15 +49,10 @@
 
     html, body {
       height: 100%;
-      /* Account for iOS notch / home bar */
-      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
       background: var(--bg);
       font-family: 'Courier New', Courier, monospace;
       color: var(--white);
       overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
     }
 
     /* ─── Terminal Shell ────────────────────────────────────── */
@@ -349,14 +344,19 @@
       left: 8px;
       line-height: 1;
     }
-    .corner .rank { font-family: Arial, Helvetica, sans-serif; font-size: 45px; font-weight: 900; line-height: 1; }
+    .corner .rank {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 31px;     /* 25% of 124px card — scaled by transform:scale with the terminal */
+      font-weight: 900;
+      line-height: 1;
+    }
 
-    /* Suit symbol sits at the bottom-center of the card.
-       74px ≈ 60% of the 124px card width — stays proportional
-       on every screen size since CSS zoom scales both together. */
+    /* Suit symbol at bottom-center.
+       cqw = % of the card's container width, so this is always
+       exactly 70% of the card's rendered width on any screen/orientation. */
     .bottom-suit {
       align-self: center;
-      font-size: 74px;
+      font-size: 87px;     /* 70% of 124px card — scaled by transform:scale with the terminal */
       line-height: 1;
       margin-bottom: 4px;
     }
@@ -853,19 +853,21 @@ function flipCard(i, delay){
       const inner=cardEls[i].querySelector('.card-inner');
       const back =inner.querySelector('.card-back');
       const face =inner.querySelector('.card-face');
-      // Add face element if not present
-      if(!face){
-        const f=buildCardFace(hand[i]);
-        inner.appendChild(f);
-      } else {
-        // rebuild face in case it's stale
-        inner.removeChild(face);
-        inner.appendChild(buildCardFace(hand[i]));
-      }
+      // Build face and add it hidden — it must not be visible until the card
+      // reaches the edge-on (90°) midpoint of the flip animation
+      if(face) inner.removeChild(face);
+      const newFace = buildCardFace(hand[i]);
+      newFace.style.display = 'none';   // hidden: back shows during first half
+      inner.appendChild(newFace);
+
+      // Ensure back is showing before animation starts
+      if(back) back.style.display = '';
+
       // Run flip animation
       cardEls[i].classList.add('flipping');
       const mid=280;
       setTimeout(()=>{
+        // Card is edge-on and invisible at this moment — swap back→face unseen
         if(back) back.style.display='none';
         inner.querySelector('.card-face').style.display='';
       }, mid);
@@ -1718,27 +1720,38 @@ init();
 //  from iPhone SE landscape up to iPad Pro.
 // ════════════════════════════════════════════════════════════
 function rescale() {
-  const t  = document.getElementById('terminal');
-  t.style.zoom = '1';                      // reset zoom so offsetWidth is natural
+  const t = document.getElementById('terminal');
 
-  // Read safe-area insets via CSS custom properties — more reliable than
-  // reading paddingLeft directly since env() values resolve correctly here
-  const cs   = getComputedStyle(document.documentElement);
+  // Reset to natural layout so offsetWidth/Height are unscaled
+  t.style.transform = 'none';
+  t.style.left      = '0';
+  t.style.top       = '0';
+
+  // Safe-area insets via CSS custom properties (env() values resolve correctly here)
+  const cs    = getComputedStyle(document.documentElement);
   const safeW = parseFloat(cs.getPropertyValue('--sal')) + parseFloat(cs.getPropertyValue('--sar')) || 0;
   const safeH = parseFloat(cs.getPropertyValue('--sat')) + parseFloat(cs.getPropertyValue('--sab')) || 0;
 
   const vp = window.visualViewport || { width: window.innerWidth, height: window.innerHeight };
 
-  const zoom = Math.min(
+  const scale = Math.min(
     (vp.width  - safeW - 8) / t.offsetWidth,
     (vp.height - safeH - 8) / t.offsetHeight,
-    1.4                                    // max upscale for iPad
+    1.4          // max upscale for iPad
   );
 
-  // zoom affects layout (unlike transform:scale), so the body flex container
-  // naturally recenters the terminal after zoom — no overflow clipping issues
-  t.style.zoom       = zoom;
-  t.style.visibility = 'visible';
+  // Centre the terminal precisely using fixed positioning + manual offsets.
+  // transform:scale() scales the terminal as a single bitmap — fonts, card
+  // symbols, borders and layout all scale together by exactly the same factor,
+  // unlike CSS zoom which can diverge from font rendering in Safari/iOS.
+  const scaledW = t.offsetWidth  * scale;
+  const scaledH = t.offsetHeight * scale;
+  t.style.position        = 'fixed';
+  t.style.left            = Math.round((vp.width  - scaledW) / 2) + 'px';
+  t.style.top             = Math.round((vp.height - scaledH) / 2) + 'px';
+  t.style.transformOrigin = 'top left';
+  t.style.transform       = `scale(${scale})`;
+  t.style.visibility      = 'visible';
 }
 
 // visualViewport fires its own resize; fall back to window for desktop
