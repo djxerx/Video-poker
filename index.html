@@ -575,6 +575,7 @@ let flipDuration = 560;         // ms — total card flip animation (0 = instant
 let dealDelay    = 350;         // ms — stagger between each card being dealt
 let deck         = [];
 let handHistory     = [];      // [{credits, delta, type}] — last 1000 entries, persisted
+let graphRangeStart = 1;      // persisted start entry for graph range
 let analysisResults = null;   // pre-computed EV table; populated as soon as cards are dealt
 
 // ── Persistence helpers ──────────────────────────────────────
@@ -582,7 +583,7 @@ const SAVE_KEY = 'vp_state';
 function saveState() {
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(
-      { credits, coinBet, denomIdx, handHistory, flipDuration, dealDelay }
+      { credits, coinBet, denomIdx, handHistory, flipDuration, dealDelay, graphRangeStart }
     ));
   } catch(e) {}
 }
@@ -594,8 +595,9 @@ function loadState() {
     if (typeof s.coinBet      === 'number' && s.coinBet  >= 1 && s.coinBet  <= 5)   coinBet      = s.coinBet;
     if (typeof s.denomIdx     === 'number' && s.denomIdx >= 0 && s.denomIdx <  4)   denomIdx     = s.denomIdx;
     if (Array.isArray(s.handHistory))                                                handHistory  = s.handHistory.slice(-1000);
-    if (typeof s.flipDuration === 'number' && s.flipDuration >= 0)                  flipDuration = s.flipDuration;
-    if (typeof s.dealDelay    === 'number' && s.dealDelay    >= 0)                  dealDelay    = s.dealDelay;
+    if (typeof s.flipDuration    === 'number' && s.flipDuration    >= 0)             flipDuration    = s.flipDuration;
+    if (typeof s.dealDelay       === 'number' && s.dealDelay       >= 0)             dealDelay       = s.dealDelay;
+    if (typeof s.graphRangeStart === 'number' && s.graphRangeStart >= 1)             graphRangeStart = s.graphRangeStart;
   } catch(e) {}
 }
 
@@ -1517,6 +1519,102 @@ function showSettings() {
     return wrap;
   }
 
+  // ── History CSV section ──────────────────────────────────
+  const histSection = document.createElement('div');
+  histSection.style.cssText = 'display:flex;flex-direction:column;gap:10px;';
+
+  const histLabel = document.createElement('div');
+  histLabel.style.cssText = 'font-size:15px;font-weight:bold;color:#c0c8d8;letter-spacing:1px;';
+  histLabel.textContent = 'History';
+  histSection.appendChild(histLabel);
+
+  const histBtnRow = document.createElement('div');
+  histBtnRow.style.cssText = 'display:flex;gap:10px;';
+
+  // Download History button
+  const dlBtn = document.createElement('button');
+  dlBtn.textContent = 'Download History';
+  dlBtn.style.cssText = [
+    'flex:1','font-family:Arial,Helvetica,sans-serif','font-size:13px',
+    'font-weight:bold','letter-spacing:1px','text-transform:uppercase',
+    'padding:8px 12px',
+    'background:linear-gradient(180deg,#1a6a2a,#0e4018)',
+    'border:2px solid #3acc5a','border-radius:8px',
+    'color:#aaffbb','cursor:pointer','touch-action:manipulation',
+  ].join(';');
+  dlBtn.addEventListener('click', () => {
+    if (handHistory.length === 0) { alert('No history to download.'); return; }
+    const lines = ['entry,credits,delta,type'];
+    handHistory.forEach((h, i) => {
+      lines.push(`${i+1},${h.credits},${h.delta},${h.type}`);
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'video-poker-history.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  // Upload History button + hidden file input
+  const ulBtn = document.createElement('button');
+  ulBtn.textContent = 'Upload History';
+  ulBtn.style.cssText = [
+    'flex:1','font-family:Arial,Helvetica,sans-serif','font-size:13px',
+    'font-weight:bold','letter-spacing:1px','text-transform:uppercase',
+    'padding:8px 12px',
+    'background:linear-gradient(180deg,#5a4a1a,#3a2e0a)',
+    'border:2px solid #ccaa3a','border-radius:8px',
+    'color:#ffe880','cursor:pointer','touch-action:manipulation',
+  ].join(';');
+
+  const fileInput = document.createElement('input');
+  fileInput.type   = 'file';
+  fileInput.accept = '.csv,text/csv';
+  fileInput.style.cssText = 'display:none;';
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const rows = e.target.result.split(/\r?\n/).filter(r => r.trim());
+        // Expect header: entry,credits,delta,type
+        if (rows.length < 2) { alert('CSV appears empty.'); return; }
+        const parsed = [];
+        for (let i = 1; i < rows.length; i++) {
+          const cols = rows[i].split(',');
+          if (cols.length < 4) continue;
+          const credits = parseFloat(cols[1]);
+          const delta   = parseFloat(cols[2]);
+          const type    = cols[3].trim();
+          if (isNaN(credits) || isNaN(delta)) continue;
+          if (!['hand','add','reset'].includes(type)) continue;
+          parsed.push({ credits, delta, type });
+        }
+        if (parsed.length === 0) { alert('No valid entries found in CSV.'); return; }
+        if (!confirm(`Replace current history with ${parsed.length} imported entries?`)) return;
+        handHistory = parsed.slice(-1000);
+        graphRangeStart = 1;
+        saveState();
+        alert(`Imported ${handHistory.length} entries successfully.`);
+      } catch(err) {
+        alert('Failed to parse CSV: ' + err.message);
+      }
+      fileInput.value = '';
+    };
+    reader.readAsText(file);
+  });
+  ulBtn.addEventListener('click', () => fileInput.click());
+
+  histBtnRow.appendChild(dlBtn);
+  histBtnRow.appendChild(ulBtn);
+  histSection.appendChild(histBtnRow);
+  document.body.appendChild(fileInput); // keep in DOM for file dialog
+
   // ── Done button ──────────────────────────────────────────
   const doneBtn = document.createElement('button');
   doneBtn.textContent = 'Done';
@@ -1530,7 +1628,10 @@ function showSettings() {
     'color:#fff','cursor:pointer','touch-action:manipulation',
   ].join(';');
 
-  const close = () => { if(overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+  const close = () => {
+    if(overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    if(fileInput.parentNode) fileInput.parentNode.removeChild(fileInput);
+  };
   doneBtn.addEventListener('click', close);
   overlay.addEventListener('click', e => { if(e.target===overlay) close(); });
 
@@ -1545,6 +1646,7 @@ function showSettings() {
     dealDelay = ms;
     saveState();
   }));
+  panel.appendChild(histSection);
   panel.appendChild(doneBtn);
   overlay.appendChild(panel);
   document.body.appendChild(overlay);
@@ -1578,7 +1680,8 @@ function showGraph(){
   ].join(';');
 
   // ── Range state (1-based, inclusive) ─────────────────────
-  let rangeStart = 1;
+  // Start defaults to last saved position; End always defaults to most recent entry
+  let rangeStart = Math.min(graphRangeStart, history.length || 1);
   let rangeEnd   = history.length;
 
   // ── Title ─────────────────────────────────────────────────
@@ -1642,6 +1745,8 @@ function showGraph(){
     if(isNaN(e) || e < s || e > total){ alert('Invalid end entry.'); return; }
     rangeStart = s;
     rangeEnd   = e;
+    graphRangeStart = s;
+    saveState();
     redraw();
   });
 
@@ -1650,6 +1755,8 @@ function showGraph(){
   allBtn.addEventListener('click', () => {
     rangeStart = 1;
     rangeEnd   = history.length || 1;
+    graphRangeStart = 1;
+    saveState();
     redraw();
   });
 
@@ -1658,6 +1765,7 @@ function showGraph(){
   clearBtn.addEventListener('click', () => {
     if(!confirm('Clear all session history? This cannot be undone.')) return;
     handHistory = [];
+    graphRangeStart = 1;
     saveState();
     history.splice(0);     // clear the local copy too
     rangeStart = 1;
