@@ -1140,9 +1140,12 @@ const sfx = {
 };
 
 // Record one completed hand (called after credits are finalised)
-function recordHand(winCoins) {
-  handHistory.push({ credits, delta: winCoins - coinBet, type: 'hand' });
+function recordHand(winCoins, resName) {
+  // res: hand result name; opt/optRes/sub are patched in asynchronously
+  // once the background analysis resolves the optimal counterfactual
+  handHistory.push({ credits, delta: winCoins - coinBet, type: 'hand', res: resName || '' });
   if (handHistory.length > 1000) handHistory.shift();
+  return handHistory[handHistory.length - 1];
 }
 
 // Record a manual credit event (add or reset) — shown green on the graph
@@ -1870,8 +1873,10 @@ async function dealCore(){
 
     phase = 'holding';
 
-    // Trainer needs the EV ranking ready by Draw time — compute in background
-    if(trainerOn) startAnalysisAsync();
+    // Compute the EV ranking in the background every hand — the trainer
+    // needs it at Draw time, and the graph's optimal-play line needs the
+    // counterfactual result recorded for every hand played.
+    startAnalysisAsync();
 
     // Dealt a winner already? Flash the winning cards, then show the hand name
     const dealtCat  = curEvaluate(hand);
@@ -1914,6 +1919,17 @@ async function dealCore(){
     trainerWarned = false;
     sfx.button();
 
+    // Snapshot the pre-draw state: replacement cards come off the deck in a
+    // fixed order, so the outcome of ANY hold can be replayed exactly later
+    const preHand  = hand.slice();
+    const preDeck  = deck.slice();
+    const handBet  = coinBet;
+    const handRows = curPayRows();
+    const handEval = curGame().evaluate;
+    let playerMask = 0;
+    for(let i=0;i<5;i++) if(held[i]) playerMask |= (1<<i);
+    const handAnalysis = analysisPromise || startAnalysisAsync(preHand, preDeck);
+
     // Draw: replace non-held cards
     for(let i=0;i<5;i++){
       if(!held[i]) hand[i]=dealCard();
@@ -1947,8 +1963,23 @@ async function dealCore(){
     lastWin = winCoins;
     const prevCredits = credits;
     credits += winCoins;
-    recordHand(winCoins);   // log this hand before saving
+    const entry = recordHand(winCoins, payRows[handIdx].name);   // log this hand
     saveState();
+
+    // Patch in the optimal-play counterfactual once the analysis resolves:
+    // replay the best hold against the same deck order the draw used.
+    handAnalysis.then(ranked => {
+      if(!ranked || !ranked.length) return;
+      const bestMask = ranked[0].mask;
+      const d  = preDeck.slice();
+      const oh = preHand.slice();
+      for(let i=0;i<5;i++) if(!(bestMask & (1<<i))) oh[i] = d.pop();
+      const cat = handEval(oh);
+      entry.sub    = bestMask !== playerMask;          // was the play suboptimal?
+      entry.opt    = handRows[cat].pays[handBet-1] - handBet;
+      entry.optRes = handRows[cat].name;
+      saveState();
+    }).catch(()=>{});
     updateInfoRow();          // updates Win and Bet displays immediately
     buildPayTable();
     if(winCoins > 0) animateCredits(prevCredits, credits);  // counts up credits
@@ -2124,20 +2155,22 @@ function invalidateAnalysis(){
 // during the hold phase don't corrupt results. Returns a promise of the
 // ranked results; also stores them in analysisResults when they arrive.
 let analysisPromise = null;
-function startAnalysisAsync() {
+function startAnalysisAsync(snapHand, snapDeck) {
   analysisResults = null;
   const token = ++analysisToken;
+  const h = (snapHand || hand).slice();
+  const d = (snapDeck || deck).slice();
   analysisPromise = new Promise(resolve => {
     try {
       evPending[token] = resolve;
       getEVWorker().postMessage({
         token, gameKey: currentGame, rows: curPayRows(), coinBet,
-        hand: hand.slice(), deck: deck.slice(),
+        hand: h, deck: d,
       });
     } catch(err) {
       // No Worker support — fall back to a main-thread computation
       delete evPending[token];
-      resolve(computeAllEVs(hand.slice(), deck.slice()));
+      resolve(computeAllEVs(h, d));
     }
   }).then(results => {
     if(token === analysisToken) analysisResults = results;
@@ -2612,9 +2645,11 @@ function showSettings() {
   ].join(';');
   dlBtn.addEventListener('click', () => {
     if (handHistory.length === 0) { alert('No history to download.'); return; }
-    const lines = ['entry,credits,delta,type'];
+    const lines = ['entry,credits,delta,type,result,suboptimal,optDelta,optResult'];
     handHistory.forEach((h, i) => {
-      lines.push(`${i+1},${h.credits},${h.delta},${h.type}`);
+      const sub = h.sub === true ? 1 : h.sub === false ? 0 : '';
+      const opt = typeof h.opt === 'number' ? h.opt : '';
+      lines.push(`${i+1},${h.credits},${h.delta},${h.type},${h.res||''},${sub},${opt},${h.optRes||''}`);
     });
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const url  = URL.createObjectURL(blob);
@@ -2661,7 +2696,15 @@ function showSettings() {
           const type    = cols[3].trim();
           if (isNaN(credits) || isNaN(delta)) continue;
           if (!['hand','add','reset'].includes(type)) continue;
-          parsed.push({ credits, delta, type });
+          const e = { credits, delta, type };
+          // Optional extended columns (result, suboptimal flag, counterfactual)
+          if (cols[4] && cols[4].trim())      e.res = cols[4].trim();
+          if (cols[5] === '1')                e.sub = true;
+          else if (cols[5] === '0')           e.sub = false;
+          const opt = parseFloat(cols[6]);
+          if (!isNaN(opt))                    e.opt = opt;
+          if (cols[7] && cols[7].trim())      e.optRes = cols[7].trim();
+          parsed.push(e);
         }
         if (parsed.length === 0) { alert('No valid entries found in CSV.'); return; }
         if (!confirm(`Replace current history with ${parsed.length} imported entries?`)) return;
@@ -2829,13 +2872,96 @@ function showGraph(){
   const cw = Math.min(688, Math.round(window.innerWidth * 0.86));
   canvas.width  = cw;
   canvas.height = Math.round(cw * 0.46);
-  canvas.style.cssText = 'width:100%;height:auto;display:block;border-radius:6px;';
+  canvas.style.cssText = 'width:100%;height:auto;display:block;border-radius:6px;touch-action:none;';
+
+  let hoverIdx = null;   // slice index under the finger/cursor
 
   function redraw(){
     updateTitle();
     const slice = history.slice(rangeStart-1, rangeEnd);
-    drawGraph(canvas, slice, rangeStart - 1);
+    drawGraph(canvas, slice, rangeStart - 1, hoverIdx);
   }
+
+  // ── Pointer → canvas coordinate helpers ───────────────────
+  const PAD = { top:28, right:20, bottom:38, left:68 };   // must match drawGraph
+  function canvasX(clientX){
+    const r = canvas.getBoundingClientRect();
+    return (clientX - r.left) * (canvas.width / r.width);
+  }
+  function chartW(){ return canvas.width - PAD.left - PAD.right; }
+  // Entry index (in the current slice) nearest to canvas x
+  function sliceIdxAt(cx){
+    const n = rangeEnd - rangeStart + 1;
+    if(n <= 0) return null;
+    if(n === 1) return 0;
+    const f = (cx - PAD.left) / chartW() * (n - 1);
+    return Math.max(0, Math.min(n - 1, Math.round(f)));
+  }
+
+  // ── Two-finger pinch-zoom / pan  +  one-finger result readout ──
+  let pinch = null;
+  canvas.addEventListener('touchstart', e => {
+    if(e.touches.length === 2){
+      e.preventDefault();
+      hoverIdx = null;
+      const x1 = canvasX(e.touches[0].clientX), x2 = canvasX(e.touches[1].clientX);
+      const span = rangeEnd - rangeStart;      // entries spanned (0-based)
+      const cx = (x1 + x2) / 2;
+      pinch = {
+        dist: Math.max(20, Math.abs(x2 - x1)),
+        // data-space anchor: the entry index under the initial midpoint
+        anchor: rangeStart + (cx - PAD.left) / chartW() * span,
+        span,
+      };
+    } else if(e.touches.length === 1 && history.length){
+      hoverIdx = sliceIdxAt(canvasX(e.touches[0].clientX));
+      redraw();
+    }
+  }, { passive:false });
+
+  canvas.addEventListener('touchmove', e => {
+    if(e.touches.length === 2 && pinch){
+      e.preventDefault();
+      const total = history.length;
+      const x1 = canvasX(e.touches[0].clientX), x2 = canvasX(e.touches[1].clientX);
+      const dist = Math.max(20, Math.abs(x2 - x1));
+      const cx   = (x1 + x2) / 2;
+      // New span: pinch out → zoom in (span shrinks); pinch in → zoom out
+      let span = Math.round(pinch.span * pinch.dist / dist);
+      span = Math.max(1, Math.min(total - 1, span));
+      // Keep the anchored entry under the fingers' current midpoint (pans too)
+      const frac = (cx - PAD.left) / chartW();
+      let s = Math.round(pinch.anchor - frac * span);
+      s = Math.max(1, Math.min(total - span, s));
+      rangeStart = s;
+      rangeEnd   = Math.min(total, s + span);
+      redraw();
+    } else if(e.touches.length === 1 && history.length){
+      e.preventDefault();
+      hoverIdx = sliceIdxAt(canvasX(e.touches[0].clientX));
+      redraw();
+    }
+  }, { passive:false });
+
+  canvas.addEventListener('touchend', e => {
+    if(e.touches.length < 2 && pinch){
+      pinch = null;
+      graphRangeStart = rangeStart;   // persist the zoomed position
+      saveState();
+    }
+    if(e.touches.length === 0 && hoverIdx !== null){
+      hoverIdx = null;
+      redraw();
+    }
+  });
+
+  // Desktop: mouse hover shows the same readout
+  canvas.addEventListener('mousemove', e => {
+    if(!history.length) return;
+    hoverIdx = sliceIdxAt(canvasX(e.clientX));
+    redraw();
+  });
+  canvas.addEventListener('mouseleave', () => { hoverIdx = null; redraw(); });
 
   // ── Button row ────────────────────────────────────────────
   const btnRow = document.createElement('div');
@@ -2915,8 +3041,9 @@ function showGraph(){
 }
 
 // ── Canvas chart ─────────────────────────────────────────────
-// offset = index of history[0] in the full handHistory array (for x-axis labels)
-function drawGraph(canvas, history, offset=0){
+// offset   = index of history[0] in the full handHistory array
+// hoverIdx = slice index to highlight with a crosshair + readout (or null)
+function drawGraph(canvas, history, offset=0, hoverIdx=null){
   const ctx  = canvas.getContext('2d');
   const W    = canvas.width;
   const H    = canvas.height;
@@ -2939,8 +3066,23 @@ function drawGraph(canvas, history, offset=0){
   }
 
   const values = history.map(h => h.credits);
-  const minV   = Math.min(...values);
-  const maxV   = Math.max(...values);
+
+  // ── Optimal-play line ───────────────────────────────────
+  // Anchored to the leftmost VISIBLE point, then accumulates each hand's
+  // optimal-hold counterfactual result instead of the actual result.
+  // Hands without recorded counterfactuals fall back to the actual delta;
+  // credit adds apply equally; resets re-sync to the actual value.
+  const optValues = [values[0]];
+  for(let i=1; i<history.length; i++){
+    const h = history[i];
+    if(h.type === 'hand')     optValues.push(optValues[i-1] + (typeof h.opt === 'number' ? h.opt : h.delta));
+    else if(h.type === 'add') optValues.push(optValues[i-1] + (h.delta || 0));
+    else                      optValues.push(values[i]);
+  }
+  const optDiffers = optValues.some((v,i) => v !== values[i]);
+
+  const minV   = Math.min(Math.min(...values), Math.min(...optValues));
+  const maxV   = Math.max(Math.max(...values), Math.max(...optValues));
   const range  = maxV - minV || 10;
   const yMin   = minV - range * 0.12;
   const yMax   = maxV + range * 0.12;
@@ -2948,13 +3090,12 @@ function drawGraph(canvas, history, offset=0){
   const toX = i  => pad.left + (history.length > 1 ? (i/(history.length-1))*cW : cW/2);
   const toY = v  => pad.top  + cH - ((v - yMin)/(yMax - yMin))*cH;
 
-  // ── Horizontal grid lines & Y labels ───────────────────
-  const GRID = 5;
-  for(let g=0; g<=GRID; g++){
-    const y = pad.top + (g/GRID)*cH;
-    const v = yMax - (g/GRID)*(yMax-yMin);
-
-    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+  // ── Gridlines on clean multiples of 5/10/25/50/… ────────
+  const NICE = [5,10,25,50,100,250,500,1000,2500,5000,10000,25000,50000,100000];
+  const step = NICE.find(s => (yMax - yMin)/s <= 6) || 250000;
+  for(let v = Math.ceil(yMin/step)*step; v <= yMax; v += step){
+    const y = toY(v);
+    ctx.strokeStyle = v === 0 ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.08)';
     ctx.lineWidth   = 1;
     ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left+cW, y); ctx.stroke();
 
@@ -2962,7 +3103,7 @@ function drawGraph(canvas, history, offset=0){
     ctx.font         = '11px Arial';
     ctx.textAlign    = 'right';
     ctx.textBaseline = 'middle';
-    ctx.fillText(formatMoney(Math.round(v)*denom), pad.left-6, y);
+    ctx.fillText(formatMoney(v*denom), pad.left-6, y);
   }
 
   // ── X-axis labels (1-based, adjusted for range offset) ─
@@ -2983,7 +3124,7 @@ function drawGraph(canvas, history, offset=0){
   ctx.textBaseline = 'bottom';
   ctx.fillText('HAND  NUMBER', pad.left+cW/2, H-1);
 
-  // ── Filled area under line ──────────────────────────────
+  // ── Filled area under the actual line ──────────────────
   if(history.length > 1){
     ctx.beginPath();
     ctx.moveTo(toX(0), toY(values[0]));
@@ -2995,18 +3136,26 @@ function drawGraph(canvas, history, offset=0){
     ctx.fill();
   }
 
-  // ── Line — segment by segment so runs into a green event are green ──
+  // ── Optimal-play line (cyan) ───────────────────────────
+  if(history.length > 1 && optDiffers){
+    ctx.beginPath();
+    ctx.moveTo(toX(0), toY(optValues[0]));
+    for(let i=1; i<optValues.length; i++) ctx.lineTo(toX(i), toY(optValues[i]));
+    ctx.strokeStyle = '#38b6ff';
+    ctx.lineWidth   = 2;
+    ctx.stroke();
+  }
+
+  // ── Actual line — segment by segment so runs into a green event are green ──
   const isEvent = i => history[i] && (history[i].type==='add' || history[i].type==='reset');
   ctx.lineWidth = 2;
   ctx.lineJoin  = 'round';
-  // Walk through segments; flush the current path whenever the colour changes
   let currentColor = isEvent(0) ? '#3cdc64' : '#f0c040';
   ctx.beginPath();
   ctx.moveTo(toX(0), toY(values[0]));
   for(let i=1; i<values.length; i++){
     const segColor = isEvent(i) ? '#3cdc64' : '#f0c040';
     if(segColor !== currentColor){
-      // Stroke what we have so far, then start a new sub-path from this point
       ctx.strokeStyle = currentColor;
       ctx.stroke();
       ctx.beginPath();
@@ -3018,14 +3167,15 @@ function drawGraph(canvas, history, offset=0){
   ctx.strokeStyle = currentColor;
   ctx.stroke();
 
-  // ── Dots: gold for normal hands, green for add/reset events ─
+  // ── Dots: gold = hand, green = add/reset, red = suboptimal hold ─
   const dotR = values.length > 30 ? 2 : 3;
   for(let i=0; i<values.length; i++){
-    const isEvent = history[i].type === 'add' || history[i].type === 'reset';
-    // Always draw event markers; skip plain hand dots when > 50 to avoid clutter
-    if(!isEvent && values.length > 50) continue;
-    if(isEvent){
-      // Green vertical marker line
+    const h = history[i];
+    const ev  = h.type === 'add' || h.type === 'reset';
+    const sub = h.type === 'hand' && h.sub === true;
+    // Skip plain dots when crowded; always mark events and suboptimal plays
+    if(!ev && !sub && values.length > 50) continue;
+    if(ev){
       ctx.strokeStyle = 'rgba(60,220,100,0.55)';
       ctx.lineWidth   = 1;
       ctx.setLineDash([3,3]);
@@ -3036,9 +3186,88 @@ function drawGraph(canvas, history, offset=0){
       ctx.setLineDash([]);
     }
     ctx.beginPath();
-    ctx.arc(toX(i), toY(values[i]), isEvent ? dotR+1 : dotR, 0, Math.PI*2);
-    ctx.fillStyle = isEvent ? '#3cdc64' : '#f0c040';
+    ctx.arc(toX(i), toY(values[i]), (ev || sub) ? dotR+1 : dotR, 0, Math.PI*2);
+    ctx.fillStyle = ev ? '#3cdc64' : sub ? '#ff5050' : '#f0c040';
     ctx.fill();
+  }
+
+  // ── Legend (top-right) ─────────────────────────────────
+  ctx.font = 'bold 10px Arial';
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  let lx = W - pad.right - (optDiffers ? 196 : 60);
+  const ly = pad.top - 12;
+  ctx.strokeStyle = '#f0c040'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx+16, ly); ctx.stroke();
+  ctx.fillStyle = '#c0c8d8'; ctx.fillText('ACTUAL', lx+20, ly);
+  if(optDiffers){
+    lx += 68;
+    ctx.strokeStyle = '#38b6ff';
+    ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx+16, ly); ctx.stroke();
+    ctx.fillText('OPTIMAL', lx+20, ly);
+    lx += 74;
+    ctx.beginPath(); ctx.arc(lx+4, ly, 3, 0, Math.PI*2);
+    ctx.fillStyle = '#ff5050'; ctx.fill();
+    ctx.fillStyle = '#c0c8d8'; ctx.fillText('SUBOPT.', lx+11, ly);
+  }
+
+  // ── Hover crosshair + readout ──────────────────────────
+  if(hoverIdx !== null && history[hoverIdx]){
+    const h = history[hoverIdx];
+    const x = toX(hoverIdx);
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.lineWidth   = 1;
+    ctx.setLineDash([4,3]);
+    ctx.beginPath();
+    ctx.moveTo(x, pad.top);
+    ctx.lineTo(x, pad.top+cH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.beginPath();
+    ctx.arc(x, toY(values[hoverIdx]), 5, 0, Math.PI*2);
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Readout lines
+    const num = offset + hoverIdx + 1;
+    const fmtD = d => (d >= 0 ? '+' : '') + d;
+    const lines = [];
+    if(h.type === 'hand'){
+      lines.push(`#${num}   ${h.res || 'Hand'}   ${fmtD(h.delta)}`);
+      lines.push(`Credits: ${formatMoney(h.credits*denom)}`);
+      if(h.sub === true && typeof h.opt === 'number')
+        lines.push(`Optimal: ${h.optRes || '?'}   ${fmtD(h.opt)}`);
+      else if(h.sub === false)
+        lines.push('Optimal hold ✓');
+    } else {
+      lines.push(`#${num}   ${h.type === 'add' ? 'Added credits' : 'Credits reset'}`);
+      lines.push(`Credits: ${formatMoney(h.credits*denom)}`);
+    }
+
+    ctx.font = 'bold 12px Arial';
+    const bw = Math.max(...lines.map(t => ctx.measureText(t).width)) + 20;
+    const bh = lines.length * 17 + 12;
+    let bx = x + 12;
+    if(bx + bw > W - pad.right) bx = x - 12 - bw;
+    const by = pad.top + 4;
+
+    ctx.fillStyle = 'rgba(4,13,34,0.92)';
+    ctx.strokeStyle = '#38609a';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(bx, by, bw, bh, 6) : ctx.rect(bx, by, bw, bh);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    lines.forEach((t, i) => {
+      ctx.fillStyle = i === 0 ? '#f0c040' : (t.startsWith('Optimal:') ? '#38b6ff' : '#e0e8f8');
+      ctx.fillText(t, bx+10, by+8 + i*17);
+    });
   }
 
   // ── Axes ───────────────────────────────────────────────
