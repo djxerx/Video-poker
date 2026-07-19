@@ -3912,7 +3912,8 @@ function init(){
   document.getElementById('btn-reset').addEventListener('click',       resetCredits);
   document.getElementById('btn-settings').addEventListener('click',    showSettings);
   document.getElementById('btn-graph').addEventListener('click',       showGraph);
-  document.getElementById('btn-analyze').addEventListener('click',     showAnalysis);
+  // wrapped: the raw click event must not reach showAnalysis's customHand param
+  document.getElementById('btn-analyze').addEventListener('click',     () => showAnalysis());
   document.getElementById('cs-coin').addEventListener('click',         showDenomPopup);
 
   // Delegated card tap on pointerdown — registers the instant the finger
