@@ -530,7 +530,15 @@
       0%, 100% { box-shadow: var(--shadow); }
       50%      { box-shadow: 0 0 26px 10px rgba(255,215,0,0.95); }
     }
-    .card.win-flash { animation: cardWinFlash 0.4s ease 3; }
+    .card.win-flash-1 { animation: cardWinFlash 0.45s ease 1; }   /* dealt winner */
+    .card.win-flash-2 { animation: cardWinFlash 0.45s ease 2; }   /* final winner */
+
+    /* Highlight Error: red flash on the cards you should have held */
+    @keyframes cardErrFlash {
+      0%, 100% { box-shadow: var(--shadow); }
+      50%      { box-shadow: 0 0 26px 10px rgba(255,50,50,0.95); }
+    }
+    .card.err-flash { animation: cardErrFlash 0.5s ease 1; }
 
     /* ─── Game select button ────────────────────────────────── */
     .btn-game {
@@ -977,6 +985,155 @@ function jokerRows(fourK){
   ];
 }
 
+// Bonus Poker Deluxe: JoB structure, all quads pay 80, two pair pays 1
+function bpdRows(fh, fl){
+  return [
+    ROYAL,
+    { name:'Straight Flush',  short:'Str.\nFlush',      col:'Str.Fl', pays: mult(50) },
+    { name:'Four of a Kind',  short:'Four\nof a Kind',  col:'4Kind',  pays: mult(80) },
+    { name:'Full House',      short:'Full\nHouse',      col:'Full H', pays: mult(fh) },
+    { name:'Flush',           short:'Flush',            col:'Flush',  pays: mult(fl) },
+    { name:'Straight',        short:'Straight',         col:'Str',    pays: mult(4)  },
+    { name:'Three of a Kind', short:'Three\nof a Kind', col:'3Kind',  pays: mult(3)  },
+    { name:'Two Pair',        short:'Two\nPair',        col:'2Pair',  pays: mult(1)  },
+    { name:'Jacks or Better', short:'Jacks\nor Better', col:'Jacks+', pays: mult(1)  },
+    NADA,
+  ];
+}
+
+// All American: straight flush 200; full house / flush / straight all pay 8
+function aaRows(fourK){
+  return [
+    ROYAL,
+    { name:'Straight Flush',  short:'Str.\nFlush',      col:'Str.Fl', pays: mult(200)   },
+    { name:'Four of a Kind',  short:'Four\nof a Kind',  col:'4Kind',  pays: mult(fourK) },
+    { name:'Full House',      short:'Full\nHouse',      col:'Full H', pays: mult(8)     },
+    { name:'Flush',           short:'Flush',            col:'Flush',  pays: mult(8)     },
+    { name:'Straight',        short:'Straight',         col:'Str',    pays: mult(8)     },
+    { name:'Three of a Kind', short:'Three\nof a Kind', col:'3Kind',  pays: mult(3)     },
+    { name:'Two Pair',        short:'Two\nPair',        col:'2Pair',  pays: mult(1)     },
+    { name:'Jacks or Better', short:'Jacks\nor Better', col:'Jacks+', pays: mult(1)     },
+    NADA,
+  ];
+}
+
+// Triple Bonus: bonus-quad tiers ×3, minimum paying pair is KINGS
+function tbRows(fh, fl, st){
+  return [
+    ROYAL,
+    { name:'Straight Flush',  short:'Str.\nFlush',      col:'Str.Fl', pays: mult(50)  },
+    { name:'Four Aces',       short:'Four\nAces',       col:'4 Aces', pays: mult(240) },
+    { name:'Four 2s–4s',      short:'Four\n2s–4s',      col:'4 2-4',  pays: mult(120) },
+    { name:'Four 5s–Ks',      short:'Four\n5s–Ks',      col:'4 5-K',  pays: mult(75)  },
+    { name:'Full House',      short:'Full\nHouse',      col:'Full H', pays: mult(fh)  },
+    { name:'Flush',           short:'Flush',            col:'Flush',  pays: mult(fl)  },
+    { name:'Straight',        short:'Straight',         col:'Str',    pays: mult(st)  },
+    { name:'Three of a Kind', short:'Three\nof a Kind', col:'3Kind',  pays: mult(3)   },
+    { name:'Two Pair',        short:'Two\nPair',        col:'2Pair',  pays: mult(1)   },
+    { name:'Kings or Better', short:'Kings\nor Better', col:'Kings+', pays: mult(1)   },
+    NADA,
+  ];
+}
+
+// Triple Double Bonus: DDB layout with doubled kicker payouts (4A+2-4 = royal!)
+function tdbRows(fh, fl){
+  return [
+    ROYAL,
+    { name:'Straight Flush',  short:'Str.\nFlush',      col:'Str.Fl',  pays: mult(50)  },
+    { name:'4 Aces + 2-4',    short:'4 Aces\n+ 2-4',    col:'4A+k',    pays: mult(800) },
+    { name:'4 2s–4s + A-4',   short:'4 2s–4s\n+ A-4',   col:'424+k',   pays: mult(400) },
+    { name:'Four Aces',       short:'Four\nAces',       col:'4 Aces',  pays: mult(160) },
+    { name:'Four 2s–4s',      short:'Four\n2s–4s',      col:'4 2-4',   pays: mult(80)  },
+    { name:'Four 5s–Ks',      short:'Four\n5s–Ks',      col:'4 5-K',   pays: mult(50)  },
+    { name:'Full House',      short:'Full\nHouse',      col:'Full H',  pays: mult(fh)  },
+    { name:'Flush',           short:'Flush',            col:'Flush',   pays: mult(fl)  },
+    { name:'Straight',        short:'Straight',         col:'Str',     pays: mult(4)   },
+    { name:'Three of a Kind', short:'Three\nof a Kind', col:'3Kind',   pays: mult(2)   },
+    { name:'Two Pair',        short:'Two\nPair',        col:'2Pair',   pays: mult(1)   },
+    { name:'Jacks or Better', short:'Jacks\nor Better', col:'Jacks+',  pays: mult(1)   },
+    NADA,
+  ];
+}
+
+// Super Double Bonus: four quad tiers including face cards J–K
+function sdbRows(fh){
+  return [
+    ROYAL,
+    { name:'Straight Flush',  short:'Str.\nFlush',      col:'Str.Fl',  pays: mult(80)  },
+    { name:'Four Aces',       short:'Four\nAces',       col:'4 Aces',  pays: mult(160) },
+    { name:'Four Js–Ks',      short:'Four\nJs–Ks',      col:'4 J-K',   pays: mult(120) },
+    { name:'Four 2s–4s',      short:'Four\n2s–4s',      col:'4 2-4',   pays: mult(80)  },
+    { name:'Four 5s–10s',     short:'Four\n5s–10s',     col:'4 5-10',  pays: mult(50)  },
+    { name:'Full House',      short:'Full\nHouse',      col:'Full H',  pays: mult(fh)  },
+    { name:'Flush',           short:'Flush',            col:'Flush',   pays: mult(5)   },
+    { name:'Straight',        short:'Straight',         col:'Str',     pays: mult(4)   },
+    { name:'Three of a Kind', short:'Three\nof a Kind', col:'3Kind',   pays: mult(3)   },
+    { name:'Two Pair',        short:'Two\nPair',        col:'2Pair',   pays: mult(1)   },
+    { name:'Jacks or Better', short:'Jacks\nor Better', col:'Jacks+',  pays: mult(1)   },
+    NADA,
+  ];
+}
+
+// Super Double Double Bonus: kicker bonuses on both ace and face quads
+function sddbRows(sf, fh){
+  return [
+    ROYAL,
+    { name:'Straight Flush',  short:'Str.\nFlush',      col:'Str.Fl',  pays: mult(sf)  },
+    { name:'4 Aces + 2-4',    short:'4 Aces\n+ 2-4',    col:'4A+24',   pays: mult(400) },
+    { name:'4 Aces + J-K',    short:'4 Aces\n+ J-K',    col:'4A+JK',   pays: mult(320) },
+    { name:'4 2s–4s + A-4',   short:'4 2s–4s\n+ A-4',   col:'424+k',   pays: mult(160) },
+    { name:'4 Js–Ks + A-K',   short:'4 Js–Ks\n+ A-K',   col:'4JK+k',   pays: mult(160) },
+    { name:'Four Aces',       short:'Four\nAces',       col:'4 Aces',  pays: mult(160) },
+    { name:'Four Js–Ks',      short:'Four\nJs–Ks',      col:'4 J-K',   pays: mult(80)  },
+    { name:'Four 2s–4s',      short:'Four\n2s–4s',      col:'4 2-4',   pays: mult(80)  },
+    { name:'Four 5s–10s',     short:'Four\n5s–10s',     col:'4 5-10',  pays: mult(50)  },
+    { name:'Full House',      short:'Full\nHouse',      col:'Full H',  pays: mult(fh)  },
+    { name:'Flush',           short:'Flush',            col:'Flush',   pays: mult(5)   },
+    { name:'Straight',        short:'Straight',         col:'Str',     pays: mult(4)   },
+    { name:'Three of a Kind', short:'Three\nof a Kind', col:'3Kind',   pays: mult(3)   },
+    { name:'Two Pair',        short:'Two\nPair',        col:'2Pair',   pays: mult(1)   },
+    { name:'Jacks or Better', short:'Jacks\nor Better', col:'Jacks+',  pays: mult(1)   },
+    NADA,
+  ];
+}
+
+// Bonus Deuces Wild: five-of-a-kind split by rank, ace kicker on four deuces
+function bdRows(sf){
+  return [
+    { name:'Natural Royal',   short:'Natural\nRoyal',   col:'N.Royal', pays:[250,500,750,1000,4000] },
+    { name:'Four Deuces + Ace', short:'4 Deuces\n+ Ace', col:'4D+A',   pays: mult(400) },
+    { name:'Four Deuces',     short:'Four\nDeuces',     col:'4 Deuce', pays: mult(200) },
+    { name:'Wild Royal',      short:'Wild\nRoyal',      col:'W.Royal', pays: mult(25)  },
+    { name:'Five Aces',       short:'Five\nAces',       col:'5 Aces',  pays: mult(80)  },
+    { name:'Five 3s–5s',      short:'Five\n3s–5s',      col:'5 3-5',   pays: mult(40)  },
+    { name:'Five 6s–Ks',      short:'Five\n6s–Ks',      col:'5 6-K',   pays: mult(20)  },
+    { name:'Straight Flush',  short:'Str.\nFlush',      col:'Str.Fl',  pays: mult(sf)  },
+    { name:'Four of a Kind',  short:'Four\nof a Kind',  col:'4Kind',   pays: mult(4)   },
+    { name:'Full House',      short:'Full\nHouse',      col:'Full H',  pays: mult(4)   },
+    { name:'Flush',           short:'Flush',            col:'Flush',   pays: mult(3)   },
+    { name:'Straight',        short:'Straight',         col:'Str',     pays: mult(1)   },
+    { name:'Three of a Kind', short:'Three\nof a Kind', col:'3Kind',   pays: mult(1)   },
+    NADA,
+  ];
+}
+
+// Joker's Wild (Two Pair or Better): lowest paying hand is two pair
+function jtpRows(nrTop, fiveK, wr, sf, fourK, fh, fl, st){
+  return [
+    { name:'Natural Royal',   short:'Natural\nRoyal',   col:'N.Royal', pays:[250,500,750,1000,nrTop] },
+    { name:'Five of a Kind',  short:'Five\nof a Kind',  col:'5Kind',   pays: mult(fiveK) },
+    { name:'Wild Royal',      short:'Wild\nRoyal',      col:'W.Royal', pays: mult(wr)    },
+    { name:'Straight Flush',  short:'Str.\nFlush',      col:'Str.Fl',  pays: mult(sf)    },
+    { name:'Four of a Kind',  short:'Four\nof a Kind',  col:'4Kind',   pays: mult(fourK) },
+    { name:'Full House',      short:'Full\nHouse',      col:'Full H',  pays: mult(fh)    },
+    { name:'Flush',           short:'Flush',            col:'Flush',   pays: mult(fl)    },
+    { name:'Straight',        short:'Straight',         col:'Str',     pays: mult(st)    },
+    { name:'Three of a Kind', short:'Three\nof a Kind', col:'3Kind',   pays: mult(2)     },
+    { name:'Two Pair',        short:'Two\nPair',        col:'2Pair',   pays: mult(1)     },
+    NADA,
+  ];
+}
+
 function deucesRows(fiveK, sf, fourK, fh, fl){
   return [
     { name:'Natural Royal',   short:'Natural\nRoyal',   col:'N.Royal', pays:[250,500,750,1000,4000] },
@@ -1050,8 +1207,8 @@ const GAMES = {
     winCards: cat => winCardsDDB(cat),
   },
   joker: {
-    name: 'Joker Poker',
-    titleHTML: '<span class="t-red">Joker</span> <span class="t-yellow">Poker</span>',
+    name: "Joker's Wild",
+    titleHTML: '<span class="t-red">Joker\'s</span> <span class="t-yellow">Wild</span>',
     joker: true,
     payTables: [
       { label:'20/7/5 Full Pay', rows: jokerRows(20) },
@@ -1060,6 +1217,83 @@ const GAMES = {
     ],
     evaluate: cards => evalJoker(cards),
     winCards: cat => winCardsJoker(cat),
+  },
+  allamerican: {
+    name: 'All American',
+    titleHTML: '<span class="t-red">All</span> <span class="t-yellow">American</span>',
+    payTables: [
+      { label:'35/8 Full Pay', rows: aaRows(35) },
+      { label:'30/8',          rows: aaRows(30) },
+      { label:'25/8',          rows: aaRows(25) },
+    ],
+    evaluate: cards => evaluate(cards),
+    winCards: cat => winCardsStandard(cat, false),
+  },
+  bpdeluxe: {
+    name: 'Bonus Poker Deluxe',
+    titleHTML: '<span class="t-red">Bonus Poker</span> <span class="t-yellow">Deluxe</span>',
+    payTables: [
+      { label:'9/6 Full Pay', rows: bpdRows(9,6) },
+      { label:'8/6',          rows: bpdRows(8,6) },
+      { label:'8/5',          rows: bpdRows(8,5) },
+    ],
+    evaluate: cards => evaluate(cards),
+    winCards: cat => winCardsStandard(cat, false),
+  },
+  tbonus: {
+    name: 'Triple Bonus',
+    titleHTML: '<span class="t-red">Triple</span> <span class="t-yellow">Bonus</span>',
+    payTables: [
+      { label:'10/7/5 Full Pay', rows: tbRows(10,7,5) },
+      { label:'11/7/4',          rows: tbRows(11,7,4) },
+      { label:'10/7/4',          rows: tbRows(10,7,4) },
+    ],
+    evaluate: cards => evalTripleBonus(cards),
+    winCards: cat => winCardsStandard(cat, true),
+  },
+  tdbonus: {
+    name: 'Triple Double Bonus',
+    titleHTML: '<span class="t-red">Triple Double</span> <span class="t-yellow">Bonus</span>',
+    payTables: [
+      { label:'9/7 Full Pay', rows: tdbRows(9,7) },
+      { label:'9/6',          rows: tdbRows(9,6) },
+      { label:'9/5',          rows: tdbRows(9,5) },
+    ],
+    evaluate: cards => evalDDB(cards),
+    winCards: cat => winCardsDDB(cat),
+  },
+  sdbonus: {
+    name: 'Super Double Bonus',
+    titleHTML: '<span class="t-red">Super Double</span> <span class="t-yellow">Bonus</span>',
+    payTables: [
+      { label:'9/5 Full Pay', rows: sdbRows(9) },
+      { label:'8/5',          rows: sdbRows(8) },
+      { label:'7/5',          rows: sdbRows(7) },
+    ],
+    evaluate: cards => evalSuperDB(cards),
+    winCards: cat => winCardsSDB(cat),
+  },
+  sddbonus: {
+    name: 'Super Double Double Bonus',
+    titleHTML: '<span class="t-red">Super Double Double</span> <span class="t-yellow">Bonus</span>',
+    payTables: [
+      { label:'8/5 Full Pay',  rows: sddbRows(50, 8) },
+      { label:'7/5 (SF 100)',  rows: sddbRows(100, 7) },
+      { label:'7/5',           rows: sddbRows(50, 7) },
+    ],
+    evaluate: cards => evalSuperDDB(cards),
+    winCards: cat => winCardsSDDB(cat),
+  },
+  joker2: {
+    name: "Joker's Wild (Two Pair)",
+    titleHTML: '<span class="t-red">Joker\'s</span> <span class="t-yellow">Wild</span> <span class="t-red">Two Pair</span>',
+    joker: true,
+    payTables: [
+      { label:'20/10/6 Full Pay', rows: jtpRows(5000,100, 50, 50,20,10,6,5) },
+      { label:'16/8/5',           rows: jtpRows(4000,800,100,100,16, 8,5,4) },
+    ],
+    evaluate: cards => evalJokerTP(cards),
+    winCards: cat => cat === 10 ? [] : winCardsJoker(cat),
   },
   deuces: {
     name: 'Deuces Wild',
@@ -1072,8 +1306,24 @@ const GAMES = {
     evaluate: cards => evalDeuces(cards),
     winCards: cat => winCardsDeuces(cat),
   },
+  bdeuces: {
+    name: 'Bonus Deuces Wild',
+    titleHTML: '<span class="t-red">Bonus</span> <span class="t-yellow">Deuces</span> <span class="t-red">Wild</span>',
+    payTables: [
+      { label:'10/4/3 Full Pay', rows: bdRows(10) },
+      { label:'9/4/3',           rows: bdRows(9)  },
+      { label:'8/4/3',           rows: bdRows(8)  },
+    ],
+    evaluate: cards => evalBonusDeuces(cards),
+    winCards: cat => winCardsBDeuces(cat),
+  },
 };
-const GAME_KEYS = ['jacks','tens','bonus','dbonus','ddbonus','joker','deuces'];
+// Non-wild games first, then the wild-card games
+const GAME_KEYS = [
+  'jacks','tens','allamerican','bonus','bpdeluxe','dbonus','ddbonus',
+  'tbonus','tdbonus','sdbonus','sddbonus',
+  'joker','joker2','deuces','bdeuces',
+];
 
 // ════════════════════════════════════════════════════════════
 //  STATE
@@ -1099,6 +1349,7 @@ let dealDelay    = 350;         // ms — stagger between each card being dealt
 let theme        = 'modern';    // 'modern' | 'classic' (Game King look)
 let soundOn      = true;
 let trainerOn    = false;       // thump + retry on non-optimal hold
+let highlightErrOn = false;     // red-flash the optimal hold on a non-optimal play
 let graphShowOpt = true;        // show the optimal-play line on the graph
 
 let deck            = [];
@@ -1132,7 +1383,8 @@ function saveState() {
     syncToGameState();
     localStorage.setItem(SAVE_KEY, JSON.stringify({
       v: 2, currentGame, games: gameState,
-      coinBet, denomIdx, flipDuration, dealDelay, theme, soundOn, trainerOn, graphShowOpt,
+      coinBet, denomIdx, flipDuration, dealDelay, theme, soundOn, trainerOn,
+      highlightErrOn, graphShowOpt,
     }));
   } catch(e) {}
 }
@@ -1169,8 +1421,9 @@ function loadState() {
     if (typeof s.dealDelay    === 'number' && s.dealDelay    >= 0)                dealDelay    = s.dealDelay;
     if (s.theme === 'classic' || s.theme === 'modern')                            theme        = s.theme;
     if (typeof s.soundOn      === 'boolean')                                      soundOn      = s.soundOn;
-    if (typeof s.trainerOn    === 'boolean')                                      trainerOn    = s.trainerOn;
-    if (typeof s.graphShowOpt === 'boolean')                                      graphShowOpt = s.graphShowOpt;
+    if (typeof s.trainerOn      === 'boolean')                                    trainerOn      = s.trainerOn;
+    if (typeof s.highlightErrOn === 'boolean')                                    highlightErrOn = s.highlightErrOn;
+    if (typeof s.graphShowOpt   === 'boolean')                                    graphShowOpt   = s.graphShowOpt;
   } catch(e) {}
   syncFromGameState();
 }
@@ -1379,6 +1632,84 @@ function evalJoker(cards){
   return 11;
 }
 
+// Joker's Wild, Two Pair or Better: same as Kings version but the kings
+// pair doesn't pay — categories 0..9 identical, 10 = Nothing
+function evalJokerTP(cards){
+  const r = evalJoker(cards);
+  return r >= 10 ? 10 : r;
+}
+
+// Triple Bonus: bonus-style quad split, but minimum paying pair is KINGS
+function evalTripleBonus(cards){
+  const base = evaluate(cards, ['K','A']);
+  if(base === 2){
+    const freq = {};
+    cards.forEach(c => freq[c.rank] = (freq[c.rank]||0)+1);
+    const qr = Object.keys(freq).find(r => freq[r] === 4);
+    if(qr === 'A')                 return 2;
+    if(['2','3','4'].includes(qr)) return 3;
+    return 4;
+  }
+  return base < 2 ? base : base + 2;
+}
+
+// Super Double Bonus: quads split four ways (A / J-K / 2-4 / 5-10).
+// Categories: 0 Royal, 1 SF, 2 4A, 3 4 J-K, 4 4 2-4, 5 4 5-10,
+//             6 FH, 7 FL, 8 ST, 9 3K, 10 2P, 11 JoB, 12 Nothing
+function evalSuperDB(cards){
+  const base = evaluate(cards);
+  if(base === 2){
+    const freq = {};
+    cards.forEach(c => freq[c.rank] = (freq[c.rank]||0)+1);
+    const qr = Object.keys(freq).find(r => freq[r] === 4);
+    if(qr === 'A')                 return 2;
+    if(['J','Q','K'].includes(qr)) return 3;
+    if(['2','3','4'].includes(qr)) return 4;
+    return 5;
+  }
+  return base < 2 ? base : base + 3;
+}
+
+// Super Double Double Bonus: kicker bonuses on ace AND face quads.
+// Categories: 0 Royal, 1 SF, 2 4A+2-4, 3 4A+J-K, 4 4(2-4)+A-4,
+// 5 4(J-K)+A/J/Q/K, 6 4A, 7 4 J-K, 8 4 2-4, 9 4 5-10,
+// 10 FH, 11 FL, 12 ST, 13 3K, 14 2P, 15 JoB, 16 Nothing
+function evalSuperDDB(cards){
+  const base = evaluate(cards);
+  if(base === 2){
+    const freq = {};
+    cards.forEach(c => freq[c.rank] = (freq[c.rank]||0)+1);
+    const qr     = Object.keys(freq).find(r => freq[r] === 4);
+    const kicker = Object.keys(freq).find(r => freq[r] === 1);
+    const JQK = ['J','Q','K'];
+    if(qr === 'A')  return ['2','3','4'].includes(kicker) ? 2 : JQK.includes(kicker) ? 3 : 6;
+    if(['2','3','4'].includes(qr)) return ['A','2','3','4'].includes(kicker) ? 4 : 8;
+    if(JQK.includes(qr)) return (kicker === 'A' || JQK.includes(kicker)) ? 5 : 7;
+    return 9;
+  }
+  return base < 2 ? base : base + 7;
+}
+
+// Bonus Deuces Wild: five-of-a-kinds split by rank, ace kicker on 4 deuces.
+// Categories: 0 NR, 1 4D+Ace, 2 4D, 3 WR, 4 Five Aces, 5 Five 3-5,
+// 6 Five 6-K, 7 SF, 8 4K, 9 FH, 10 FL, 11 ST, 12 3K, 13 Nothing
+function evalBonusDeuces(cards){
+  const r = evalDeuces(cards);
+  if(r === 1){                                   // four deuces — ace kicker?
+    const fifth = cards.find(c => c.rank !== '2');
+    return fifth && fifth.rank === 'A' ? 1 : 2;
+  }
+  if(r === 0) return 0;                          // natural royal
+  if(r === 2) return 3;                          // wild royal
+  if(r === 3){                                   // five of a kind — split by rank
+    const rk = cards.find(c => c.rank !== '2').rank;
+    if(rk === 'A') return 4;
+    if(['3','4','5'].includes(rk)) return 5;
+    return 6;
+  }
+  return r + 3;                                  // SF..Nothing shift by 3
+}
+
 // Card value 2..14 (ace high; ace-low handled inside the straight checks)
 function rankVal(r){
   return r==='A'?14 : r==='K'?13 : r==='Q'?12 : r==='J'?11 : parseInt(r,10);
@@ -1468,6 +1799,32 @@ function winCardsDDB(cat){
   else if(cat <= 6) base = 2;
   else base = cat - 4;
   return winCardsStandard(base, false);
+}
+
+// Super Double Bonus: quads span cats 2–5
+function winCardsSDB(cat){
+  let base;
+  if(cat < 2) base = cat;
+  else if(cat <= 5) base = 2;
+  else base = cat - 3;
+  return winCardsStandard(base, false);
+}
+
+// Super Double Double Bonus: kicker quads (2–5) flash all five; quads 6–9
+function winCardsSDDB(cat){
+  if(cat >= 2 && cat <= 5) return [0,1,2,3,4];
+  let base;
+  if(cat < 2) base = cat;
+  else if(cat <= 9) base = 2;
+  else base = cat - 7;
+  return winCardsStandard(base, false);
+}
+
+// Bonus Deuces Wild: map onto the Deuces Wild layout
+function winCardsBDeuces(cat){
+  if(cat === 1) return [0,1,2,3,4];              // four deuces + ace — all five matter
+  const map = { 0:0, 2:1, 3:2, 4:3, 5:3, 6:3, 7:4, 8:5, 9:6, 10:7, 11:8, 12:9, 13:10 };
+  return winCardsDeuces(map[cat]);
 }
 
 function winCardsJoker(cat){
@@ -1619,7 +1976,8 @@ function showGameSelect(){
     'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)',
     'border:2px solid #2a4a9a','border-radius:14px',
     'box-shadow:0 0 30px rgba(20,60,180,0.6)',
-    'padding:20px 24px','width:min(420px,92vw)',
+    'padding:20px 24px','width:min(460px,92vw)',
+    'max-height:90vh','overflow-y:auto',   // 15 games — panel scrolls
     'display:flex','flex-direction:column','gap:12px',
   ].join(';');
 
@@ -2014,16 +2372,30 @@ function toggleHold(i){
   badges[i].classList.toggle('visible', held[i]);
 }
 
-// Flash a glow around the cards that make up a dealt winning hand
-function flashWinningCards(cat){
+// Flash a glow around the cards that make up a winning hand.
+// times: 1 = single flash (initial deal), 2 = double flash (final hand)
+function flashWinningCards(cat, times = 1){
+  const cls = times >= 2 ? 'win-flash-2' : 'win-flash-1';
   const idxs = curGame().winCards(cat);
   const cardEls = document.querySelectorAll('.card');
   idxs.forEach(i => {
     const el = cardEls[i];
     if(!el) return;
-    el.classList.add('win-flash');
-    setTimeout(() => el.classList.remove('win-flash'), 1400);
+    el.classList.add(cls);
+    setTimeout(() => el.classList.remove(cls), times * 500 + 100);
   });
+}
+
+// Highlight Error: red-flash the optimal cards to hold (pre-draw)
+function flashErrorCards(mask){
+  const cardEls = document.querySelectorAll('.card');
+  for(let i=0;i<5;i++){
+    if(!(mask & (1<<i))) continue;
+    const el = cardEls[i];
+    if(!el) continue;
+    el.classList.add('err-flash');
+    setTimeout(() => el.classList.remove('err-flash'), 650);
+  }
 }
 
 // ════════════════════════════════════════════════════════════
@@ -2094,7 +2466,7 @@ async function dealCore(){
     if(dealtPays > 0){
       lastHandIdx = dealtCat;
       buildPayTable();                       // highlight the pay-table row
-      flashWinningCards(dealtCat);
+      flashWinningCards(dealtCat, 1);        // single flash on the deal
       sfx.dealtWin();
       setMessage('Select cards to hold, then Draw', false);
       const name = curPayRows()[dealtCat].name.toUpperCase();
@@ -2139,6 +2511,17 @@ async function dealCore(){
     let playerMask = 0;
     for(let i=0;i<5;i++) if(held[i]) playerMask |= (1<<i);
     const handAnalysis = analysisPromise || startAnalysisAsync(preHand, preDeck);
+
+    // Highlight Error: on a non-optimal hold, red-flash the cards that
+    // should have been held — while they're still face-up, before the draw
+    if(highlightErrOn){
+      const ranked = analysisResults || await handAnalysis;
+      if(ranked && ranked.length && ranked[0].mask !== playerMask){
+        flashErrorCards(ranked[0].mask);
+        sfx.thump();
+        await new Promise(r => setTimeout(r, 700));
+      }
+    }
 
     // Draw: replace non-held cards
     for(let i=0;i<5;i++){
@@ -2195,9 +2578,11 @@ async function dealCore(){
     if(winCoins > 0) animateCredits(prevCredits, credits);  // counts up credits
 
     if(winCoins > 0){
+      flashWinningCards(handIdx, 2);   // double flash on the final hand
       // Jackpot fanfare for the top-line hands, arpeggio for the rest
       const jackpot = (handIdx === 0 && coinBet === 5) ||
-                      (currentGame === 'deuces' && handIdx === 1);
+                      (currentGame === 'deuces' && handIdx === 1) ||
+                      (currentGame === 'bdeuces' && handIdx <= 2);
       if(jackpot) sfx.jackpot(); else sfx.win();
       const msg = handIdx===0 && coinBet===5
         ? '🎰 ' + payRows[0].name.toUpperCase() + ' — JACKPOT! 🎰'
@@ -2297,11 +2682,16 @@ function iterCombos(arr, k, fn) {
 // is built from a Blob of this file's own evaluator functions, so the game
 // stays a single self-contained file (and works offline).
 function evWorkerSource(){
-  const fns = [rankIndex, evaluate, rankVal, evalBonusStyle, evalDeuces, evalTens, evalDDB, evalJoker, iterCombos]
+  const fns = [rankIndex, evaluate, rankVal, evalBonusStyle, evalDeuces, evalTens, evalDDB,
+               evalJoker, evalJokerTP, evalTripleBonus, evalSuperDB, evalSuperDDB,
+               evalBonusDeuces, iterCombos]
     .map(f => f.toString()).join('\n');
   const main = `
-const EVAL_FNS = { jacks: evaluate, tens: evalTens, bonus: evalBonusStyle, dbonus: evalBonusStyle,
-                   ddbonus: evalDDB, joker: evalJoker, deuces: evalDeuces };
+const EVAL_FNS = { jacks: evaluate, tens: evalTens, allamerican: evaluate, bonus: evalBonusStyle,
+                   bpdeluxe: evaluate, dbonus: evalBonusStyle, ddbonus: evalDDB,
+                   tbonus: evalTripleBonus, tdbonus: evalDDB, sdbonus: evalSuperDB,
+                   sddbonus: evalSuperDDB, joker: evalJoker, joker2: evalJokerTP,
+                   deuces: evalDeuces, bdeuces: evalBonusDeuces };
 self.onmessage = e => {
   const { token, gameKey, rows, coinBet, hand, deck } = e.data;
   const evalFn = EVAL_FNS[gameKey];
@@ -3260,6 +3650,14 @@ function showSettings() {
       saveState();
       if(v && phase === 'holding' && !analysisResults) startAnalysisAsync();
     }
+  ));
+
+  // Highlight Error: red-flash the optimal hold when a non-optimal play is made
+  panel.appendChild(makeToggleRow(
+    'Highlight Error',
+    [{ label:'On', value:true }, { label:'Off', value:false }],
+    () => highlightErrOn,
+    v => { highlightErrOn = v; saveState(); }
   ));
 
   // ── Analyze a Hand: pick any five cards, see the full EV table ──

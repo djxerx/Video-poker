@@ -1,0 +1,157 @@
+VIDEO POKER — GAMES, PAY TABLES & VARIATIONS
+=============================================
+All payouts are PER COIN bet. The Royal Flush (or Natural Royal) pays a
+jackpot bonus at max coins: 250/coin at 1-4 coins, 800/coin (4000 total)
+at 5 coins, except where noted. Returns assume optimal play at max coins.
+Sources: Wizard of Odds pay tables and video poker cheat sheet.
+
+============================= NON-WILD GAMES =============================
+
+JACKS OR BETTER
+  Hands: Royal Flush 250(4000), Straight Flush 50, Four of a Kind 25,
+         Full House, Flush, Straight 4, Three of a Kind 3, Two Pair 2,
+         Jacks or Better 1
+  Variations (Full House / Flush):
+    9/6  Full Pay ....... 99.54%
+    8/6  ................ 98.39%
+    9/5  ................ 98.45%
+    8/5  ................ 97.30%
+
+TENS OR BETTER
+  Hands: as Jacks or Better, but the minimum paying pair is TENS;
+         Full House 6, Flush 5 fixed
+  Variations (Four of a Kind):
+    25/6/5  Full Pay .... 99.14%
+    20/6/5  ............. 97.96%
+
+ALL AMERICAN
+  Hands: Royal Flush 250(4000), Straight Flush 200, Four of a Kind (varies),
+         Full House 8, Flush 8, Straight 8, Three of a Kind 3, Two Pair 1,
+         Jacks or Better 1
+  Variations (Four of a Kind):
+    35/8  Full Pay ...... 99.60%
+    30/8  ............... 98.49%
+    25/8  ............... 97.38%
+
+BONUS POKER
+  Hands: Royal Flush 250(4000), Straight Flush 50, Four Aces 80,
+         Four 2s-4s 40, Four 5s-Ks 25, Full House, Flush, Straight 4,
+         Three of a Kind 3, Two Pair 2, Jacks or Better 1
+  Variations (Full House / Flush):
+    8/5  Full Pay ....... 99.17%
+    7/5  ................ 98.01%
+    6/5  ................ 96.87%
+
+BONUS POKER DELUXE
+  Hands: Royal Flush 250(4000), Straight Flush 50, Four of a Kind 80 (all),
+         Full House, Flush, Straight 4, Three of a Kind 3, Two Pair 1,
+         Jacks or Better 1
+  Variations (Full House / Flush):
+    9/6  Full Pay ....... 99.64%
+    8/6  ................ 98.49%
+    8/5  ................ 97.40%
+
+DOUBLE BONUS POKER
+  Hands: Royal Flush 250(4000), Straight Flush 50, Four Aces 160,
+         Four 2s-4s 80, Four 5s-Ks 50, Full House, Flush, Straight 5,
+         Three of a Kind 3, Two Pair 1, Jacks or Better 1
+  Variations (Full House / Flush):
+    10/7  Full Pay ...... 100.17%
+    9/7   ............... 99.11%
+    9/6   ............... 97.81%
+
+DOUBLE DOUBLE BONUS
+  Hands: Royal Flush 250(4000), Straight Flush 50,
+         4 Aces + 2-4 kicker 400, 4 2s-4s + A-4 kicker 160,
+         Four Aces 160, Four 2s-4s 80, Four 5s-Ks 50,
+         Full House, Flush, Straight 4, Three of a Kind 3, Two Pair 1,
+         Jacks or Better 1
+  Variations (Full House / Flush):
+    10/6  Full Pay ...... 100.07%
+    9/6   ............... 98.98%
+    9/5   ............... 97.87%
+
+TRIPLE BONUS
+  Hands: Royal Flush 250(4000), Straight Flush 50, Four Aces 240,
+         Four 2s-4s 120, Four 5s-Ks 75, Full House, Flush, Straight,
+         Three of a Kind 3, Two Pair 1, KINGS or Better 1
+         (minimum paying pair is Kings)
+  Variations (Full House / Flush / Straight):
+    10/7/5  Full Pay .... 99.94%
+    11/7/4  ............. 99.59%
+    10/7/4  ............. 98.52%
+
+TRIPLE DOUBLE BONUS
+  Hands: Royal Flush 250(4000), Straight Flush 50,
+         4 Aces + 2-4 kicker 800, 4 2s-4s + A-4 kicker 400,
+         Four Aces 160, Four 2s-4s 80, Four 5s-Ks 50,
+         Full House 9, Flush (varies), Straight 4, Three of a Kind 2,
+         Two Pair 1, Jacks or Better 1
+  Variations (Full House / Flush):
+    9/7  Full Pay ....... 99.58%
+    9/6  ................ 98.15%
+    9/5  ................ 97.02%
+
+SUPER DOUBLE BONUS
+  Hands: Royal Flush 250(4000), Straight Flush 80, Four Aces 160,
+         Four Js-Ks 120, Four 2s-4s 80, Four 5s-10s 50,
+         Full House (varies), Flush 5, Straight 4, Three of a Kind 3,
+         Two Pair 1, Jacks or Better 1
+  Variations (Full House / Flush):
+    9/5  Full Pay ....... 99.69%
+    8/5  ................ 98.69%
+    7/5  ................ 97.77%
+
+SUPER DOUBLE DOUBLE BONUS
+  Hands: Royal Flush 250(4000), Straight Flush 50 or 100,
+         4 Aces + 2-4 kicker 400, 4 Aces + J-K kicker 320,
+         4 2s-4s + A-4 kicker 160, 4 Js-Ks + A/J/Q/K kicker 160,
+         Four Aces 160, Four Js-Ks 80, Four 2s-4s 80, Four 5s-10s 50,
+         Full House (varies), Flush 5, Straight 4, Three of a Kind 3,
+         Two Pair 1, Jacks or Better 1
+  Variations (Full House / Flush, Straight Flush):
+    8/5 (SF 50)  Full Pay  99.69%
+    7/5 (SF 100) ......... 99.17%
+    7/5 (SF 50)  ......... 98.61%
+
+============================== WILD GAMES ===============================
+
+JOKER'S WILD  (Kings or Better) — 53-card deck, one fully wild joker
+  Hands: Natural Royal 250(4000), Five of a Kind 200, Wild Royal 100,
+         Straight Flush 50, Four of a Kind (varies), Full House 7,
+         Flush 5, Straight 3, Three of a Kind 2, Two Pair 1,
+         Kings or Better 1
+  Variations (Four of a Kind):
+    20/7/5  Full Pay .... 100.64%
+    18/7/5  ............. 98.93%
+    17/7/5  ............. 98.09%
+
+JOKER'S WILD  (Two Pair or Better) — 53-card deck, one fully wild joker
+  Hands: Natural Royal, Five of a Kind, Wild Royal, Straight Flush,
+         Four of a Kind, Full House, Flush, Straight, Three of a Kind 2,
+         Two Pair 1  (no pair pays; lowest paying hand is two pair)
+  Variations:
+    20/10/6 Full Pay .... 99.92%
+      (Natural Royal 1000/coin — 5000 at max; 5K 100, WR 50, SF 50,
+       4K 20, FH 10, FL 6, ST 5)
+    16/8/5  ............. 98.59%
+      (Natural Royal 800; 5K 800, WR 100, SF 100, 4K 16, FH 8, FL 5, ST 4)
+
+DEUCES WILD — all four 2s are wild
+  Hands: Natural Royal 250(4000), Four Deuces 200, Wild Royal 25,
+         Five of a Kind, Straight Flush, Four of a Kind, Full House,
+         Flush, Straight 2, Three of a Kind 1
+  Variations (5K / SF / 4K / FH / FL):
+    Full Pay 25/15/9/5/3/2 ....... 100.76%
+    Not So Ugly 25/16/10/4/4/3 ... 99.73%
+    Airport 25/15/10/4/4/3 ....... 98.91%
+
+BONUS DEUCES WILD — all four 2s wild, bonus five-of-a-kinds
+  Hands: Natural Royal 250(4000), Four Deuces + Ace 400, Four Deuces 200,
+         Wild Royal 25, Five Aces 80, Five 3s-5s 40, Five 6s-Ks 20,
+         Straight Flush (varies), Four of a Kind 4, Full House 4,
+         Flush 3, Straight 1, Three of a Kind 1
+  Variations (Straight Flush):
+    10/4/3  Full Pay .... 99.86%
+    9/4/3   ............. 99.45%
+    8/4/3   ............. 99.06%
