@@ -514,6 +514,17 @@
     }
     #message.winning { animation: winFlash 0.5s ease 3; }
 
+    /* ─── Joker card label ──────────────────────────────────── */
+    .joker-label {
+      position: absolute;
+      top: 8px;
+      left: 10px;
+      font-family: 'Arial Black', Arial, sans-serif;
+      font-weight: 900;
+      font-size: 19px;
+      line-height: 1.05;
+    }
+
     /* ─── Winning-card flash (dealt winners) ─────────────────── */
     @keyframes cardWinFlash {
       0%, 100% { box-shadow: var(--shadow); }
@@ -860,7 +871,7 @@
 // ════════════════════════════════════════════════════════════
 const SUITS      = ['♠','♥','♦','♣'];
 const RANKS      = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
-const SUIT_COLOR = { '♠':'black','♣':'black','♥':'red','♦':'red' };
+const SUIT_COLOR = { '♠':'black','♣':'black','♥':'red','♦':'red','★':'black' };
 
 const DENOMINATIONS = [
   { label:'¢25',  value: 0.25 },
@@ -908,6 +919,60 @@ function bonusRows(fourA, four24, four5K, fh, fl, st, twoPair){
     { name:'Three of a Kind', short:'Three\nof a Kind', col:'3Kind',  pays: mult(3)      },
     { name:'Two Pair',        short:'Two\nPair',        col:'2Pair',  pays: mult(twoPair)},
     { name:'Jacks or Better', short:'Jacks\nor Better', col:'Jacks+', pays: mult(1)      },
+    NADA,
+  ];
+}
+
+// Tens or Better: JoB structure, pair of 10s pays, 4K varies (25 = full pay)
+function tensRows(fourK){
+  return [
+    ROYAL,
+    { name:'Straight Flush',  short:'Str.\nFlush',      col:'Str.Fl', pays: mult(50)    },
+    { name:'Four of a Kind',  short:'Four\nof a Kind',  col:'4Kind',  pays: mult(fourK) },
+    { name:'Full House',      short:'Full\nHouse',      col:'Full H', pays: mult(6)     },
+    { name:'Flush',           short:'Flush',            col:'Flush',  pays: mult(5)     },
+    { name:'Straight',        short:'Straight',         col:'Str',    pays: mult(4)     },
+    { name:'Three of a Kind', short:'Three\nof a Kind', col:'3Kind',  pays: mult(3)     },
+    { name:'Two Pair',        short:'Two\nPair',        col:'2Pair',  pays: mult(2)     },
+    { name:'Tens or Better',  short:'Tens\nor Better',  col:'Tens+',  pays: mult(1)     },
+    NADA,
+  ];
+}
+
+// Double Double Bonus: quads split by rank AND kicker
+function ddbRows(fh, fl){
+  return [
+    ROYAL,
+    { name:'Straight Flush',  short:'Str.\nFlush',      col:'Str.Fl',  pays: mult(50)  },
+    { name:'4 Aces + 2-4',    short:'4 Aces\n+ 2-4',    col:'4A+k',    pays: mult(400) },
+    { name:'4 2s–4s + A-4',   short:'4 2s–4s\n+ A-4',   col:'424+k',   pays: mult(160) },
+    { name:'Four Aces',       short:'Four\nAces',       col:'4 Aces',  pays: mult(160) },
+    { name:'Four 2s–4s',      short:'Four\n2s–4s',      col:'4 2-4',   pays: mult(80)  },
+    { name:'Four 5s–Ks',      short:'Four\n5s–Ks',      col:'4 5-K',   pays: mult(50)  },
+    { name:'Full House',      short:'Full\nHouse',      col:'Full H',  pays: mult(fh)  },
+    { name:'Flush',           short:'Flush',            col:'Flush',   pays: mult(fl)  },
+    { name:'Straight',        short:'Straight',         col:'Str',     pays: mult(4)   },
+    { name:'Three of a Kind', short:'Three\nof a Kind', col:'3Kind',   pays: mult(3)   },
+    { name:'Two Pair',        short:'Two\nPair',        col:'2Pair',   pays: mult(1)   },
+    { name:'Jacks or Better', short:'Jacks\nor Better', col:'Jacks+',  pays: mult(1)   },
+    NADA,
+  ];
+}
+
+// Joker Poker (Kings or Better): 53-card deck, joker fully wild
+function jokerRows(fourK){
+  return [
+    { name:'Natural Royal',   short:'Natural\nRoyal',   col:'N.Royal', pays:[250,500,750,1000,4000] },
+    { name:'Five of a Kind',  short:'Five\nof a Kind',  col:'5Kind',   pays: mult(200)   },
+    { name:'Wild Royal',      short:'Wild\nRoyal',      col:'W.Royal', pays: mult(100)   },
+    { name:'Straight Flush',  short:'Str.\nFlush',      col:'Str.Fl',  pays: mult(50)    },
+    { name:'Four of a Kind',  short:'Four\nof a Kind',  col:'4Kind',   pays: mult(fourK) },
+    { name:'Full House',      short:'Full\nHouse',      col:'Full H',  pays: mult(7)     },
+    { name:'Flush',           short:'Flush',            col:'Flush',   pays: mult(5)     },
+    { name:'Straight',        short:'Straight',         col:'Str',     pays: mult(3)     },
+    { name:'Three of a Kind', short:'Three\nof a Kind', col:'3Kind',   pays: mult(2)     },
+    { name:'Two Pair',        short:'Two\nPair',        col:'2Pair',   pays: mult(1)     },
+    { name:'Kings or Better', short:'Kings\nor Better', col:'Kings+',  pays: mult(1)     },
     NADA,
   ];
 }
@@ -963,6 +1028,39 @@ const GAMES = {
     evaluate: cards => evalBonusStyle(cards),
     winCards: cat => winCardsStandard(cat, true),
   },
+  tens: {
+    name: 'Tens or Better',
+    titleHTML: '<span class="t-red">Tens</span> <span class="t-yellow">or</span> <span class="t-red">Better</span>',
+    payTables: [
+      { label:'25/6/5 Full Pay', rows: tensRows(25) },
+      { label:'20/6/5',          rows: tensRows(20) },
+    ],
+    evaluate: cards => evalTens(cards),
+    winCards: cat => winCardsStandard(cat, false),
+  },
+  ddbonus: {
+    name: 'Double Double Bonus',
+    titleHTML: '<span class="t-red">Double Double</span> <span class="t-yellow">Bonus</span>',
+    payTables: [
+      { label:'10/6 Full Pay', rows: ddbRows(10,6) },
+      { label:'9/6',           rows: ddbRows(9,6)  },
+      { label:'9/5',           rows: ddbRows(9,5)  },
+    ],
+    evaluate: cards => evalDDB(cards),
+    winCards: cat => winCardsDDB(cat),
+  },
+  joker: {
+    name: 'Joker Poker',
+    titleHTML: '<span class="t-red">Joker</span> <span class="t-yellow">Poker</span>',
+    joker: true,
+    payTables: [
+      { label:'20/7/5 Full Pay', rows: jokerRows(20) },
+      { label:'18/7/5',          rows: jokerRows(18) },
+      { label:'17/7/5',          rows: jokerRows(17) },
+    ],
+    evaluate: cards => evalJoker(cards),
+    winCards: cat => winCardsJoker(cat),
+  },
   deuces: {
     name: 'Deuces Wild',
     titleHTML: '<span class="t-red">Deuces</span> <span class="t-yellow">Wild</span>',
@@ -975,7 +1073,7 @@ const GAMES = {
     winCards: cat => winCardsDeuces(cat),
   },
 };
-const GAME_KEYS = ['jacks','bonus','dbonus','deuces'];
+const GAME_KEYS = ['jacks','tens','bonus','dbonus','ddbonus','joker','deuces'];
 
 // ════════════════════════════════════════════════════════════
 //  STATE
@@ -1001,6 +1099,7 @@ let dealDelay    = 350;         // ms — stagger between each card being dealt
 let theme        = 'modern';    // 'modern' | 'classic' (Game King look)
 let soundOn      = true;
 let trainerOn    = false;       // thump + retry on non-optimal hold
+let graphShowOpt = true;        // show the optimal-play line on the graph
 
 let deck            = [];
 let analysisResults = null;   // pre-computed EV table for the current deal
@@ -1033,7 +1132,7 @@ function saveState() {
     syncToGameState();
     localStorage.setItem(SAVE_KEY, JSON.stringify({
       v: 2, currentGame, games: gameState,
-      coinBet, denomIdx, flipDuration, dealDelay, theme, soundOn, trainerOn,
+      coinBet, denomIdx, flipDuration, dealDelay, theme, soundOn, trainerOn, graphShowOpt,
     }));
   } catch(e) {}
 }
@@ -1069,8 +1168,9 @@ function loadState() {
     if (typeof s.flipDuration === 'number' && s.flipDuration >= 0)                flipDuration = s.flipDuration;
     if (typeof s.dealDelay    === 'number' && s.dealDelay    >= 0)                dealDelay    = s.dealDelay;
     if (s.theme === 'classic' || s.theme === 'modern')                            theme        = s.theme;
-    if (typeof s.soundOn   === 'boolean')                                         soundOn      = s.soundOn;
-    if (typeof s.trainerOn === 'boolean')                                         trainerOn    = s.trainerOn;
+    if (typeof s.soundOn      === 'boolean')                                      soundOn      = s.soundOn;
+    if (typeof s.trainerOn    === 'boolean')                                      trainerOn    = s.trainerOn;
+    if (typeof s.graphShowOpt === 'boolean')                                      graphShowOpt = s.graphShowOpt;
   } catch(e) {}
   syncFromGameState();
 }
@@ -1143,7 +1243,7 @@ const sfx = {
 function recordHand(winCoins, resName) {
   // res: hand result name; opt/optRes/sub are patched in asynchronously
   // once the background analysis resolves the optimal counterfactual
-  handHistory.push({ credits, delta: winCoins - coinBet, type: 'hand', res: resName || '' });
+  handHistory.push({ credits, delta: winCoins - coinBet, type: 'hand', res: resName || '', bet: coinBet });
   if (handHistory.length > 1000) handHistory.shift();
   return handHistory[handHistory.length - 1];
 }
@@ -1162,9 +1262,14 @@ let lastHandIdx= -1;
 // ════════════════════════════════════════════════════════════
 //  DECK
 // ════════════════════════════════════════════════════════════
+function fullDeckFor(){
+  const d = [];
+  for(const s of SUITS) for(const r of RANKS) d.push({rank:r,suit:s});
+  if(curGame().joker) d.push({ rank:'JOKER', suit:'★', joker:true });
+  return d;
+}
 function buildDeck(){
-  deck = [];
-  for(const s of SUITS) for(const r of RANKS) deck.push({rank:r,suit:s});
+  deck = fullDeckFor();
 }
 function shuffle(arr){
   for(let i=arr.length-1;i>0;i--){
@@ -1179,7 +1284,7 @@ function dealCard(){ return deck.pop(); }
 // ════════════════════════════════════════════════════════════
 function rankIndex(r){ return RANKS.indexOf(r); }
 
-function evaluate(cards){
+function evaluate(cards, highPairs){
   const ri   = cards.map(c=>rankIndex(c.rank)).sort((a,b)=>a-b);
   const suits = cards.map(c=>c.suit);
   const ranks  = cards.map(c=>c.rank);
@@ -1204,12 +1309,74 @@ function evaluate(cards){
   if(isStraight)                      return 5; // Straight
   if(counts[0]===3)                   return 6; // Three of a Kind
   if(counts[0]===2 && counts[1]===2)  return 7; // Two Pair
-  // Jacks or Better: pair of J,Q,K,A
+  // High pair: J,Q,K,A by default; Tens or Better passes its own list
   if(counts[0]===2){
+    const hp = highPairs || ['J','Q','K','A'];
     const paired=Object.keys(freq).filter(r=>freq[r]===2);
-    if(paired.some(r=>['J','Q','K','A'].includes(r))) return 8;
+    if(paired.some(r=>hp.includes(r))) return 8;
   }
   return 9; // Nothing
+}
+
+// Tens or Better: identical structure, pair floor drops to 10s
+function evalTens(cards){
+  return evaluate(cards, ['10','J','Q','K','A']);
+}
+
+// Double Double Bonus: quads split by rank AND kicker.
+// Categories: 0 Royal, 1 SF, 2 4A+2-4 kicker, 3 4(2-4)+A-4 kicker,
+// 4 Four Aces, 5 Four 2s–4s, 6 Four 5s–Ks, 7 FH, 8 FL, 9 ST,
+// 10 3K, 11 2P, 12 JoB, 13 Nothing
+function evalDDB(cards){
+  const base = evaluate(cards);
+  if(base === 2){
+    const freq = {};
+    cards.forEach(c => freq[c.rank] = (freq[c.rank]||0)+1);
+    const qr     = Object.keys(freq).find(r => freq[r] === 4);
+    const kicker = Object.keys(freq).find(r => freq[r] === 1);
+    if(qr === 'A')                 return ['2','3','4'].includes(kicker)     ? 2 : 4;
+    if(['2','3','4'].includes(qr)) return ['A','2','3','4'].includes(kicker) ? 3 : 5;
+    return 6;
+  }
+  return base < 2 ? base : base + 4;
+}
+
+// Joker Poker (Kings or Better): one fully-wild joker.
+// Categories: 0 Natural Royal, 1 Five of a Kind, 2 Wild Royal, 3 SF,
+// 4 4K, 5 FH, 6 FL, 7 ST, 8 3K, 9 2P, 10 Kings or Better, 11 Nothing
+function evalJoker(cards){
+  const j      = cards.filter(c => c.joker).length;
+  const others = cards.filter(c => !c.joker);
+  const vals     = others.map(c => rankVal(c.rank));
+  const flush    = others.every(c => c.suit === others[0].suit);
+  const distinct = new Set(vals).size === vals.length;
+  const freq = {};
+  others.forEach(c => freq[c.rank] = (freq[c.rank]||0)+1);
+  const counts = Object.values(freq).sort((a,b)=>b-a);
+  const maxK   = (counts[0]||0) + j;
+  let straight = false;
+  if(distinct){
+    for(const aceLow of [false, true]){
+      const v = vals.map(x => (x===14 && aceLow) ? 1 : x);
+      if(Math.max(...v) - Math.min(...v) <= 4){ straight = true; break; }
+    }
+  }
+  const royalRanks = flush && distinct && vals.every(v => v >= 10);
+  if(j === 0 && royalRanks && straight && others.length === 5) return 0;  // Natural Royal
+  if(counts.length === 1 && counts[0] + j === 5)               return 1;  // Five of a Kind
+  if(royalRanks && j === 1)                                    return 2;  // Wild Royal
+  if(flush && straight)                                        return 3;  // Straight Flush
+  if(maxK >= 4)                                                return 4;  // Four of a Kind
+  if((j===0 && counts[0]===3 && counts[1]===2) ||
+     (j===1 && counts[0]===2 && counts[1]===2))                return 5;  // Full House
+  if(flush)                                                    return 6;
+  if(straight)                                                 return 7;
+  if(maxK >= 3)                                                return 8;  // Three of a Kind
+  if(j===0 && counts[0]===2 && counts[1]===2)                  return 9;  // Two Pair
+  // Kings or Better: natural pair of K/A, or joker + a K/A
+  if((j===0 && Object.keys(freq).some(r => freq[r]===2 && (r==='K'||r==='A'))) ||
+     (j===1 && others.some(c => c.rank==='K' || c.rank==='A'))) return 10;
+  return 11;
 }
 
 // Card value 2..14 (ace high; ace-low handled inside the straight checks)
@@ -1288,8 +1455,38 @@ function winCardsStandard(cat, isBonus){
     case 2: { const r = Object.keys(freq).find(r => freq[r]===4); return idxOf(c=>c.rank===r); }
     case 6: { const r = Object.keys(freq).find(r => freq[r]===3); return idxOf(c=>c.rank===r); }
     case 7: { const rs = Object.keys(freq).filter(r => freq[r]===2); return idxOf(c=>rs.includes(c.rank)); }
-    case 8: { const r = Object.keys(freq).find(r => freq[r]===2 && ['J','Q','K','A'].includes(r)); return idxOf(c=>c.rank===r); }
+    case 8: { const r = Object.keys(freq).find(r => freq[r]===2 && ['10','J','Q','K','A'].includes(r)); return idxOf(c=>c.rank===r); }
     default: return [];
+  }
+}
+
+// Double Double Bonus: kicker quads flash all five; map the rest onto JoB layout
+function winCardsDDB(cat){
+  if(cat === 2 || cat === 3) return [0,1,2,3,4];
+  let base;
+  if(cat < 2) base = cat;
+  else if(cat <= 6) base = 2;
+  else base = cat - 4;
+  return winCardsStandard(base, false);
+}
+
+function winCardsJoker(cat){
+  const idxOf = pred => hand.map((c,i) => pred(c) ? i : -1).filter(i => i >= 0);
+  const freq = {};
+  hand.forEach(c => { if(!c.joker) freq[c.rank] = (freq[c.rank]||0)+1; });
+  switch(cat){
+    case 4: case 8: {                       // 4K / 3K: joker + kind rank
+      const r = Object.keys(freq).sort((a,b)=>freq[b]-freq[a])[0];
+      return idxOf(c => c.joker || c.rank === r);
+    }
+    case 9: { const rs = Object.keys(freq).filter(r => freq[r]===2); return idxOf(c => rs.includes(c.rank)); }
+    case 10: {                              // Kings or Better (may use the joker)
+      const r = Object.keys(freq).find(r => freq[r]===2 && (r==='K'||r==='A')) ||
+                (freq['K'] ? 'K' : 'A');
+      return idxOf(c => c.joker || c.rank === r);
+    }
+    case 11: return [];
+    default: return [0,1,2,3,4];            // royals, 5K, SF, FH, FL, ST
   }
 }
 
@@ -1641,6 +1838,19 @@ function classicPortraitSVG(rank){
 function buildCardFace(card){
   const face=document.createElement('div');
   face.className='card-face '+(SUIT_COLOR[card.suit]);
+
+  // Joker gets its own face: vertical JOKER label + star pip
+  if(card.joker){
+    const jl=document.createElement('div');
+    jl.className='joker-label';
+    jl.innerHTML='J<br>O<br>K<br>E<br>R';
+    face.appendChild(jl);
+    const bottom=document.createElement('div');
+    bottom.className='bottom-suit';
+    bottom.textContent='★';
+    face.appendChild(bottom);
+    return face;
+  }
 
   // Top-left corner: rank with small suit beneath it (suit shown in classic only)
   const tl=document.createElement('div');
@@ -2087,10 +2297,11 @@ function iterCombos(arr, k, fn) {
 // is built from a Blob of this file's own evaluator functions, so the game
 // stays a single self-contained file (and works offline).
 function evWorkerSource(){
-  const fns = [rankIndex, evaluate, rankVal, evalBonusStyle, evalDeuces, iterCombos]
+  const fns = [rankIndex, evaluate, rankVal, evalBonusStyle, evalDeuces, evalTens, evalDDB, evalJoker, iterCombos]
     .map(f => f.toString()).join('\n');
   const main = `
-const EVAL_FNS = { jacks: evaluate, bonus: evalBonusStyle, dbonus: evalBonusStyle, deuces: evalDeuces };
+const EVAL_FNS = { jacks: evaluate, tens: evalTens, bonus: evalBonusStyle, dbonus: evalBonusStyle,
+                   ddbonus: evalDDB, joker: evalJoker, deuces: evalDeuces };
 self.onmessage = e => {
   const { token, gameKey, rows, coinBet, hand, deck } = e.data;
   const evalFn = EVAL_FNS[gameKey];
@@ -2224,11 +2435,37 @@ function computeAllEVs(snapHand, snapDeck) {
   return out.sort((a,b) => b.ev - a.ev);
 }
 
-function showAnalysis() {
+// One-off analysis of an arbitrary hand+deck (used by "Analyze a Hand").
+// Runs in the worker on a separate token space so it never disturbs the
+// live game's analysisResults/analysisPromise/token state.
+let adhocToken = 1000000000;
+function analyzeHandAsync(h, d){
+  const token = ++adhocToken;
+  return new Promise(resolve => {
+    try {
+      evPending[token] = resolve;
+      getEVWorker().postMessage({
+        token, gameKey: currentGame, rows: curPayRows(), coinBet,
+        hand: h.slice(), deck: d.slice(),
+      });
+    } catch(err) {
+      delete evPending[token];
+      resolve(computeAllEVs(h.slice(), d.slice()));
+    }
+  });
+}
+
+// customHand/customDeck: analyze a hypothetical hand (no "you" row/footer)
+function showAnalysis(customHand, customDeck) {
+  const isCustom = !!customHand;
+  const aHand = customHand || hand;
   const denom = DENOMINATIONS[denomIdx].value;
 
-  let playerMask = 0;
-  for(let i=0;i<5;i++) if(held[i]) playerMask |= (1<<i);
+  let playerMask = -1;             // custom hands have no player hold
+  if(!isCustom){
+    playerMask = 0;
+    for(let i=0;i<5;i++) if(held[i]) playerMask |= (1<<i);
+  }
 
   // Column order: most common → rarest (reverse of the pay-table order)
   const HAND_COLS = curPayRows()
@@ -2266,11 +2503,12 @@ function showAnalysis() {
     'color:#f0c040','letter-spacing:3px','text-transform:uppercase',
     'text-shadow:0 0 8px rgba(240,192,64,0.5)','flex-shrink:0',
   ].join(';');
-  title.textContent = 'Optimal Hold Analysis';
+  title.textContent = isCustom ? curGame().name + ' — Hand Analysis' : 'Optimal Hold Analysis';
 
   const handLine = document.createElement('div');
   handLine.style.cssText = 'text-align:center;font-size:12px;color:#c0c8d8;letter-spacing:1px;flex-shrink:0;';
-  handLine.textContent = 'Hand:  ' + hand.map(c=>c.rank+c.suit).join('   ');
+  const cardLabel = c => c.joker ? 'JKR' : c.rank + c.suit;
+  handLine.textContent = 'Hand:  ' + aHand.map(cardLabel).join('   ');
 
   // ── Scrollable table wrapper ───────────────────────────────
   const scroll = document.createElement('div');
@@ -2434,7 +2672,7 @@ function showAnalysis() {
       let label;
       if(combo.mask === 0b11111) label = 'Hold all 5';
       else if(combo.mask === 0)  label = 'Draw 5 new';
-      else label = combo.heldCards.map(c=>c.rank+c.suit).join(' ');
+      else label = combo.heldCards.map(cardLabel).join(' ');
       holdTd.style.cssText = `padding:5px 4px;font-size:17px;white-space:nowrap;` +
         (isPlayer ? 'color:#f0c040;font-weight:bold;' : 'color:#c0c8d8;');
       holdTd.textContent = label + (isPlayer ? ' ← you' : '');
@@ -2456,7 +2694,9 @@ function showAnalysis() {
     // Footer
     const footer = document.createElement('div');
     footer.style.cssText = 'text-align:center;font-size:15px;color:#8899bb;padding:6px 0 2px;';
-    if(playerRank === 1){
+    if(isCustom){
+      footer.textContent = 'Hypothetical hand — best holds ranked from all 32 options';
+    } else if(playerRank === 1){
       footer.textContent = '✓ Optimal hold selected';
       footer.style.color = '#3cdc64';
     } else {
@@ -2477,7 +2717,11 @@ function showAnalysis() {
 
   // Compute in the worker on button press; modal renders (and stays
   // responsive) while it runs. Reuses the trainer's result if ready.
-  if(analysisResults){
+  if(isCustom){
+    analyzeHandAsync(customHand, customDeck).then(results => {
+      if(overlay.parentNode) render(results);
+    });
+  } else if(analysisResults){
     setTimeout(() => render(analysisResults), 30);
   } else {
     const p = analysisPromise || startAnalysisAsync();
@@ -2486,6 +2730,212 @@ function showAnalysis() {
       if(overlay.parentNode && token === analysisToken) render(results);
     });
   }
+}
+
+// ════════════════════════════════════════════════════════════
+//  ANALYZE-A-HAND PICKER
+//  Ten quick presses: rank then suit, five times over. Feeds the
+//  chosen hand into the same EV analysis screen as the Analyze button.
+// ════════════════════════════════════════════════════════════
+function showHandPicker(){
+  sfx.button();
+  const cards = [];
+  let pendingRank = null;
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = [
+    'position:fixed','inset:0','z-index:10000',
+    'background:rgba(0,5,25,0.9)',
+    'display:flex','align-items:center','justify-content:center',
+    'font-family:Arial,Helvetica,sans-serif',
+  ].join(';');
+
+  const panel = document.createElement('div');
+  panel.style.cssText = [
+    'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)',
+    'border:2px solid #2a4a9a','border-radius:14px',
+    'box-shadow:0 0 30px rgba(20,60,180,0.6)',
+    'padding:18px 22px','width:min(520px,94vw)',
+    'display:flex','flex-direction:column','gap:14px','align-items:center',
+  ].join(';');
+
+  const title = document.createElement('div');
+  title.style.cssText = 'font-size:16px;font-weight:bold;color:#f0c040;letter-spacing:3px;text-transform:uppercase;';
+  title.textContent = 'Analyze a Hand';
+
+  const hint = document.createElement('div');
+  hint.style.cssText = 'font-size:11px;color:#8899bb;text-align:center;';
+  hint.textContent = 'Tap a rank, then a suit — five times. (' + curGame().name + ')';
+
+  // ── Five card slots ─────────────────────────────────────
+  const slotsRow = document.createElement('div');
+  slotsRow.style.cssText = 'display:flex;gap:8px;';
+  const slots = [];
+  for(let i=0;i<5;i++){
+    const s = document.createElement('div');
+    s.style.cssText = [
+      'width:58px','height:78px','border:2px dashed #3a5aaa','border-radius:8px',
+      'background:#0a1a40','display:flex','align-items:center','justify-content:center',
+      'font-size:20px','font-weight:bold','color:#c0c8d8',
+    ].join(';');
+    slots.push(s);
+    slotsRow.appendChild(s);
+  }
+
+  const status = document.createElement('div');
+  status.style.cssText = 'font-size:12px;color:#ff8080;min-height:15px;';
+
+  // ── Rank buttons ────────────────────────────────────────
+  const rankRow = document.createElement('div');
+  rankRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;justify-content:center;';
+  const rankBtns = {};
+  const mkBtn = (label, wide) => {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.style.cssText = [
+      'font-family:Arial,Helvetica,sans-serif','font-size:15px','font-weight:bold',
+      `min-width:${wide ? 64 : 40}px`,'padding:9px 4px',
+      'background:#1a2a60','border:2px solid #3a5aaa','border-radius:7px',
+      'color:#e0e8f8','cursor:pointer','touch-action:manipulation',
+    ].join(';');
+    return b;
+  };
+  RANKS.forEach(r => {
+    const b = mkBtn(r);
+    b.addEventListener('click', () => {
+      if(cards.length >= 5) return;
+      pendingRank = r;
+      sfx.hold();
+      refresh();
+    });
+    rankBtns[r] = b;
+    rankRow.appendChild(b);
+  });
+  if(curGame().joker){
+    const b = mkBtn('JOKER', true);
+    b.addEventListener('click', () => {
+      if(cards.length >= 5) return;
+      if(cards.some(c => c.joker)){ status.textContent = 'The joker is already in the hand.'; return; }
+      cards.push({ rank:'JOKER', suit:'★', joker:true });
+      pendingRank = null;
+      status.textContent = '';
+      sfx.hold();
+      refresh();
+    });
+    rankBtns.JOKER = b;
+    rankRow.appendChild(b);
+  }
+
+  // ── Suit buttons ────────────────────────────────────────
+  const suitRow = document.createElement('div');
+  suitRow.style.cssText = 'display:flex;gap:8px;justify-content:center;';
+  const suitBtns = [];
+  SUITS.forEach(s => {
+    const b = mkBtn(s, true);
+    b.style.fontSize = '26px';
+    b.style.color = SUIT_COLOR[s] === 'red' ? '#ff6060' : '#e0e8f8';
+    b.addEventListener('click', () => {
+      if(!pendingRank || cards.length >= 5) return;
+      if(cards.some(c => c.rank === pendingRank && c.suit === s)){
+        status.textContent = pendingRank + s + ' is already in the hand.';
+        sfx.thump();
+        return;
+      }
+      cards.push({ rank: pendingRank, suit: s });
+      pendingRank = null;
+      status.textContent = '';
+      sfx.hold();
+      refresh();
+    });
+    suitBtns.push(b);
+    suitRow.appendChild(b);
+  });
+
+  // ── Action buttons ──────────────────────────────────────
+  const actRow = document.createElement('div');
+  actRow.style.cssText = 'display:flex;gap:10px;justify-content:center;flex-wrap:wrap;';
+  const mkAct = (label, bg, border, color) => {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.style.cssText = [
+      'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
+      'letter-spacing:1px','text-transform:uppercase','padding:9px 20px',
+      `background:${bg}`,`border:2px solid ${border}`,'border-radius:8px',
+      `color:${color}`,'cursor:pointer','touch-action:manipulation',
+    ].join(';');
+    return b;
+  };
+  const backBtn    = mkAct('Back','linear-gradient(180deg,#3a3a3a,#1a1a1a)','#666','#ccc');
+  const analyzeBtn = mkAct('Analyze','linear-gradient(180deg,#7a6a00,#4a4000)','#ccaa00','#ffee88');
+  const cancelBtn  = mkAct('Cancel','linear-gradient(180deg,#6a1a1a,#4a0a0a)','#cc4444','#ffaaaa');
+
+  const close = () => { if(overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+
+  backBtn.addEventListener('click', () => {
+    if(pendingRank) pendingRank = null;
+    else cards.pop();
+    status.textContent = '';
+    refresh();
+  });
+  cancelBtn.addEventListener('click', close);
+  overlay.addEventListener('click', e => { if(e.target === overlay) close(); });
+
+  analyzeBtn.addEventListener('click', () => {
+    if(cards.length !== 5) return;
+    const remaining = fullDeckFor().filter(c =>
+      !cards.some(x => x.rank === c.rank && x.suit === c.suit));
+    close();
+    showAnalysis(cards.slice(), remaining);
+  });
+
+  // ── State refresh ───────────────────────────────────────
+  function refresh(){
+    slots.forEach((s, i) => {
+      if(cards[i]){
+        const c = cards[i];
+        s.textContent = c.joker ? '🃏' : c.rank + '\n' + c.suit;
+        s.innerHTML = c.joker
+          ? '<span style="font-size:30px">★</span>'
+          : `<span style="color:${SUIT_COLOR[c.suit]==='red' ? '#ff6060' : '#fff'}">${c.rank}<br>${c.suit}</span>`;
+        s.style.border = '2px solid #f0c040';
+      } else if(i === cards.length && pendingRank){
+        s.innerHTML = `<span style="color:#f0c040">${pendingRank}<br>?</span>`;
+        s.style.border = '2px dashed #f0c040';
+      } else {
+        s.innerHTML = '';
+        s.style.border = '2px dashed #3a5aaa';
+      }
+    });
+    Object.entries(rankBtns).forEach(([r, b]) => {
+      const active = r === pendingRank;
+      b.style.background  = active ? 'linear-gradient(180deg,#c89a20,#a07a10)' : '#1a2a60';
+      b.style.color       = active ? '#000' : (r === 'JOKER' ? '#ffd780' : '#e0e8f8');
+      b.style.borderColor = active ? '#f0c040' : '#3a5aaa';
+      b.disabled = cards.length >= 5;
+      b.style.opacity = cards.length >= 5 ? 0.4 : 1;
+    });
+    suitBtns.forEach(b => {
+      const usable = !!pendingRank && cards.length < 5;
+      b.disabled = !usable;
+      b.style.opacity = usable ? 1 : 0.35;
+    });
+    analyzeBtn.disabled = cards.length !== 5;
+    analyzeBtn.style.opacity = cards.length === 5 ? 1 : 0.4;
+  }
+  refresh();
+
+  actRow.appendChild(backBtn);
+  actRow.appendChild(analyzeBtn);
+  actRow.appendChild(cancelBtn);
+  panel.appendChild(title);
+  panel.appendChild(hint);
+  panel.appendChild(slotsRow);
+  panel.appendChild(status);
+  panel.appendChild(rankRow);
+  panel.appendChild(suitRow);
+  panel.appendChild(actRow);
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -2645,11 +3095,12 @@ function showSettings() {
   ].join(';');
   dlBtn.addEventListener('click', () => {
     if (handHistory.length === 0) { alert('No history to download.'); return; }
-    const lines = ['entry,credits,delta,type,result,suboptimal,optDelta,optResult'];
+    const lines = ['entry,credits,delta,type,result,suboptimal,optDelta,optResult,bet'];
     handHistory.forEach((h, i) => {
       const sub = h.sub === true ? 1 : h.sub === false ? 0 : '';
       const opt = typeof h.opt === 'number' ? h.opt : '';
-      lines.push(`${i+1},${h.credits},${h.delta},${h.type},${h.res||''},${sub},${opt},${h.optRes||''}`);
+      const bet = typeof h.bet === 'number' ? h.bet : '';
+      lines.push(`${i+1},${h.credits},${h.delta},${h.type},${h.res||''},${sub},${opt},${h.optRes||''},${bet}`);
     });
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const url  = URL.createObjectURL(blob);
@@ -2704,6 +3155,8 @@ function showSettings() {
           const opt = parseFloat(cols[6]);
           if (!isNaN(opt))                    e.opt = opt;
           if (cols[7] && cols[7].trim())      e.optRes = cols[7].trim();
+          const bet = parseInt(cols[8], 10);
+          if (!isNaN(bet) && bet >= 1 && bet <= 5) e.bet = bet;
           parsed.push(e);
         }
         if (parsed.length === 0) { alert('No valid entries found in CSV.'); return; }
@@ -2809,6 +3262,19 @@ function showSettings() {
     }
   ));
 
+  // ── Analyze a Hand: pick any five cards, see the full EV table ──
+  const pickBtn = document.createElement('button');
+  pickBtn.textContent = 'Analyze a Hand';
+  pickBtn.style.cssText = [
+    'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
+    'letter-spacing:1px','text-transform:uppercase','padding:9px 12px',
+    'background:linear-gradient(180deg,#7a6a00,#4a4000)',
+    'border:2px solid #ccaa00','border-radius:8px',
+    'color:#ffee88','cursor:pointer','touch-action:manipulation',
+  ].join(';');
+  pickBtn.addEventListener('click', showHandPicker);
+  panel.appendChild(pickBtn);
+
   panel.appendChild(histSection);
   panel.appendChild(doneBtn);
   overlay.appendChild(panel);
@@ -2838,7 +3304,7 @@ function showGraph(){
     'border-radius:14px',
     'box-shadow:0 0 30px rgba(20,60,180,0.6)',
     'padding:16px',
-    'width:min(720px,92vw)',
+    'width:min(1040px,96vw)',
     'display:flex','flex-direction:column','gap:10px',
   ].join(';');
 
@@ -2869,17 +3335,18 @@ function showGraph(){
 
   // ── Canvas ────────────────────────────────────────────────
   const canvas = document.createElement('canvas');
-  const cw = Math.min(688, Math.round(window.innerWidth * 0.86));
+  const cw = Math.min(1000, Math.round(window.innerWidth * 0.92));
   canvas.width  = cw;
-  canvas.height = Math.round(cw * 0.46);
+  canvas.height = Math.round(Math.min(cw * 0.48, window.innerHeight * 0.58));
   canvas.style.cssText = 'width:100%;height:auto;display:block;border-radius:6px;touch-action:none;';
 
   let hoverIdx = null;   // slice index under the finger/cursor
+  let altSel   = [];     // pay-table indices selected for comparison lines
 
   function redraw(){
     updateTitle();
     const slice = history.slice(rangeStart-1, rangeEnd);
-    drawGraph(canvas, slice, rangeStart - 1, hoverIdx);
+    drawGraph(canvas, slice, rangeStart - 1, hoverIdx, altSel);
   }
 
   // ── Pointer → canvas coordinate helpers ───────────────────
@@ -3007,6 +3474,78 @@ function showGraph(){
     redraw();
   });
 
+  // Pay-table comparison button — pick alternate tables to overlay
+  const cmpBtn = makeModalBtn('Pay Tables','linear-gradient(180deg,#5a2a8a,#3a1a6a)','#aa66dd','#ddb8ff');
+  cmpBtn.addEventListener('click', () => {
+    const tables = curGame().payTables;
+    const ov2 = document.createElement('div');
+    ov2.style.cssText = [
+      'position:fixed','inset:0','z-index:10000',
+      'background:rgba(0,5,25,0.7)',
+      'display:flex','align-items:center','justify-content:center',
+      'font-family:Arial,Helvetica,sans-serif',
+    ].join(';');
+    const p2 = document.createElement('div');
+    p2.style.cssText = [
+      'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)',
+      'border:2px solid #2a4a9a','border-radius:12px',
+      'box-shadow:0 0 24px rgba(20,60,180,0.6)',
+      'padding:18px 22px','width:min(360px,90vw)',
+      'display:flex','flex-direction:column','gap:12px',
+    ].join(';');
+    const t2 = document.createElement('div');
+    t2.style.cssText = 'text-align:center;font-size:14px;font-weight:bold;color:#f0c040;letter-spacing:2px;text-transform:uppercase;';
+    t2.textContent = 'Compare Pay Tables';
+    const note = document.createElement('div');
+    note.style.cssText = 'font-size:11px;color:#8899bb;text-align:center;';
+    note.textContent = 'Overlay what your credits would be under other ' +
+                       curGame().name + ' pay tables casinos offer, from the first visible point.';
+    p2.appendChild(t2);
+    p2.appendChild(note);
+
+    const ALT_COLORS = ['#ff4fd8','#ffa040','#8dff5a','#c084fc'];
+    tables.forEach((t, i) => {
+      const row = document.createElement('label');
+      row.style.cssText = 'display:flex;align-items:center;gap:10px;color:#e0e8f8;font-size:14px;cursor:pointer;';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = altSel.includes(i);
+      cb.style.cssText = 'width:17px;height:17px;accent-color:#aa66dd;';
+      cb.addEventListener('change', () => {
+        altSel = cb.checked ? [...altSel, i] : altSel.filter(x => x !== i);
+        redraw();
+      });
+      const sw = document.createElement('span');
+      sw.style.cssText = `display:inline-block;width:18px;height:4px;border-radius:2px;background:${ALT_COLORS[i % ALT_COLORS.length]};`;
+      const txt = document.createElement('span');
+      txt.textContent = t.label + (i === payTableIdx ? '  (current)' : '');
+      row.appendChild(cb);
+      row.appendChild(sw);
+      row.appendChild(txt);
+      p2.appendChild(row);
+    });
+
+    const done2 = makeModalBtn('Done','linear-gradient(180deg,#2a4aaa,#1a2a7a)','#5a7acc','#fff');
+    done2.style.alignSelf = 'center';
+    const close2 = () => { if(ov2.parentNode) ov2.parentNode.removeChild(ov2); };
+    done2.addEventListener('click', close2);
+    ov2.addEventListener('click', e => { if(e.target === ov2) close2(); });
+    p2.appendChild(done2);
+    ov2.appendChild(p2);
+    document.body.appendChild(ov2);
+  });
+
+  // Optimal-line toggle
+  const optBtn = makeModalBtn('', 'linear-gradient(180deg,#155a8a,#0c3a5c)', '#38b6ff', '#a8dcff');
+  const optLabel = () => { optBtn.textContent = graphShowOpt ? 'Optimal: On' : 'Optimal: Off'; };
+  optLabel();
+  optBtn.addEventListener('click', () => {
+    graphShowOpt = !graphShowOpt;
+    optLabel();
+    saveState();
+    redraw();
+  });
+
   // Clear history button
   const clearBtn = makeModalBtn('Reset Log','linear-gradient(180deg,#8a2020,#601414)','#cc4444','#ffaaaa');
   clearBtn.addEventListener('click', () => {
@@ -3028,6 +3567,8 @@ function showGraph(){
 
   btnRow.appendChild(rangeBtn);
   btnRow.appendChild(allBtn);
+  btnRow.appendChild(optBtn);
+  btnRow.appendChild(cmpBtn);
   btnRow.appendChild(clearBtn);
   btnRow.appendChild(closeBtn);
 
@@ -3043,7 +3584,9 @@ function showGraph(){
 // ── Canvas chart ─────────────────────────────────────────────
 // offset   = index of history[0] in the full handHistory array
 // hoverIdx = slice index to highlight with a crosshair + readout (or null)
-function drawGraph(canvas, history, offset=0, hoverIdx=null){
+// altIdxs  = pay-table indices of the current game to overlay as
+//            what-if lines (each hand re-priced under that table)
+function drawGraph(canvas, history, offset=0, hoverIdx=null, altIdxs=[]){
   const ctx  = canvas.getContext('2d');
   const W    = canvas.width;
   const H    = canvas.height;
@@ -3080,9 +3623,44 @@ function drawGraph(canvas, history, offset=0, hoverIdx=null){
     else                      optValues.push(values[i]);
   }
   const optDiffers = optValues.some((v,i) => v !== values[i]);
+  const showOpt    = graphShowOpt && optDiffers;   // line can be toggled off
+  const hasSub     = history.some(h => h.type === 'hand' && h.sub === true);
 
-  const minV   = Math.min(Math.min(...values), Math.min(...optValues));
-  const maxV   = Math.max(Math.max(...values), Math.max(...optValues));
+  // ── Alternate pay-table lines ──────────────────────────
+  // Each selected table re-prices every visible hand (result name + bet →
+  // that table's payout), anchored to the leftmost visible point. Hands
+  // without recorded result/bet fall back to the actual delta.
+  const ALT_COLORS = ['#ff4fd8','#ffa040','#8dff5a','#c084fc'];
+  const tables = curGame().payTables;
+  const altLines = (altIdxs || []).filter(ti => tables[ti]).map(ti => {
+    const rows = tables[ti].rows;
+    const vals = [values[0]];
+    for(let i=1; i<history.length; i++){
+      const h = history[i];
+      if(h.type === 'hand'){
+        let d = h.delta;
+        if(h.res && typeof h.bet === 'number'){
+          const cat = rows.findIndex(r => r.name === h.res);
+          if(cat >= 0) d = rows[cat].pays[h.bet-1] - h.bet;
+        }
+        vals.push(vals[i-1] + d);
+      }
+      else if(h.type === 'add') vals.push(vals[i-1] + (h.delta || 0));
+      else                      vals.push(values[i]);
+    }
+    return { vals, color: ALT_COLORS[ti % ALT_COLORS.length], label: tables[ti].label };
+  });
+
+  // Scale the chart to every visible line
+  let minV = Math.min(...values), maxV = Math.max(...values);
+  if(showOpt){
+    minV = Math.min(minV, Math.min(...optValues));
+    maxV = Math.max(maxV, Math.max(...optValues));
+  }
+  altLines.forEach(a => {
+    minV = Math.min(minV, Math.min(...a.vals));
+    maxV = Math.max(maxV, Math.max(...a.vals));
+  });
   const range  = maxV - minV || 10;
   const yMin   = minV - range * 0.12;
   const yMax   = maxV + range * 0.12;
@@ -3136,8 +3714,20 @@ function drawGraph(canvas, history, offset=0, hoverIdx=null){
     ctx.fill();
   }
 
+  // ── Alternate pay-table lines ──────────────────────────
+  if(history.length > 1){
+    altLines.forEach(a => {
+      ctx.beginPath();
+      ctx.moveTo(toX(0), toY(a.vals[0]));
+      for(let i=1; i<a.vals.length; i++) ctx.lineTo(toX(i), toY(a.vals[i]));
+      ctx.strokeStyle = a.color;
+      ctx.lineWidth   = 2;
+      ctx.stroke();
+    });
+  }
+
   // ── Optimal-play line (cyan) ───────────────────────────
-  if(history.length > 1 && optDiffers){
+  if(history.length > 1 && showOpt){
     ctx.beginPath();
     ctx.moveTo(toX(0), toY(optValues[0]));
     for(let i=1; i<optValues.length; i++) ctx.lineTo(toX(i), toY(optValues[i]));
@@ -3195,21 +3785,32 @@ function drawGraph(canvas, history, offset=0, hoverIdx=null){
   ctx.font = 'bold 10px Arial';
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
-  let lx = W - pad.right - (optDiffers ? 196 : 60);
+  let lx = W - pad.right - (60 + (showOpt ? 68 : 0) + (hasSub ? 78 : 0));
   const ly = pad.top - 12;
   ctx.strokeStyle = '#f0c040'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx+16, ly); ctx.stroke();
   ctx.fillStyle = '#c0c8d8'; ctx.fillText('ACTUAL', lx+20, ly);
-  if(optDiffers){
+  if(showOpt){
     lx += 68;
     ctx.strokeStyle = '#38b6ff';
     ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx+16, ly); ctx.stroke();
     ctx.fillText('OPTIMAL', lx+20, ly);
+  }
+  if(hasSub){
     lx += 74;
     ctx.beginPath(); ctx.arc(lx+4, ly, 3, 0, Math.PI*2);
     ctx.fillStyle = '#ff5050'; ctx.fill();
     ctx.fillStyle = '#c0c8d8'; ctx.fillText('SUBOPT.', lx+11, ly);
   }
+  // Alternate pay-table legend, left-aligned on the same line
+  let ax = pad.left + 4;
+  altLines.forEach(a => {
+    ctx.strokeStyle = a.color; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(ax, ly); ctx.lineTo(ax+16, ly); ctx.stroke();
+    ctx.fillStyle = '#c0c8d8';
+    ctx.fillText(a.label, ax+20, ly);
+    ax += 28 + ctx.measureText(a.label).width;
+  });
 
   // ── Hover crosshair + readout ──────────────────────────
   if(hoverIdx !== null && history[hoverIdx]){
@@ -3247,9 +3848,17 @@ function drawGraph(canvas, history, offset=0, hoverIdx=null){
       lines.push(`Credits: ${formatMoney(h.credits*denom)}`);
     }
 
+    // Colored readout lines; append the alternate-table values at this point
+    const tipLines = lines.map((t, i) => ({
+      t, c: i === 0 ? '#f0c040' : (t.startsWith('Optimal:') ? '#38b6ff' : '#e0e8f8'),
+    }));
+    altLines.forEach(a => tipLines.push({
+      t: `${a.label}: ${formatMoney(a.vals[hoverIdx]*denom)}`, c: a.color,
+    }));
+
     ctx.font = 'bold 12px Arial';
-    const bw = Math.max(...lines.map(t => ctx.measureText(t).width)) + 20;
-    const bh = lines.length * 17 + 12;
+    const bw = Math.max(...tipLines.map(l => ctx.measureText(l.t).width)) + 20;
+    const bh = tipLines.length * 17 + 12;
     let bx = x + 12;
     if(bx + bw > W - pad.right) bx = x - 12 - bw;
     const by = pad.top + 4;
@@ -3264,9 +3873,9 @@ function drawGraph(canvas, history, offset=0, hoverIdx=null){
 
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    lines.forEach((t, i) => {
-      ctx.fillStyle = i === 0 ? '#f0c040' : (t.startsWith('Optimal:') ? '#38b6ff' : '#e0e8f8');
-      ctx.fillText(t, bx+10, by+8 + i*17);
+    tipLines.forEach((l, i) => {
+      ctx.fillStyle = l.c;
+      ctx.fillText(l.t, bx+10, by+8 + i*17);
     });
   }
 
