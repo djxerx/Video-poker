@@ -284,10 +284,15 @@
     }
     .card.flipping .card-inner { animation: flip var(--flip-duration, 0.56s) ease forwards; }
 
+    /* Continuous one-direction flip: rotate to -90° (edge-on), then jump to
+       +90° — also edge-on, so the jump is invisible — and continue on to 0°.
+       The back→face swap happens at the midpoint while the card is edge-on,
+       so the whole flip reads as one smooth rotation in a single direction. */
     @keyframes flip {
-      0%   { transform: rotateY(0deg); }
-      50%  { transform: rotateY(90deg); }
-      100% { transform: rotateY(0deg); }
+      0%     { transform: rotateY(0deg); }
+      49.99% { transform: rotateY(-90deg); }
+      50%    { transform: rotateY(90deg); }
+      100%   { transform: rotateY(0deg); }
     }
 
     .card-face, .card-back {
@@ -482,6 +487,96 @@
       50%       { color: #fff; text-shadow: 0 0 20px #fff; }
     }
     #message.winning { animation: winFlash 0.5s ease 3; }
+
+    /* ─── Winning-card flash (dealt winners) ─────────────────── */
+    @keyframes cardWinFlash {
+      0%, 100% { box-shadow: var(--shadow); }
+      50%      { box-shadow: 0 0 26px 10px rgba(255,215,0,0.95); }
+    }
+    .card.win-flash { animation: cardWinFlash 0.4s ease 3; }
+
+    /* ─── Game select button ────────────────────────────────── */
+    .btn-game {
+      background: linear-gradient(180deg, #8a5a00, #5a3a00);
+      border-color: #ffaa00;
+      color: #ffd780;
+    }
+    .btn-game:hover:not(:disabled) {
+      background: linear-gradient(180deg, #aa7000, #6a4800);
+      box-shadow: 0 0 12px rgba(255,170,0,0.5);
+    }
+
+    /* ─── Classic Theme — authentic IGT Game King look ────────
+       Solid royal-blue field, yellow block lettering, boxy panels,
+       flat white cards, hard drop-shadows. Toggled via body.classic. */
+    body.classic { background: #0000b4; }
+    body.classic #terminal {
+      background: #0000b4;
+      border: 4px solid #ffd700;
+      border-radius: 4px;
+      box-shadow: none;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    body.classic #title-bar {
+      border-bottom: 3px double #ffd700;
+      font-weight: 900;
+      letter-spacing: 6px;
+    }
+    body.classic #title-bar .t-red    { color: #fff;    text-shadow: 2px 2px 0 #a00000; }
+    body.classic #title-bar .t-yellow { color: #ffd700; text-shadow: 2px 2px 0 #7a5c00; }
+    body.classic .pt-hand {
+      background: #0000b4;
+      border: 1px solid #ffd700;
+      border-radius: 0;
+    }
+    body.classic .pt-name { color: #ffd700; }
+    body.classic .pt-pay  { background: transparent; color: #fff; }
+    body.classic .pt-hand.highlight { background: #c00000; border-color: #fff; }
+    body.classic .pt-hand.highlight .pt-name,
+    body.classic .pt-hand.highlight .pt-pay { color: #ffd700; background: transparent; }
+    body.classic .info-box {
+      background: #0000b4;
+      border: 2px solid #ffd700;
+      border-radius: 0;
+    }
+    body.classic .info-label { color: #ffd700; }
+    body.classic .info-value {
+      color: #fff;
+      font-family: 'Courier New', Courier, monospace;
+      font-weight: bold;
+      text-shadow: none;
+    }
+    body.classic #message {
+      color: #ffd700;
+      text-shadow: none;
+      font-weight: 900;
+    }
+    body.classic .hold-badge { color: #ffd700; text-shadow: none; }
+    body.classic .card,
+    body.classic .card-face,
+    body.classic .card-back { border-radius: 4px; }
+    body.classic .card      { box-shadow: 3px 3px 0 rgba(0,0,0,0.55); }
+    body.classic .card-face { background: #ffffff; }
+    body.classic .btn {
+      border-radius: 4px;
+      font-family: Arial, Helvetica, sans-serif;
+      font-weight: 900;
+      box-shadow: 2px 2px 0 rgba(0,0,0,0.55);
+    }
+    body.classic .btn-deal, body.classic .btn-bet-one, body.classic .btn-bet-max,
+    body.classic .btn-graph, body.classic .btn-analyze, body.classic .btn-game {
+      background: #ffd700;
+      border-color: #a08000;
+      color: #000;
+    }
+    body.classic .btn-settings { background: #ffd700; border-color: #a08000; color: #000; }
+    body.classic .btn-reset, body.classic .btn-add-credits {
+      background: #c00000; border-color: #7a0000; color: #fff;
+    }
+    body.classic .denom-btn        { border-radius: 0; }
+    body.classic .denom-btn.active { background: #ffd700; border-color: #fff; color: #000; }
+    body.classic .btn-denom-util   { border-radius: 0; background: #ffd700; border-color: #a08000; color: #000; }
+    body.classic .denom-label      { color: #ffd700; }
   </style>
 </head>
 <body>
@@ -526,6 +621,7 @@
   <!-- Buttons -->
   <div id="buttons-row">
     <button class="btn btn-settings" id="btn-settings" title="Settings">⚙</button>
+    <button class="btn btn-game"     id="btn-game">Game</button>
     <button class="btn btn-graph"    id="btn-graph">Graph</button>
     <button class="btn btn-analyze" id="btn-analyze" disabled>Analyze</button>
     <button class="btn btn-bet-one" id="btn-bet-one">Bet One</button>
@@ -550,55 +646,210 @@ const DENOMINATIONS = [
   { label:'$25',  value: 25   },
 ];
 
-// Pay table: [name, short-name, payouts-per-coin x1..x5]
-// For Royal Flush at 5 coins the payout is 4000 (800× per coin special)
-const PAY_TABLE = [
-  { name:'Royal Flush',      short:'Royal\nFlush',    pays:[250,500,750,1000,4000] },
-  { name:'Straight Flush',   short:'Str.\nFlush',     pays:[50,100,150,200,250]   },
-  { name:'Four of a Kind',   short:'Four\nof a Kind', pays:[25,50,75,100,125]     },
-  { name:'Full House',       short:'Full\nHouse',     pays:[9,18,27,36,45]        },
-  { name:'Flush',            short:'Flush',           pays:[6,12,18,24,30]        },
-  { name:'Straight',         short:'Straight',        pays:[4,8,12,16,20]        },
-  { name:'Three of a Kind',  short:'Three\nof a Kind',pays:[3,6,9,12,15]         },
-  { name:'Two Pair',         short:'Two\nPair',       pays:[2,4,6,8,10]          },
-  { name:'Jacks or Better',  short:'Jacks\nor Better',pays:[1,2,3,4,5]           },
-  { name:'Nothing',          short:'',                pays:[0,0,0,0,0]           },
-];
+// ════════════════════════════════════════════════════════════
+//  GAME DEFINITIONS — pay tables, evaluators, winning-card maps
+//  Each pay row: { name, short (pay-table label), col (analysis
+//  column label), pays: per-coin payouts ×1..×5 }.
+//  Royal Flush at 5 coins pays 4000 (800×/coin jackpot bonus).
+// ════════════════════════════════════════════════════════════
+const mult  = b => [b, 2*b, 3*b, 4*b, 5*b];
+const ROYAL = { name:'Royal Flush', short:'Royal\nFlush', col:'Royal', pays:[250,500,750,1000,4000] };
+const NADA  = { name:'Nothing',     short:'',             col:'',      pays:[0,0,0,0,0] };
+
+function jobRows(fh, fl){
+  return [
+    ROYAL,
+    { name:'Straight Flush',  short:'Str.\nFlush',      col:'Str.Fl', pays: mult(50) },
+    { name:'Four of a Kind',  short:'Four\nof a Kind',  col:'4Kind',  pays: mult(25) },
+    { name:'Full House',      short:'Full\nHouse',      col:'Full H', pays: mult(fh) },
+    { name:'Flush',           short:'Flush',            col:'Flush',  pays: mult(fl) },
+    { name:'Straight',        short:'Straight',         col:'Str',    pays: mult(4)  },
+    { name:'Three of a Kind', short:'Three\nof a Kind', col:'3Kind',  pays: mult(3)  },
+    { name:'Two Pair',        short:'Two\nPair',        col:'2Pair',  pays: mult(2)  },
+    { name:'Jacks or Better', short:'Jacks\nor Better', col:'Jacks+', pays: mult(1)  },
+    NADA,
+  ];
+}
+
+// Bonus / Double Bonus share a category layout — quads split by rank
+function bonusRows(fourA, four24, four5K, fh, fl, st, twoPair){
+  return [
+    ROYAL,
+    { name:'Straight Flush',  short:'Str.\nFlush',      col:'Str.Fl', pays: mult(50)     },
+    { name:'Four Aces',       short:'Four\nAces',       col:'4 Aces', pays: mult(fourA)  },
+    { name:'Four 2s–4s',      short:'Four\n2s–4s',      col:'4 2-4',  pays: mult(four24) },
+    { name:'Four 5s–Ks',      short:'Four\n5s–Ks',      col:'4 5-K',  pays: mult(four5K) },
+    { name:'Full House',      short:'Full\nHouse',      col:'Full H', pays: mult(fh)     },
+    { name:'Flush',           short:'Flush',            col:'Flush',  pays: mult(fl)     },
+    { name:'Straight',        short:'Straight',         col:'Str',    pays: mult(st)     },
+    { name:'Three of a Kind', short:'Three\nof a Kind', col:'3Kind',  pays: mult(3)      },
+    { name:'Two Pair',        short:'Two\nPair',        col:'2Pair',  pays: mult(twoPair)},
+    { name:'Jacks or Better', short:'Jacks\nor Better', col:'Jacks+', pays: mult(1)      },
+    NADA,
+  ];
+}
+
+function deucesRows(fiveK, sf, fourK, fh, fl){
+  return [
+    { name:'Natural Royal',   short:'Natural\nRoyal',   col:'N.Royal', pays:[250,500,750,1000,4000] },
+    { name:'Four Deuces',     short:'Four\nDeuces',     col:'4 Deuce', pays: mult(200)   },
+    { name:'Wild Royal',      short:'Wild\nRoyal',      col:'W.Royal', pays: mult(25)    },
+    { name:'Five of a Kind',  short:'Five\nof a Kind',  col:'5Kind',   pays: mult(fiveK) },
+    { name:'Straight Flush',  short:'Str.\nFlush',      col:'Str.Fl',  pays: mult(sf)    },
+    { name:'Four of a Kind',  short:'Four\nof a Kind',  col:'4Kind',   pays: mult(fourK) },
+    { name:'Full House',      short:'Full\nHouse',      col:'Full H',  pays: mult(fh)    },
+    { name:'Flush',           short:'Flush',            col:'Flush',   pays: mult(fl)    },
+    { name:'Straight',        short:'Straight',         col:'Str',     pays: mult(2)     },
+    { name:'Three of a Kind', short:'Three\nof a Kind', col:'3Kind',   pays: mult(1)     },
+    NADA,
+  ];
+}
+
+const GAMES = {
+  jacks: {
+    name: 'Jacks or Better',
+    titleHTML: '<span class="t-red">Jacks</span> <span class="t-yellow">or</span> <span class="t-red">Better</span>',
+    payTables: [
+      { label:'9/6 Full Pay', rows: jobRows(9,6) },
+      { label:'8/6',          rows: jobRows(8,6) },
+      { label:'9/5',          rows: jobRows(9,5) },
+      { label:'8/5',          rows: jobRows(8,5) },
+    ],
+    evaluate: cards => evaluate(cards),
+    winCards: cat => winCardsStandard(cat, false),
+  },
+  bonus: {
+    name: 'Bonus Poker',
+    titleHTML: '<span class="t-red">Bonus</span> <span class="t-yellow">Poker</span>',
+    payTables: [
+      { label:'8/5 Full Pay', rows: bonusRows(80,40,25, 8,5, 4, 2) },
+      { label:'7/5',          rows: bonusRows(80,40,25, 7,5, 4, 2) },
+      { label:'6/5',          rows: bonusRows(80,40,25, 6,5, 4, 2) },
+    ],
+    evaluate: cards => evalBonusStyle(cards),
+    winCards: cat => winCardsStandard(cat, true),
+  },
+  dbonus: {
+    name: 'Double Bonus Poker',
+    titleHTML: '<span class="t-red">Double</span> <span class="t-yellow">Bonus</span> <span class="t-red">Poker</span>',
+    payTables: [
+      { label:'10/7 Full Pay', rows: bonusRows(160,80,50, 10,7, 5, 1) },
+      { label:'9/7',           rows: bonusRows(160,80,50,  9,7, 5, 1) },
+      { label:'9/6',           rows: bonusRows(160,80,50,  9,6, 5, 1) },
+    ],
+    evaluate: cards => evalBonusStyle(cards),
+    winCards: cat => winCardsStandard(cat, true),
+  },
+  deuces: {
+    name: 'Deuces Wild',
+    titleHTML: '<span class="t-red">Deuces</span> <span class="t-yellow">Wild</span>',
+    payTables: [
+      { label:'Full Pay 25/15/9',     rows: deucesRows(15, 9, 5, 3, 2) },
+      { label:'Not So Ugly 25/16/10', rows: deucesRows(16,10, 4, 4, 3) },
+      { label:'Airport 25/15/10',     rows: deucesRows(15,10, 4, 4, 3) },
+    ],
+    evaluate: cards => evalDeuces(cards),
+    winCards: cat => winCardsDeuces(cat),
+  },
+};
+const GAME_KEYS = ['jacks','bonus','dbonus','deuces'];
 
 // ════════════════════════════════════════════════════════════
 //  STATE
 // ════════════════════════════════════════════════════════════
-let credits      = 100;
+// Per-game state (each game is its own machine: bankroll, history, pay table)
+function defaultGameState(){
+  return { credits:100, handHistory:[], graphRangeStart:1, payTableIdx:0 };
+}
+let gameState   = Object.fromEntries(GAME_KEYS.map(k => [k, defaultGameState()]));
+let currentGame = 'jacks';
+
+// Live globals mirroring gameState[currentGame] (synced on save/switch)
+let credits         = 100;
+let handHistory     = [];      // [{credits, delta, type}] — last 1000 entries, persisted
+let graphRangeStart = 1;       // persisted start entry for graph range
+let payTableIdx     = 0;       // index into curGame().payTables
+
+// Shared (machine-wide) settings
 let coinBet      = 5;           // 1–5 coins
 let denomIdx     = 1;           // index into DENOMINATIONS ($1 default)
 let flipDuration = 560;         // ms — total card flip animation (0 = instant)
 let dealDelay    = 350;         // ms — stagger between each card being dealt
-let deck         = [];
-let handHistory     = [];      // [{credits, delta, type}] — last 1000 entries, persisted
-let graphRangeStart = 1;      // persisted start entry for graph range
-let analysisResults = null;   // pre-computed EV table; populated as soon as cards are dealt
+let theme        = 'modern';    // 'modern' | 'classic' (Game King look)
+let soundOn      = true;
+let trainerOn    = false;       // thump + retry on non-optimal hold
+
+let deck            = [];
+let analysisResults = null;   // pre-computed EV table for the current deal
+let analysisToken   = 0;      // invalidates in-flight background analysis
+let trainerWarned   = false;  // first non-optimal Draw press warned; second accepted
+
+function curGame()    { return GAMES[currentGame]; }
+function curPayRows() { return curGame().payTables[payTableIdx].rows; }
+function curEvaluate(cards){ return curGame().evaluate(cards); }
 
 // ── Persistence helpers ──────────────────────────────────────
 const SAVE_KEY = 'vp_state';
+
+// Copy the live globals back into the per-game record
+function syncToGameState() {
+  gameState[currentGame] = { credits, handHistory, graphRangeStart, payTableIdx };
+}
+
+// Pull the per-game record into the live globals
+function syncFromGameState() {
+  const gs = gameState[currentGame];
+  credits         = gs.credits;
+  handHistory     = gs.handHistory;
+  graphRangeStart = gs.graphRangeStart;
+  payTableIdx     = Math.min(gs.payTableIdx, curGame().payTables.length - 1);
+}
+
 function saveState() {
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(
-      { credits, coinBet, denomIdx, handHistory, flipDuration, dealDelay, graphRangeStart }
-    ));
+    syncToGameState();
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      v: 2, currentGame, games: gameState,
+      coinBet, denomIdx, flipDuration, dealDelay, theme, soundOn, trainerOn,
+    }));
   } catch(e) {}
 }
+
 function loadState() {
   try {
     const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
     if (!s) return;
-    if (typeof s.credits  === 'number' && s.credits  >= 0)                    credits     = s.credits;
-    if (typeof s.coinBet      === 'number' && s.coinBet  >= 1 && s.coinBet  <= 5)   coinBet      = s.coinBet;
-    if (typeof s.denomIdx     === 'number' && s.denomIdx >= 0 && s.denomIdx <  4)   denomIdx     = s.denomIdx;
-    if (Array.isArray(s.handHistory))                                                handHistory  = s.handHistory.slice(-1000);
-    if (typeof s.flipDuration    === 'number' && s.flipDuration    >= 0)             flipDuration    = s.flipDuration;
-    if (typeof s.dealDelay       === 'number' && s.dealDelay       >= 0)             dealDelay       = s.dealDelay;
-    if (typeof s.graphRangeStart === 'number' && s.graphRangeStart >= 1)             graphRangeStart = s.graphRangeStart;
+
+    if (s.v === 2 && s.games) {
+      // v2: per-game records
+      GAME_KEYS.forEach(k => {
+        const g = s.games[k];
+        if (!g) return;
+        const gs = gameState[k];
+        if (typeof g.credits === 'number' && g.credits >= 0)              gs.credits = g.credits;
+        if (Array.isArray(g.handHistory))                                 gs.handHistory = g.handHistory.slice(-1000);
+        if (typeof g.graphRangeStart === 'number' && g.graphRangeStart>=1) gs.graphRangeStart = g.graphRangeStart;
+        if (typeof g.payTableIdx === 'number' && g.payTableIdx >= 0)      gs.payTableIdx = g.payTableIdx;
+      });
+      if (GAME_KEYS.includes(s.currentGame)) currentGame = s.currentGame;
+    } else {
+      // v1 migration: the old single-game save becomes Jacks or Better
+      const gs = gameState.jacks;
+      if (typeof s.credits === 'number' && s.credits >= 0)                     gs.credits = s.credits;
+      if (Array.isArray(s.handHistory))                                        gs.handHistory = s.handHistory.slice(-1000);
+      if (typeof s.graphRangeStart === 'number' && s.graphRangeStart >= 1)     gs.graphRangeStart = s.graphRangeStart;
+    }
+
+    // Shared settings (same keys in v1 and v2)
+    if (typeof s.coinBet      === 'number' && s.coinBet  >= 1 && s.coinBet  <= 5) coinBet      = s.coinBet;
+    if (typeof s.denomIdx     === 'number' && s.denomIdx >= 0 && s.denomIdx <  4) denomIdx     = s.denomIdx;
+    if (typeof s.flipDuration === 'number' && s.flipDuration >= 0)                flipDuration = s.flipDuration;
+    if (typeof s.dealDelay    === 'number' && s.dealDelay    >= 0)                dealDelay    = s.dealDelay;
+    if (s.theme === 'classic' || s.theme === 'modern')                            theme        = s.theme;
+    if (typeof s.soundOn   === 'boolean')                                         soundOn      = s.soundOn;
+    if (typeof s.trainerOn === 'boolean')                                         trainerOn    = s.trainerOn;
   } catch(e) {}
+  syncFromGameState();
 }
 
 // Apply flipDuration + dealDelay to the live CSS custom property
@@ -607,6 +858,50 @@ function applyAnimSettings() {
     '--flip-duration', (flipDuration / 1000).toFixed(3) + 's'
   );
 }
+
+function applyTheme() {
+  document.body.classList.toggle('classic', theme === 'classic');
+}
+
+// ════════════════════════════════════════════════════════════
+//  SOUND ENGINE — Web Audio synthesized Game King-style beeps
+//  (no audio files: everything stays in this one file, offline-safe)
+// ════════════════════════════════════════════════════════════
+let audioCtx = null;
+function ac() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+// One square-wave beep. slide shifts the pitch over the note (Hz, +/-).
+function beep(freq, dur = 0.08, type = 'square', vol = 0.12, when = 0, slide = 0) {
+  if (!soundOn) return;
+  try {
+    const ctx = ac();
+    const t = ctx.currentTime + when;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq + slide), t + dur);
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g).connect(ctx.destination);
+    o.start(t);
+    o.stop(t + dur + 0.02);
+  } catch(e) {}
+}
+const sfx = {
+  deal()    { beep(740, 0.06); },                        // card flip blip
+  hold()    { beep(520, 0.07); },                        // hold on
+  unhold()  { beep(360, 0.07); },                        // hold off
+  button()  { beep(620, 0.05, 'square', 0.08); },        // generic key press
+  tick()    { beep(1046, 0.045, 'square', 0.10); },      // credit count-up tick
+  dealtWin(){ [659, 880].forEach((f,i)=>beep(f, 0.10, 'square', 0.12, i*0.10)); },
+  win()     { [523, 659, 784, 1046].forEach((f,i)=>beep(f, 0.12, 'square', 0.12, i*0.09)); },
+  jackpot() { [523, 659, 784, 1046, 784, 1046, 1318, 1568].forEach((f,i)=>beep(f, 0.16, 'square', 0.14, i*0.13)); },
+  thump()   { beep(130, 0.28, 'sine', 0.55, 0, -85); },  // non-optimal hold warning
+};
 
 // Record one completed hand (called after credits are finalised)
 function recordHand(winCoins) {
@@ -678,13 +973,112 @@ function evaluate(cards){
   return 9; // Nothing
 }
 
+// Card value 2..14 (ace high; ace-low handled inside the straight checks)
+function rankVal(r){
+  return r==='A'?14 : r==='K'?13 : r==='Q'?12 : r==='J'?11 : parseInt(r,10);
+}
+
+// Bonus / Double Bonus: same as Jacks or Better but quads split by rank.
+// Categories: 0 Royal, 1 SF, 2 Four Aces, 3 Four 2s–4s, 4 Four 5s–Ks,
+//             5 FH, 6 FL, 7 ST, 8 3K, 9 2P, 10 JoB, 11 Nothing
+function evalBonusStyle(cards){
+  const base = evaluate(cards);          // 0..9 in the JoB category list
+  if(base === 2){                        // four of a kind — split by rank
+    const freq = {};
+    cards.forEach(c => freq[c.rank] = (freq[c.rank]||0)+1);
+    const qr = Object.keys(freq).find(r => freq[r] === 4);
+    if(qr === 'A')                    return 2;
+    if(['2','3','4'].includes(qr))    return 3;
+    return 4;
+  }
+  return base < 2 ? base : base + 2;     // shift FH..Nothing past the quad split
+}
+
+// Deuces Wild. Categories: 0 Natural Royal, 1 Four Deuces, 2 Wild Royal,
+// 3 Five of a Kind, 4 SF, 5 4K, 6 FH, 7 FL, 8 ST, 9 3K, 10 Nothing
+function evalDeuces(cards){
+  const d      = cards.filter(c => c.rank === '2').length;
+  const others = cards.filter(c => c.rank !== '2');
+  if(d === 4) return 1;                                    // Four Deuces
+
+  const vals     = others.map(c => rankVal(c.rank));
+  const flush    = others.every(c => c.suit === others[0].suit);
+  const distinct = new Set(vals).size === vals.length;
+
+  const freq = {};
+  others.forEach(c => freq[c.rank] = (freq[c.rank]||0)+1);
+  const counts = Object.values(freq).sort((a,b)=>b-a);
+  const maxK   = (counts[0]||0) + d;
+
+  // Straight possible: distinct natural ranks spanning ≤5 values (wilds fill gaps)
+  let straight = false;
+  if(distinct){
+    for(const aceLow of [false, true]){
+      const v = vals.map(x => (x===14 && aceLow) ? 1 : x);
+      if(Math.max(...v) - Math.min(...v) <= 4){ straight = true; break; }
+    }
+  }
+
+  const royalRanks = flush && distinct && vals.every(v => v >= 10);
+  if(d === 0 && royalRanks && straight)  return 0;         // Natural Royal
+  if(royalRanks)                         return 2;         // Wild Royal
+  if(counts.length === 1 && counts[0] + d === 5) return 3; // Five of a Kind
+  if(flush && straight)                  return 4;         // Straight Flush
+  if(maxK >= 4)                          return 5;         // Four of a Kind
+  if((d===0 && counts[0]===3 && counts[1]===2) ||
+     (d===1 && counts[0]===2 && counts[1]===2)) return 6;  // Full House
+  if(flush)                              return 7;
+  if(straight)                           return 8;
+  if(maxK >= 3)                          return 9;         // Three of a Kind
+  return 10;                                               // Nothing
+}
+
+// ── Winning-card index helpers (for the dealt-winner flash) ──
+function winCardsStandard(cat, isBonus){
+  // Map Bonus/Double Bonus categories back onto the JoB layout
+  let base = cat;
+  if(isBonus){
+    if(cat >= 2 && cat <= 4) base = 2;       // any quad
+    else if(cat >= 5)        base = cat - 2;
+  }
+  const freq = {};
+  hand.forEach(c => freq[c.rank] = (freq[c.rank]||0)+1);
+  const idxOf = pred => hand.map((c,i) => pred(c) ? i : -1).filter(i => i >= 0);
+  switch(base){
+    case 0: case 1: case 3: case 4: case 5: return [0,1,2,3,4];  // royal/SF/FH/FL/ST
+    case 2: { const r = Object.keys(freq).find(r => freq[r]===4); return idxOf(c=>c.rank===r); }
+    case 6: { const r = Object.keys(freq).find(r => freq[r]===3); return idxOf(c=>c.rank===r); }
+    case 7: { const rs = Object.keys(freq).filter(r => freq[r]===2); return idxOf(c=>rs.includes(c.rank)); }
+    case 8: { const r = Object.keys(freq).find(r => freq[r]===2 && ['J','Q','K','A'].includes(r)); return idxOf(c=>c.rank===r); }
+    default: return [];
+  }
+}
+
+function winCardsDeuces(cat){
+  const idxOf = pred => hand.map((c,i) => pred(c) ? i : -1).filter(i => i >= 0);
+  const freq = {};
+  hand.forEach(c => { if(c.rank!=='2') freq[c.rank] = (freq[c.rank]||0)+1; });
+  switch(cat){
+    case 1: return idxOf(c => c.rank==='2');               // four deuces only
+    case 5: case 9: {                                      // 4K / 3K: deuces + kind rank
+      const r = Object.keys(freq).sort((a,b)=>freq[b]-freq[a])[0];
+      return idxOf(c => c.rank==='2' || c.rank===r);
+    }
+    case 10: return [];
+    default: return [0,1,2,3,4];  // royals, 5K, SF, FH, FL, ST use all five
+  }
+}
+
 // ════════════════════════════════════════════════════════════
 //  UI BUILDERS
 // ════════════════════════════════════════════════════════════
 function buildPayTable(){
+  const rows = curPayRows();
   const pt = document.getElementById('paytable');
   pt.innerHTML = '';
-  PAY_TABLE.forEach((row, idx)=>{
+  const visible = rows.filter(r => r.name !== 'Nothing').length;
+  pt.style.gridTemplateColumns = `repeat(${visible}, 1fr)`;
+  rows.forEach((row, idx)=>{
     if(row.name === 'Nothing') return; // skip "nothing" row
     const div = document.createElement('div');
     div.className = 'pt-hand' + (idx===lastHandIdx ? ' highlight' : '');
@@ -703,6 +1097,113 @@ function buildPayTable(){
 
     pt.appendChild(div);
   });
+}
+
+function updateTitleBar(){
+  document.getElementById('title-bar').innerHTML = curGame().titleHTML;
+  document.title = curGame().name;
+}
+
+// ── Game switching ───────────────────────────────────────────
+function switchGame(key){
+  if(key === currentGame) return;
+  saveState();                    // stores the outgoing game's globals
+  currentGame = key;
+  syncFromGameState();
+
+  // Fresh machine state for the incoming game
+  phase = 'betting';
+  lastWin = 0;
+  lastHandIdx = -1;
+  hand = [];
+  held = [false,false,false,false,false];
+  analysisResults = null;
+  analysisToken++;
+  trainerWarned = false;
+
+  saveState();
+  updateTitleBar();
+  buildPayTable();
+  updateInfoRow();
+  renderCardsBack();
+  setButtons(true);
+  setMessage(curGame().name + ' — Press Deal', false);
+}
+
+function showGameSelect(){
+  if(phase === 'holding'){
+    setMessage('Finish this hand before changing games', false);
+    sfx.thump();
+    return;
+  }
+  sfx.button();
+  syncToGameState();   // so per-game credit balances shown below are current
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = [
+    'position:fixed','inset:0','z-index:9999',
+    'background:rgba(0,5,25,0.88)',
+    'display:flex','align-items:center','justify-content:center',
+    'font-family:Arial,Helvetica,sans-serif',
+  ].join(';');
+
+  const panel = document.createElement('div');
+  panel.style.cssText = [
+    'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)',
+    'border:2px solid #2a4a9a','border-radius:14px',
+    'box-shadow:0 0 30px rgba(20,60,180,0.6)',
+    'padding:20px 24px','width:min(420px,92vw)',
+    'display:flex','flex-direction:column','gap:12px',
+  ].join(';');
+
+  const title = document.createElement('div');
+  title.style.cssText = [
+    'text-align:center','font-size:18px','font-weight:bold',
+    'color:#f0c040','letter-spacing:4px','text-transform:uppercase',
+    'text-shadow:0 0 8px rgba(240,192,64,0.5)',
+  ].join(';');
+  title.textContent = 'Select Game';
+  panel.appendChild(title);
+
+  const close = () => { if(overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+
+  GAME_KEYS.forEach(key => {
+    const g  = GAMES[key];
+    const gs = gameState[key];
+    const active = key === currentGame;
+    const b = document.createElement('button');
+    b.style.cssText = [
+      'display:flex','justify-content:space-between','align-items:center','gap:10px',
+      'font-family:Arial,Helvetica,sans-serif','font-size:15px','font-weight:bold',
+      'letter-spacing:1px','padding:12px 16px','border-radius:8px','cursor:pointer',
+      'touch-action:manipulation','text-align:left',
+      active
+        ? 'background:linear-gradient(180deg,#c89a20,#a07a10);border:2px solid #f0c040;color:#000'
+        : 'background:linear-gradient(180deg,#1a2a60,#101a45);border:2px solid #3a5aaa;color:#e0e8f8',
+    ].join(';');
+    const denomVal = DENOMINATIONS[denomIdx].value;
+    b.innerHTML =
+      `<span>${g.name}${active ? ' ✓' : ''}</span>` +
+      `<span style="font-size:12px;font-weight:normal;opacity:0.85">` +
+      `${g.payTables[gs.payTableIdx].label} · ${formatMoney(gs.credits * denomVal)}</span>`;
+    b.addEventListener('click', () => { close(); switchGame(key); });
+    panel.appendChild(b);
+  });
+
+  const cancel = document.createElement('button');
+  cancel.textContent = 'Cancel';
+  cancel.style.cssText = [
+    'align-self:center','font-family:Arial,Helvetica,sans-serif','font-size:13px',
+    'font-weight:bold','letter-spacing:2px','text-transform:uppercase','padding:8px 28px',
+    'background:linear-gradient(180deg,#3a3a3a,#1a1a1a)','border:2px solid #666',
+    'border-radius:8px','color:#ccc','cursor:pointer','touch-action:manipulation',
+  ].join(';');
+  cancel.addEventListener('click', close);
+  overlay.addEventListener('click', e => { if(e.target===overlay) close(); });
+
+  panel.appendChild(cancel);
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
 }
 
 function buildDenomButtons(){
@@ -761,9 +1262,13 @@ function animateCredits(from, to){
   const denom    = DENOMINATIONS[denomIdx].value;
   const el       = document.getElementById('credits-display');
   let current    = from;
+  let lastTick   = 0;
   _creditTimer   = setInterval(()=>{
     current++;
     el.textContent = formatMoney(current * denom);
+    // Casino-style count-up tick — rate-limited so huge wins don't buzz
+    const now = Date.now();
+    if(now - lastTick > 65){ sfx.tick(); lastTick = now; }
     if(current >= to){
       clearInterval(_creditTimer);
       _creditTimer = null;
@@ -900,6 +1405,8 @@ function flipCard(i, delay){
       const mid     = Math.round(flipDuration / 2);
       const cleanup = flipDuration + 30;
 
+      sfx.deal();
+
       if(flipDuration < 20){
         // Instant flip — skip animation, just swap back→face immediately
         if(back) back.style.display='none';
@@ -928,11 +1435,26 @@ function flipCard(i, delay){
 function toggleHold(i){
   if(phase !== 'holding') return;
   held[i] = !held[i];
+  trainerWarned = false;   // a changed hold gets a fresh trainer check
+
+  if(held[i]) sfx.hold(); else sfx.unhold();
 
   const cardEls = document.querySelectorAll('.card');
   const badges  = document.querySelectorAll('.hold-badge');
   cardEls[i].classList.toggle('held', held[i]);
   badges[i].classList.toggle('visible', held[i]);
+}
+
+// Flash a glow around the cards that make up a dealt winning hand
+function flashWinningCards(cat){
+  const idxs = curGame().winCards(cat);
+  const cardEls = document.querySelectorAll('.card');
+  idxs.forEach(i => {
+    const el = cardEls[i];
+    if(!el) return;
+    el.classList.add('win-flash');
+    setTimeout(() => el.classList.remove('win-flash'), 1400);
+  });
 }
 
 // ════════════════════════════════════════════════════════════
@@ -952,12 +1474,17 @@ async function deal(){
     // Deduct bet (in credits = coins)
     if(credits < coinBet){
       setMessage('Not enough credits!', false);
+      sfx.thump();
       return;
     }
+    sfx.button();
     credits -= coinBet;
     saveState();
     lastWin   = 0;
     lastHandIdx = -1;
+    trainerWarned = false;
+    analysisResults = null;
+    analysisToken++;
     updateInfoRow();
     buildPayTable();
 
@@ -976,9 +1503,46 @@ async function deal(){
     await Promise.all([0,1,2,3,4].map(i => flipCard(i, i*dealDelay)));
 
     phase = 'holding';
-    setMessage('Select cards to hold, then Draw', false);
+
+    // Trainer needs the EV ranking ready by Draw time — compute in background
+    if(trainerOn) startAnalysisAsync();
+
+    // Dealt a winner already? Flash the winning cards, then show the hand name
+    const dealtCat  = curEvaluate(hand);
+    const dealtPays = curPayRows()[dealtCat].pays[coinBet-1];
+    if(dealtPays > 0){
+      lastHandIdx = dealtCat;
+      buildPayTable();                       // highlight the pay-table row
+      flashWinningCards(dealtCat);
+      sfx.dealtWin();
+      setMessage('Select cards to hold, then Draw', false);
+      const name = curPayRows()[dealtCat].name.toUpperCase();
+      setTimeout(() => {
+        if(phase === 'holding') setMessage(name + ' — hold & draw', false);
+      }, 800);
+    } else {
+      setMessage('Select cards to hold, then Draw', false);
+    }
 
   } else if(phase === 'holding'){
+    // Hold trainer: thump on a non-optimal hold, allow one retry.
+    // A second Draw press (without changing the hold) is accepted.
+    if(trainerOn && !trainerWarned){
+      const best = getBestMask();
+      if(best !== null){
+        let pm = 0;
+        for(let i=0;i<5;i++) if(held[i]) pm |= (1<<i);
+        if(pm !== best){
+          trainerWarned = true;
+          sfx.thump();
+          setMessage('Not the best hold — change it, or Draw again to keep it', false);
+          return;
+        }
+      }
+    }
+    trainerWarned = false;
+    sfx.button();
+
     // Draw: replace non-held cards
     for(let i=0;i<5;i++){
       if(!held[i]) hand[i]=dealCard();
@@ -1005,9 +1569,10 @@ async function deal(){
     await Promise.all(promises);
 
     // Evaluate
-    const handIdx=evaluate(hand);
+    const handIdx=curEvaluate(hand);
     lastHandIdx = handIdx;
-    const winCoins = PAY_TABLE[handIdx].pays[coinBet-1];
+    const payRows  = curPayRows();
+    const winCoins = payRows[handIdx].pays[coinBet-1];
     lastWin = winCoins;
     const prevCredits = credits;
     credits += winCoins;
@@ -1018,9 +1583,13 @@ async function deal(){
     if(winCoins > 0) animateCredits(prevCredits, credits);  // counts up credits
 
     if(winCoins > 0){
+      // Jackpot fanfare for the top-line hands, arpeggio for the rest
+      const jackpot = (handIdx === 0 && coinBet === 5) ||
+                      (currentGame === 'deuces' && handIdx === 1);
+      if(jackpot) sfx.jackpot(); else sfx.win();
       const msg = handIdx===0 && coinBet===5
-        ? '🎰 ROYAL FLUSH — JACKPOT! 🎰'
-        : PAY_TABLE[handIdx].name.toUpperCase() + '  +' + winCoins + ' CREDITS!';
+        ? '🎰 ' + payRows[0].name.toUpperCase() + ' — JACKPOT! 🎰'
+        : payRows[handIdx].name.toUpperCase() + '  +' + winCoins + ' CREDITS!';
       setMessage(msg, true);
     } else {
       setMessage('No winner — try again', false);
@@ -1043,6 +1612,7 @@ async function deal(){
 
 function betOne(){
   if(phase!=='betting') return;
+  sfx.button();
   coinBet = (coinBet % 5) + 1;
   buildPayTable();
   updateInfoRow();
@@ -1112,54 +1682,79 @@ function iterCombos(arr, k, fn) {
   }
 }
 
-// Kick off EV computation in the background as soon as the hand is dealt.
+// Kick off EV computation in the background (used by the hold trainer).
 // Snapshots hand/deck so changes during the hold phase don't corrupt results.
+// Runs one-or-more masks per timeout tick so the UI stays responsive.
 function startAnalysisAsync() {
   analysisResults = null;
+  const token    = ++analysisToken;
   const snapHand = hand.slice();
   const snapDeck = deck.slice();
-  setTimeout(() => { analysisResults = computeAllEVs(snapHand, snapDeck); }, 0);
+  const partial  = [];
+  let mask = 0;
+  function step(){
+    if(token !== analysisToken) return;   // superseded by a new deal/game
+    const t0 = Date.now();
+    while(mask < 32 && Date.now() - t0 < 50){
+      partial.push(computeMaskEV(mask, snapHand, snapDeck));
+      mask++;
+    }
+    if(mask < 32) setTimeout(step, 16);
+    else analysisResults = partial.slice().sort((a,b) => b.ev - a.ev);
+  }
+  setTimeout(step, 60);
 }
 
-// Compute EV for all 32 hold bitmasks; tracks per-hand-type expected contribution.
-// Returns array sorted best→worst, each entry:
-//   { mask, heldCards, ev, handEV[0..8] }  (handEV[i] = expected coins from hand type i)
-function computeAllEVs(snapHand, snapDeck) {
-  const rh  = new Array(5);  // reused buffer — avoids per-iteration allocation
-  const out = [];
+// Best hold mask for the trainer — background result if ready, else compute now
+function getBestMask(){
+  if(analysisResults) return analysisResults[0].mask;
+  analysisResults = computeAllEVs(hand.slice(), deck.slice());
+  analysisToken++;    // cancel any in-flight background pass
+  return analysisResults[0].mask;
+}
 
-  for(let mask=0; mask<32; mask++) {
-    const heldCards = [];
-    for(let i=0;i<5;i++) if(mask & (1<<i)) heldCards.push(snapHand[i]);
-    const drawN = 5 - heldCards.length;
-    for(let i=0;i<heldCards.length;i++) rh[i] = heldCards[i];
+// EV for one hold bitmask against the current game's pay table.
+// handSum[i]    = total coins paid by hand-type i across all draws
+// handCounts[i] = number of draws producing hand-type i (for odds)
+function computeMaskEV(mask, snapHand, snapDeck){
+  const rows  = curPayRows();
+  const nCats = rows.length;
+  const evalFn = curGame().evaluate;
+  const rh = new Array(5);
 
-    // handSum[i]    = total coins paid by hand-type i across all draws for this mask
-    // handCounts[i] = number of draws that produced hand-type i (for odds)
-    const handSum    = new Float64Array(10);
-    const handCounts = new Int32Array(10);
-    let cnt = 0;
+  const heldCards = [];
+  for(let i=0;i<5;i++) if(mask & (1<<i)) heldCards.push(snapHand[i]);
+  const drawN = 5 - heldCards.length;
+  for(let i=0;i<heldCards.length;i++) rh[i] = heldCards[i];
 
-    if(drawN === 0){
-      const hi = evaluate(snapHand);
-      handSum[hi]    += PAY_TABLE[hi].pays[coinBet-1];
+  const handSum    = new Float64Array(nCats);
+  const handCounts = new Int32Array(nCats);
+  let cnt = 0;
+
+  if(drawN === 0){
+    const hi = evalFn(snapHand);
+    handSum[hi]    += rows[hi].pays[coinBet-1];
+    handCounts[hi] += 1;
+    cnt = 1;
+  } else {
+    iterCombos(snapDeck, drawN, combo => {
+      for(let i=0;i<drawN;i++) rh[heldCards.length+i] = combo[i];
+      const hi = evalFn(rh);
+      handSum[hi]    += rows[hi].pays[coinBet-1];
       handCounts[hi] += 1;
-      cnt = 1;
-    } else {
-      iterCombos(snapDeck, drawN, combo => {
-        for(let i=0;i<drawN;i++) rh[heldCards.length+i] = combo[i];
-        const hi = evaluate(rh);
-        handSum[hi]    += PAY_TABLE[hi].pays[coinBet-1];
-        handCounts[hi] += 1;
-        cnt++;
-      });
-    }
-
-    // Convert totals → per-draw expected values and probabilities
-    const handEV   = Array.from(handSum,    v => v / cnt);
-    const handOdds = Array.from(handCounts, c => c / cnt);
-    out.push({ mask, heldCards, ev: handEV.reduce((s,v)=>s+v,0), handEV, handOdds });
+      cnt++;
+    });
   }
+
+  const handEV   = Array.from(handSum,    v => v / cnt);
+  const handOdds = Array.from(handCounts, c => c / cnt);
+  return { mask, heldCards, ev: handEV.reduce((s,v)=>s+v,0), handEV, handOdds };
+}
+
+// Compute EV for all 32 hold bitmasks, sorted best→worst
+function computeAllEVs(snapHand, snapDeck) {
+  const out = [];
+  for(let mask=0; mask<32; mask++) out.push(computeMaskEV(mask, snapHand, snapDeck));
   return out.sort((a,b) => b.ev - a.ev);
 }
 
@@ -1169,18 +1764,11 @@ function showAnalysis() {
   let playerMask = 0;
   for(let i=0;i<5;i++) if(held[i]) playerMask |= (1<<i);
 
-  // Column order: most common → rarest
-  const HAND_COLS = [
-    { label:'Jacks+', idx:8 },
-    { label:'2Pair',  idx:7 },
-    { label:'3Kind',  idx:6 },
-    { label:'Str',    idx:5 },
-    { label:'Flush',  idx:4 },
-    { label:'Full H', idx:3 },
-    { label:'4Kind',  idx:2 },
-    { label:'Str.Fl', idx:1 },
-    { label:'Royal',  idx:0 },
-  ];
+  // Column order: most common → rarest (reverse of the pay-table order)
+  const HAND_COLS = curPayRows()
+    .map((r, idx) => ({ label: r.col, idx }))
+    .filter(c => c.label)      // drop the "Nothing" row
+    .reverse();
 
   // ── Mode state ─────────────────────────────────────────────
   let oddsMode = false;   // false = payouts, true = odds %
@@ -1290,8 +1878,13 @@ function showAnalysis() {
 
   function render(ranked) {
     lastRanked = ranked;
-    const top5       = ranked.slice(0, 5);
+    // Top 8 options; if the player's hold isn't among them, append it with
+    // its full stats so the current selection is always visible.
+    const shown      = ranked.slice(0, 8).map((c, i) => ({ combo: c, rank: i + 1 }));
     const playerRank = ranked.findIndex(r => r.mask === playerMask) + 1;
+    if(playerRank > 8){
+      shown.push({ combo: ranked[playerRank - 1], rank: playerRank });
+    }
 
     // ── Cell helpers ──────────────────────────────────────
     const thStyle = (extra='') =>
@@ -1356,16 +1949,18 @@ function showAnalysis() {
     HAND_COLS.forEach(c => addTH(c.label));
 
     const tbody = tbl.createTBody();
-    top5.forEach((combo, ri) => {
+    shown.forEach(({combo, rank}, ri) => {
       const isPlayer = combo.mask === playerMask;
       const row = tbody.insertRow();
       row.style.cssText = isPlayer
         ? 'background:rgba(240,192,64,0.13);'
         : (ri%2===0 ? '' : 'background:rgba(255,255,255,0.03);');
+      // Appended out-of-top-8 player row gets a separator border
+      if(rank > 8) row.style.borderTop = '2px solid #2a4a9a';
 
-      // # cell
+      // # cell — actual rank among all 32 holds
       const rnkTd = row.insertCell();
-      rnkTd.textContent = ri+1;
+      rnkTd.textContent = rank;
       rnkTd.style.cssText = 'text-align:center;padding:5px 4px;font-weight:bold;color:#f0c040;font-size:18px;';
 
       // Hold label
@@ -1398,10 +1993,6 @@ function showAnalysis() {
     if(playerRank === 1){
       footer.textContent = '✓ Optimal hold selected';
       footer.style.color = '#3cdc64';
-    } else if(playerRank > 5){
-      footer.textContent =
-        `Your hold ranks #${playerRank} of 32  ` +
-        `(expected: ${formatMoney(+(ranked[playerRank-1].ev * denom).toFixed(2))})`;
     } else {
       footer.textContent = `Your hold ranks #${playerRank} of 32`;
     }
@@ -1418,9 +2009,10 @@ function showAnalysis() {
     if(lastRanked) render(lastRanked);
   });
 
-  // Compute on button press; modal renders first
+  // Compute on button press; modal renders first. Reuse the trainer's
+  // background result when it's already finished.
   setTimeout(() => {
-    render(computeAllEVs(hand.slice(), deck.slice()));
+    render(analysisResults || computeAllEVs(hand.slice(), deck.slice()));
   }, 30);
 }
 
@@ -1516,6 +2108,43 @@ function showSettings() {
     wrap.appendChild(topRow);
     wrap.appendChild(slider);
     wrap.appendChild(endRow);
+    return wrap;
+  }
+
+  // ── Option-row builder: label + a row of choice buttons ──
+  function makeToggleRow(labelText, options, getVal, setVal){
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;';
+
+    const lbl = document.createElement('div');
+    lbl.style.cssText = 'font-size:15px;font-weight:bold;color:#c0c8d8;letter-spacing:1px;';
+    lbl.textContent = labelText;
+
+    const btns = document.createElement('div');
+    btns.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;';
+
+    const els = [];
+    const refresh = () => els.forEach(({b, value}) => {
+      const on = getVal() === value;
+      b.style.background  = on ? 'linear-gradient(180deg,#c89a20,#a07a10)' : '#1a2a60';
+      b.style.color       = on ? '#000' : '#c0c8d8';
+      b.style.borderColor = on ? '#f0c040' : '#3a5aaa';
+    });
+    options.forEach(o => {
+      const b = document.createElement('button');
+      b.textContent = o.label;
+      b.style.cssText = [
+        'font-family:Arial,Helvetica,sans-serif','font-size:12px','font-weight:bold',
+        'padding:6px 12px','border:2px solid #3a5aaa','border-radius:6px',
+        'background:#1a2a60','color:#c0c8d8','cursor:pointer','touch-action:manipulation',
+      ].join(';');
+      b.addEventListener('click', () => { setVal(o.value); refresh(); });
+      els.push({ b, value: o.value });
+      btns.appendChild(b);
+    });
+    refresh();
+    wrap.appendChild(lbl);
+    wrap.appendChild(btns);
     return wrap;
   }
 
@@ -1646,6 +2275,51 @@ function showSettings() {
     dealDelay = ms;
     saveState();
   }));
+
+  // Pay table for the current game (change only between hands)
+  panel.appendChild(makeToggleRow(
+    'Pay Table — ' + curGame().name,
+    curGame().payTables.map((p, i) => ({ label: p.label, value: i })),
+    () => payTableIdx,
+    i => {
+      if(phase === 'holding'){ alert('Finish the current hand before changing the pay table.'); return; }
+      payTableIdx = i;
+      analysisResults = null;
+      analysisToken++;
+      saveState();
+      buildPayTable();
+    }
+  ));
+
+  // Look & feel: retro-modern vs authentic Game King
+  panel.appendChild(makeToggleRow(
+    'Look & Feel',
+    [{ label:'Modern', value:'modern' }, { label:'Classic', value:'classic' }],
+    () => theme,
+    v => { theme = v; applyTheme(); saveState(); }
+  ));
+
+  // Sounds
+  panel.appendChild(makeToggleRow(
+    'Sounds',
+    [{ label:'On', value:true }, { label:'Off', value:false }],
+    () => soundOn,
+    v => { soundOn = v; saveState(); if(v) sfx.win(); }
+  ));
+
+  // Hold trainer: thump + one retry on a non-optimal hold
+  panel.appendChild(makeToggleRow(
+    'Hold Trainer',
+    [{ label:'On', value:true }, { label:'Off', value:false }],
+    () => trainerOn,
+    v => {
+      trainerOn = v;
+      trainerWarned = false;
+      saveState();
+      if(v && phase === 'holding' && !analysisResults) startAnalysisAsync();
+    }
+  ));
+
   panel.appendChild(histSection);
   panel.appendChild(doneBtn);
   overlay.appendChild(panel);
@@ -1695,11 +2369,12 @@ function showGraph(){
   function updateTitle(){
     const total = history.length;
     const shown = rangeEnd - rangeStart + 1;
+    const gname = curGame().name;
     title.textContent = total === 0
-      ? 'Session History — No Entries'
+      ? `${gname} History — No Entries`
       : rangeStart === 1 && rangeEnd === total
-        ? `Session History — ${total} Entr${total!==1?'ies':'y'}`
-        : `Session History — Entries ${rangeStart}–${rangeEnd} of ${total}`;
+        ? `${gname} History — ${total} Entr${total!==1?'ies':'y'}`
+        : `${gname} History — Entries ${rangeStart}–${rangeEnd} of ${total}`;
   }
   updateTitle();
 
@@ -1934,32 +2609,18 @@ function drawGraph(canvas, history, offset=0){
 //  INIT
 // ════════════════════════════════════════════════════════════
 function init(){
-  loadState();           // restore credits, coinBet, denomIdx, flipDuration, dealDelay
+  loadState();           // restore per-game state + shared settings
   applyAnimSettings();   // push loaded values into the CSS custom property
+  applyTheme();
+  updateTitleBar();
   buildPayTable();
   buildDenomButtons();
   updateInfoRow();
 
   // Render empty card backs as placeholders
-  const row=document.getElementById('cards-row');
-  row.innerHTML='';
-  for(let i=0;i<5;i++){
-    const wrap=document.createElement('div');
-    wrap.className='card-wrap';
-    const badge=document.createElement('div');
-    badge.className='hold-badge';
-    badge.textContent='HOLD';
-    const cardEl=document.createElement('div');
-    cardEl.className='card';
-    const inner=document.createElement('div');
-    inner.className='card-inner';
-    inner.appendChild(buildCardBack());
-    cardEl.appendChild(inner);
-    wrap.appendChild(badge);
-    wrap.appendChild(cardEl);
-    row.appendChild(wrap);
-  }
+  renderCardsBack();
 
+  document.getElementById('btn-game').addEventListener('click',        showGameSelect);
   document.getElementById('btn-deal').addEventListener('click',        deal);
   document.getElementById('btn-bet-one').addEventListener('click',     betOne);
   document.getElementById('btn-bet-max').addEventListener('click',     betMax);
@@ -2047,6 +2708,14 @@ window.addEventListener('orientationchange', () => setTimeout(rescale, 200));
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
+      .then(reg => {
+        // iOS home-screen apps resume from memory instead of relaunching,
+        // which skips the normal update check — so re-check for a new
+        // sw.js every time the app returns to the foreground.
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') reg.update().catch(()=>{});
+        });
+      })
       .catch(err => console.warn('SW registration failed:', err));
   });
 }
