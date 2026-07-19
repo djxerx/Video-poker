@@ -1161,7 +1161,7 @@ const GAMES = {
       { label:'8/5',          rows: jobRows(8,5) },
     ],
     evaluate: cards => evaluate(cards),
-    winCards: cat => winCardsStandard(cat, false),
+    winCards: (cat, h) => winCardsStandard(cat, false, h),
   },
   bonus: {
     name: 'Bonus Poker',
@@ -1172,7 +1172,7 @@ const GAMES = {
       { label:'6/5',          rows: bonusRows(80,40,25, 6,5, 4, 2) },
     ],
     evaluate: cards => evalBonusStyle(cards),
-    winCards: cat => winCardsStandard(cat, true),
+    winCards: (cat, h) => winCardsStandard(cat, true, h),
   },
   dbonus: {
     name: 'Double Bonus Poker',
@@ -1183,7 +1183,7 @@ const GAMES = {
       { label:'9/6',           rows: bonusRows(160,80,50,  9,6, 5, 1) },
     ],
     evaluate: cards => evalBonusStyle(cards),
-    winCards: cat => winCardsStandard(cat, true),
+    winCards: (cat, h) => winCardsStandard(cat, true, h),
   },
   tens: {
     name: 'Tens or Better',
@@ -1193,7 +1193,7 @@ const GAMES = {
       { label:'20/6/5',          rows: tensRows(20) },
     ],
     evaluate: cards => evalTens(cards),
-    winCards: cat => winCardsStandard(cat, false),
+    winCards: (cat, h) => winCardsStandard(cat, false, h),
   },
   ddbonus: {
     name: 'Double Double Bonus',
@@ -1204,7 +1204,7 @@ const GAMES = {
       { label:'9/5',           rows: ddbRows(9,5)  },
     ],
     evaluate: cards => evalDDB(cards),
-    winCards: cat => winCardsDDB(cat),
+    winCards: (cat, h) => winCardsDDB(cat, h),
   },
   joker: {
     name: "Joker's Wild",
@@ -1216,7 +1216,7 @@ const GAMES = {
       { label:'17/7/5',          rows: jokerRows(17) },
     ],
     evaluate: cards => evalJoker(cards),
-    winCards: cat => winCardsJoker(cat),
+    winCards: (cat, h) => winCardsJoker(cat, h),
   },
   allamerican: {
     name: 'All American',
@@ -1227,7 +1227,7 @@ const GAMES = {
       { label:'25/8',          rows: aaRows(25) },
     ],
     evaluate: cards => evaluate(cards),
-    winCards: cat => winCardsStandard(cat, false),
+    winCards: (cat, h) => winCardsStandard(cat, false, h),
   },
   bpdeluxe: {
     name: 'Bonus Poker Deluxe',
@@ -1238,7 +1238,7 @@ const GAMES = {
       { label:'8/5',          rows: bpdRows(8,5) },
     ],
     evaluate: cards => evaluate(cards),
-    winCards: cat => winCardsStandard(cat, false),
+    winCards: (cat, h) => winCardsStandard(cat, false, h),
   },
   tbonus: {
     name: 'Triple Bonus',
@@ -1249,7 +1249,7 @@ const GAMES = {
       { label:'10/7/4',          rows: tbRows(10,7,4) },
     ],
     evaluate: cards => evalTripleBonus(cards),
-    winCards: cat => winCardsStandard(cat, true),
+    winCards: (cat, h) => winCardsStandard(cat, true, h),
   },
   tdbonus: {
     name: 'Triple Double Bonus',
@@ -1260,7 +1260,7 @@ const GAMES = {
       { label:'9/5',          rows: tdbRows(9,5) },
     ],
     evaluate: cards => evalDDB(cards),
-    winCards: cat => winCardsDDB(cat),
+    winCards: (cat, h) => winCardsDDB(cat, h),
   },
   sdbonus: {
     name: 'Super Double Bonus',
@@ -1271,7 +1271,7 @@ const GAMES = {
       { label:'7/5',          rows: sdbRows(7) },
     ],
     evaluate: cards => evalSuperDB(cards),
-    winCards: cat => winCardsSDB(cat),
+    winCards: (cat, h) => winCardsSDB(cat, h),
   },
   sddbonus: {
     name: 'Super Double Double Bonus',
@@ -1282,7 +1282,7 @@ const GAMES = {
       { label:'7/5',           rows: sddbRows(50, 7) },
     ],
     evaluate: cards => evalSuperDDB(cards),
-    winCards: cat => winCardsSDDB(cat),
+    winCards: (cat, h) => winCardsSDDB(cat, h),
   },
   joker2: {
     name: "Joker's Wild (Two Pair)",
@@ -1293,7 +1293,7 @@ const GAMES = {
       { label:'16/8/5',           rows: jtpRows(4000,800,100,100,16, 8,5,4) },
     ],
     evaluate: cards => evalJokerTP(cards),
-    winCards: cat => cat === 10 ? [] : winCardsJoker(cat),
+    winCards: (cat, h) => cat === 10 ? [] : winCardsJoker(cat, h),
   },
   deuces: {
     name: 'Deuces Wild',
@@ -1304,7 +1304,7 @@ const GAMES = {
       { label:'Airport 25/15/10',     rows: deucesRows(15,10, 4, 4, 3) },
     ],
     evaluate: cards => evalDeuces(cards),
-    winCards: cat => winCardsDeuces(cat),
+    winCards: (cat, h) => winCardsDeuces(cat, h),
   },
   bdeuces: {
     name: 'Bonus Deuces Wild',
@@ -1315,7 +1315,7 @@ const GAMES = {
       { label:'8/4/3',           rows: bdRows(8)  },
     ],
     evaluate: cards => evalBonusDeuces(cards),
-    winCards: cat => winCardsBDeuces(cat),
+    winCards: (cat, h) => winCardsBDeuces(cat, h),
   },
 };
 // Non-wild games first, then the wild-card games
@@ -1330,7 +1330,7 @@ const GAME_KEYS = [
 // ════════════════════════════════════════════════════════════
 // Per-game state (each game is its own machine: bankroll, history, pay table)
 function defaultGameState(){
-  return { credits:100, handHistory:[], graphRangeStart:1, payTableIdx:0 };
+  return { credits:100, handHistory:[], graphRangeStart:1, payTableIdx:0, subPlays:[] };
 }
 let gameState   = Object.fromEntries(GAME_KEYS.map(k => [k, defaultGameState()]));
 let currentGame = 'jacks';
@@ -1340,6 +1340,7 @@ let credits         = 100;
 let handHistory     = [];      // [{credits, delta, type}] — last 1000 entries, persisted
 let graphRangeStart = 1;       // persisted start entry for graph range
 let payTableIdx     = 0;       // index into curGame().payTables
+let subPlays        = [];      // last 8 non-optimal plays (full replay data)
 
 // Shared (machine-wide) settings
 let coinBet      = 5;           // 1–5 coins
@@ -1366,7 +1367,7 @@ const SAVE_KEY = 'vp_state';
 
 // Copy the live globals back into the per-game record
 function syncToGameState() {
-  gameState[currentGame] = { credits, handHistory, graphRangeStart, payTableIdx };
+  gameState[currentGame] = { credits, handHistory, graphRangeStart, payTableIdx, subPlays };
 }
 
 // Pull the per-game record into the live globals
@@ -1376,6 +1377,7 @@ function syncFromGameState() {
   handHistory     = gs.handHistory;
   graphRangeStart = gs.graphRangeStart;
   payTableIdx     = Math.min(gs.payTableIdx, curGame().payTables.length - 1);
+  subPlays        = gs.subPlays || [];
 }
 
 function saveState() {
@@ -1404,6 +1406,7 @@ function loadState() {
         if (Array.isArray(g.handHistory))                                 gs.handHistory = g.handHistory.slice(-1000);
         if (typeof g.graphRangeStart === 'number' && g.graphRangeStart>=1) gs.graphRangeStart = g.graphRangeStart;
         if (typeof g.payTableIdx === 'number' && g.payTableIdx >= 0)      gs.payTableIdx = g.payTableIdx;
+        if (Array.isArray(g.subPlays))                                    gs.subPlays = g.subPlays.slice(-8);
       });
       if (GAME_KEYS.includes(s.currentGame)) currentGame = s.currentGame;
     } else {
@@ -1770,8 +1773,9 @@ function evalDeuces(cards){
   return 10;                                               // Nothing
 }
 
-// ── Winning-card index helpers (for the dealt-winner flash) ──
-function winCardsStandard(cat, isBonus){
+// ── Winning-card index helpers (dealt-winner flash + replay viewer) ──
+// All accept an optional hand `h` so stored hands can be highlighted too.
+function winCardsStandard(cat, isBonus, h = hand){
   // Map Bonus/Double Bonus categories back onto the JoB layout
   let base = cat;
   if(isBonus){
@@ -1779,8 +1783,8 @@ function winCardsStandard(cat, isBonus){
     else if(cat >= 5)        base = cat - 2;
   }
   const freq = {};
-  hand.forEach(c => freq[c.rank] = (freq[c.rank]||0)+1);
-  const idxOf = pred => hand.map((c,i) => pred(c) ? i : -1).filter(i => i >= 0);
+  h.forEach(c => freq[c.rank] = (freq[c.rank]||0)+1);
+  const idxOf = pred => h.map((c,i) => pred(c) ? i : -1).filter(i => i >= 0);
   switch(base){
     case 0: case 1: case 3: case 4: case 5: return [0,1,2,3,4];  // royal/SF/FH/FL/ST
     case 2: { const r = Object.keys(freq).find(r => freq[r]===4); return idxOf(c=>c.rank===r); }
@@ -1792,45 +1796,45 @@ function winCardsStandard(cat, isBonus){
 }
 
 // Double Double Bonus: kicker quads flash all five; map the rest onto JoB layout
-function winCardsDDB(cat){
+function winCardsDDB(cat, h = hand){
   if(cat === 2 || cat === 3) return [0,1,2,3,4];
   let base;
   if(cat < 2) base = cat;
   else if(cat <= 6) base = 2;
   else base = cat - 4;
-  return winCardsStandard(base, false);
+  return winCardsStandard(base, false, h);
 }
 
 // Super Double Bonus: quads span cats 2–5
-function winCardsSDB(cat){
+function winCardsSDB(cat, h = hand){
   let base;
   if(cat < 2) base = cat;
   else if(cat <= 5) base = 2;
   else base = cat - 3;
-  return winCardsStandard(base, false);
+  return winCardsStandard(base, false, h);
 }
 
 // Super Double Double Bonus: kicker quads (2–5) flash all five; quads 6–9
-function winCardsSDDB(cat){
+function winCardsSDDB(cat, h = hand){
   if(cat >= 2 && cat <= 5) return [0,1,2,3,4];
   let base;
   if(cat < 2) base = cat;
   else if(cat <= 9) base = 2;
   else base = cat - 7;
-  return winCardsStandard(base, false);
+  return winCardsStandard(base, false, h);
 }
 
 // Bonus Deuces Wild: map onto the Deuces Wild layout
-function winCardsBDeuces(cat){
+function winCardsBDeuces(cat, h = hand){
   if(cat === 1) return [0,1,2,3,4];              // four deuces + ace — all five matter
   const map = { 0:0, 2:1, 3:2, 4:3, 5:3, 6:3, 7:4, 8:5, 9:6, 10:7, 11:8, 12:9, 13:10 };
-  return winCardsDeuces(map[cat]);
+  return winCardsDeuces(map[cat], h);
 }
 
-function winCardsJoker(cat){
-  const idxOf = pred => hand.map((c,i) => pred(c) ? i : -1).filter(i => i >= 0);
+function winCardsJoker(cat, h = hand){
+  const idxOf = pred => h.map((c,i) => pred(c) ? i : -1).filter(i => i >= 0);
   const freq = {};
-  hand.forEach(c => { if(!c.joker) freq[c.rank] = (freq[c.rank]||0)+1; });
+  h.forEach(c => { if(!c.joker) freq[c.rank] = (freq[c.rank]||0)+1; });
   switch(cat){
     case 4: case 8: {                       // 4K / 3K: joker + kind rank
       const r = Object.keys(freq).sort((a,b)=>freq[b]-freq[a])[0];
@@ -1847,10 +1851,10 @@ function winCardsJoker(cat){
   }
 }
 
-function winCardsDeuces(cat){
-  const idxOf = pred => hand.map((c,i) => pred(c) ? i : -1).filter(i => i >= 0);
+function winCardsDeuces(cat, h = hand){
+  const idxOf = pred => h.map((c,i) => pred(c) ? i : -1).filter(i => i >= 0);
   const freq = {};
-  hand.forEach(c => { if(c.rank!=='2') freq[c.rank] = (freq[c.rank]||0)+1; });
+  h.forEach(c => { if(c.rank!=='2') freq[c.rank] = (freq[c.rank]||0)+1; });
   switch(cat){
     case 1: return idxOf(c => c.rank==='2');               // four deuces only
     case 5: case 9: {                                      // 4K / 3K: deuces + kind rank
@@ -2561,6 +2565,7 @@ async function dealCore(){
 
     // Patch in the optimal-play counterfactual once the analysis resolves:
     // replay the best hold against the same deck order the draw used.
+    const postHand = hand.slice();   // the actual post-draw hand, snapshotted now
     handAnalysis.then(ranked => {
       if(!ranked || !ranked.length) return;
       const bestMask = ranked[0].mask;
@@ -2571,6 +2576,16 @@ async function dealCore(){
       entry.sub    = bestMask !== playerMask;          // was the play suboptimal?
       entry.opt    = handRows[cat].pays[handBet-1] - handBet;
       entry.optRes = handRows[cat].name;
+      // Full replay record for the Non-Optimal Plays viewer (last 8 per game)
+      if(entry.sub){
+        subPlays.push({
+          pre:  preHand,  held:  playerMask, bet: handBet,
+          post: postHand, res:   entry.res,  win: winCoins,
+          opost: oh, oheld: bestMask, ores: handRows[cat].name,
+          owin: handRows[cat].pays[handBet-1],
+        });
+        if(subPlays.length > 8) subPlays.shift();
+      }
       saveState();
     }).catch(()=>{});
     updateInfoRow();          // updates Win and Bet displays immediately
@@ -2957,7 +2972,20 @@ function showAnalysis(customHand, customDeck) {
   closeBtn.addEventListener('click', close);
   overlay.addEventListener('click', e => { if(e.target===overlay) close(); });
 
+  // Non-Optimal Plays: replay viewer for the last 8 suboptimal holds
+  const subBtn = document.createElement('button');
+  subBtn.textContent = 'Non-Optimal Plays';
+  subBtn.style.cssText = [
+    'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
+    'letter-spacing:2px','text-transform:uppercase','padding:8px 22px',
+    'background:linear-gradient(180deg,#8a4a10,#5a2e08)',
+    'border:2px solid #ff8c30','border-radius:8px',
+    'color:#ffc890','cursor:pointer','touch-action:manipulation',
+  ].join(';');
+  subBtn.addEventListener('click', showSubPlays);
+
   bottomBar.appendChild(toggleBtn);
+  bottomBar.appendChild(subBtn);
   bottomBar.appendChild(closeBtn);
 
   panel.appendChild(title);
@@ -3120,6 +3148,157 @@ function showAnalysis(customHand, customDeck) {
       if(overlay.parentNode && token === analysisToken) render(results);
     });
   }
+}
+
+// ════════════════════════════════════════════════════════════
+//  NON-OPTIMAL PLAYS VIEWER
+//  Last 8 suboptimal plays for the current game, three columns each:
+//  the dealt board (glow = cards you SHOULD have held), your actual
+//  result, and the optimal-hold result — with hand names and payouts.
+// ════════════════════════════════════════════════════════════
+function showSubPlays(){
+  sfx.button();
+  const rows = curPayRows();
+  const catOf = name => rows.findIndex(r => r.name === name);
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = [
+    'position:fixed','inset:0','z-index:10000',
+    'background:rgba(0,5,25,0.92)',
+    'display:flex','align-items:center','justify-content:center',
+    'font-family:Arial,Helvetica,sans-serif',
+  ].join(';');
+
+  const panel = document.createElement('div');
+  panel.style.cssText = [
+    'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)',
+    'border:2px solid #2a4a9a','border-radius:14px',
+    'box-shadow:0 0 30px rgba(20,60,180,0.6)',
+    'padding:16px 20px','width:min(860px,97vw)',
+    'max-height:92vh','overflow-y:auto',
+    'display:flex','flex-direction:column','gap:12px',
+  ].join(';');
+
+  const title = document.createElement('div');
+  title.style.cssText = [
+    'text-align:center','font-size:15px','font-weight:bold',
+    'color:#f0c040','letter-spacing:3px','text-transform:uppercase',
+    'text-shadow:0 0 8px rgba(240,192,64,0.5)',
+  ].join(';');
+  title.textContent = curGame().name + ' — Non-Optimal Plays';
+  panel.appendChild(title);
+
+  // One mini card with an optional HELD label and gold winning glow
+  function miniCardEl(c, heldTxt, glow){
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;width:38px;';
+    const lbl = document.createElement('div');
+    lbl.style.cssText = 'height:11px;font-size:8px;font-weight:bold;letter-spacing:0.5px;color:#fff;';
+    lbl.textContent = heldTxt;
+    const card = document.createElement('div');
+    card.style.cssText = [
+      'width:36px','height:48px','background:#fdf6e3','border-radius:4px',
+      'display:flex','flex-direction:column','align-items:center','justify-content:center',
+      'font-weight:800','line-height:1',
+      `color:${SUIT_COLOR[c.suit]==='red' ? '#cc0000' : '#111'}`,
+      glow ? 'border:2px solid #ffd700;box-shadow:0 0 8px 3px rgba(255,215,0,0.85)'
+           : 'border:1px solid #8899aa',
+    ].join(';');
+    card.innerHTML = c.joker
+      ? '<span style="font-size:9px">JOKER</span><span style="font-size:16px">★</span>'
+      : `<span style="font-size:13px">${c.rank}</span><span style="font-size:13px">${c.suit}</span>`;
+    wrap.appendChild(lbl);
+    wrap.appendChild(card);
+    return wrap;
+  }
+
+  // A 5-card strip: heldMask marks HELD labels, glowIdxs get the gold glow
+  function strip(cards, heldMask, glowIdxs){
+    const s = document.createElement('div');
+    s.style.cssText = 'display:flex;gap:3px;';
+    cards.forEach((c, i) => s.appendChild(
+      miniCardEl(c, (heldMask & (1<<i)) ? 'HELD' : '', glowIdxs.includes(i))
+    ));
+    return s;
+  }
+
+  // A column: small header above the strip, result caption below.
+  // Rows flex-wrap, so on narrow screens the three columns stack.
+  function column(header, headerColor, strips, caption, captionColor){
+    const col = document.createElement('div');
+    col.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:3px;';
+    const h = document.createElement('div');
+    h.style.cssText = `font-size:10px;font-weight:bold;letter-spacing:1px;color:${headerColor};`;
+    h.textContent = header;
+    col.appendChild(h);
+    col.appendChild(strips);
+    const cap = document.createElement('div');
+    cap.style.cssText = `font-size:11px;font-weight:bold;letter-spacing:0.5px;min-height:14px;color:${captionColor};text-align:center;`;
+    cap.textContent = caption;
+    col.appendChild(cap);
+    return col;
+  }
+
+  if(subPlays.length === 0){
+    const empty = document.createElement('div');
+    empty.style.cssText = 'text-align:center;color:#8899bb;font-size:14px;padding:24px 0;';
+    empty.textContent = 'No non-optimal plays recorded yet for this game — nice!';
+    panel.appendChild(empty);
+  } else {
+    [...subPlays].reverse().forEach((rec, ri) => {
+      const row = document.createElement('div');
+      row.style.cssText = [
+        'display:flex','flex-wrap:wrap','justify-content:center','align-items:flex-start',
+        'gap:8px 20px','padding:8px 4px','border-top:1px solid #1a3a7a',
+      ].join(';');
+
+      // Col 1: dealt board — HELD = what you held, glow = what you should have held
+      const glowPre = [];
+      for(let i=0;i<5;i++) if(rec.oheld & (1<<i)) glowPre.push(i);
+      row.appendChild(column(
+        `#${subPlays.length - ri} DEALT — glow = best hold`, '#f0c040',
+        strip(rec.pre, rec.held, glowPre), '', '#8899bb'
+      ));
+
+      // Col 2: your actual result
+      const aCat  = catOf(rec.res);
+      const aGlow = rec.win > 0 && aCat >= 0 ? curGame().winCards(aCat, rec.post) : [];
+      row.appendChild(column(
+        'YOUR RESULT', '#e0e8f8',
+        strip(rec.post, rec.held, aGlow),
+        `${rec.res}  ${rec.win > 0 ? '+' + rec.win : '0'}`,
+        rec.win > 0 ? '#f0c040' : '#8899bb'
+      ));
+
+      // Col 3: optimal-hold result
+      const oCat  = catOf(rec.ores);
+      const oGlow = rec.owin > 0 && oCat >= 0 ? curGame().winCards(oCat, rec.opost) : [];
+      row.appendChild(column(
+        'OPTIMAL RESULT', '#38b6ff',
+        strip(rec.opost, rec.oheld, oGlow),
+        `${rec.ores}  ${rec.owin > 0 ? '+' + rec.owin : '0'}`,
+        rec.owin > 0 ? '#38b6ff' : '#8899bb'
+      ));
+
+      panel.appendChild(row);
+    });
+  }
+
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = 'Close';
+  closeBtn.style.cssText = [
+    'align-self:center','font-family:Arial,Helvetica,sans-serif','font-size:13px',
+    'font-weight:bold','letter-spacing:2px','text-transform:uppercase','padding:8px 28px',
+    'background:linear-gradient(180deg,#2a4aaa,#1a2a7a)','border:2px solid #5a7acc',
+    'border-radius:8px','color:#fff','cursor:pointer','touch-action:manipulation',
+  ].join(';');
+  const close = () => { if(overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+  closeBtn.addEventListener('click', close);
+  overlay.addEventListener('click', e => { if(e.target === overlay) close(); });
+
+  panel.appendChild(closeBtn);
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
 }
 
 // ════════════════════════════════════════════════════════════
