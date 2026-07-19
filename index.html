@@ -367,25 +367,31 @@
     }
 
     /* ─── Buttons Row ───────────────────────────────────────── */
+    /* Fixed px sizing (no vw units): the terminal has a fixed 820px natural
+       width and is scaled as a whole, so viewport-relative padding made the
+       row overflow on wide screens and wrap a button onto a second row.
+       nowrap + flex-shrink means buttons resize instead of wrapping. */
     #buttons-row {
       display: flex;
       justify-content: center;
-      gap: clamp(6px, 2vw, 14px);
-      flex-wrap: wrap;
+      gap: 8px;
+      flex-wrap: nowrap;
     }
 
     .btn {
       font-family: Impact, 'Arial Narrow', sans-serif;
-      font-size: clamp(10px, 2vw, 14px);
+      font-size: 13px;
       font-weight: bold;
-      letter-spacing: 2px;
+      letter-spacing: 1.5px;
       text-transform: uppercase;
-      padding: clamp(8px, 1.5vw, 12px) clamp(14px, 3vw, 26px);
+      padding: 10px 8px;
       border-radius: 8px;
       border: 2px solid;
       cursor: pointer;
       transition: all 0.15s;
-      min-width: 90px;
+      flex: 1 1 auto;
+      min-width: 0;
+      white-space: nowrap;
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
     }
@@ -412,6 +418,7 @@
       justify-content: center;
       padding: 6px 14px;
       min-width: 0;
+      flex: 0 0 auto;    /* gear keeps its natural size; text buttons flex */
     }
     .btn-settings:hover:not(:disabled) {
       background: linear-gradient(180deg, #3a3a6a, #2a2a4a);
@@ -1117,8 +1124,7 @@ function switchGame(key){
   lastHandIdx = -1;
   hand = [];
   held = [false,false,false,false,false];
-  analysisResults = null;
-  analysisToken++;
+  invalidateAnalysis();
   trainerWarned = false;
 
   saveState();
@@ -1469,7 +1475,18 @@ function setButtons(betting){
   document.getElementById('btn-analyze').disabled = betting;
 }
 
+// Guard against double-presses: deal/draw animations and the trainer's
+// await both yield to the event loop, so a second press mid-flight must
+// be ignored rather than double-deducting or double-drawing.
+let dealBusy = false;
 async function deal(){
+  if(dealBusy) return;
+  if(phase === 'result') phase = 'betting';   // result → next hand
+  dealBusy = true;
+  try { await dealCore(); } finally { dealBusy = false; }
+}
+
+async function dealCore(){
   if(phase === 'betting'){
     // Deduct bet (in credits = coins)
     if(credits < coinBet){
@@ -1483,8 +1500,7 @@ async function deal(){
     lastWin   = 0;
     lastHandIdx = -1;
     trainerWarned = false;
-    analysisResults = null;
-    analysisToken++;
+    invalidateAnalysis();
     updateInfoRow();
     buildPayTable();
 
@@ -1528,11 +1544,16 @@ async function deal(){
     // Hold trainer: thump on a non-optimal hold, allow one retry.
     // A second Draw press (without changing the hold) is accepted.
     if(trainerOn && !trainerWarned){
-      const best = getBestMask();
-      if(best !== null){
+      let ranked = analysisResults;
+      if(!ranked){
+        // Worker hasn't finished yet (very fast Draw press) — wait for it
+        setMessage('Checking your hold…', false);
+        ranked = await (analysisPromise || startAnalysisAsync());
+      }
+      if(ranked && ranked.length){
         let pm = 0;
         for(let i=0;i<5;i++) if(held[i]) pm |= (1<<i);
-        if(pm !== best){
+        if(pm !== ranked[0].mask){
           trainerWarned = true;
           sfx.thump();
           setMessage('Not the best hold — change it, or Draw again to keep it', false);
@@ -1604,9 +1625,6 @@ async function deal(){
       if(winCoins===0) setMessage('Better luck next time!', false);
     }, 2200);
 
-  } else if(phase === 'result'){
-    phase = 'betting';
-    deal();
   }
 }
 
@@ -1682,35 +1700,100 @@ function iterCombos(arr, k, fn) {
   }
 }
 
-// Kick off EV computation in the background (used by the hold trainer).
-// Snapshots hand/deck so changes during the hold phase don't corrupt results.
-// Runs one-or-more masks per timeout tick so the UI stays responsive.
-function startAnalysisAsync() {
-  analysisResults = null;
-  const token    = ++analysisToken;
-  const snapHand = hand.slice();
-  const snapDeck = deck.slice();
-  const partial  = [];
-  let mask = 0;
-  function step(){
-    if(token !== analysisToken) return;   // superseded by a new deal/game
-    const t0 = Date.now();
-    while(mask < 32 && Date.now() - t0 < 50){
-      partial.push(computeMaskEV(mask, snapHand, snapDeck));
-      mask++;
+// ── EV analysis Web Worker ───────────────────────────────────
+// The full 32-mask computation (up to ~2.6M hand evaluations) runs OFF the
+// main thread so card taps stay instant during the hold phase. The worker
+// is built from a Blob of this file's own evaluator functions, so the game
+// stays a single self-contained file (and works offline).
+function evWorkerSource(){
+  const fns = [rankIndex, evaluate, rankVal, evalBonusStyle, evalDeuces, iterCombos]
+    .map(f => f.toString()).join('\n');
+  const main = `
+const EVAL_FNS = { jacks: evaluate, bonus: evalBonusStyle, dbonus: evalBonusStyle, deuces: evalDeuces };
+self.onmessage = e => {
+  const { token, gameKey, rows, coinBet, hand, deck } = e.data;
+  const evalFn = EVAL_FNS[gameKey];
+  const nCats  = rows.length;
+  const rh  = new Array(5);
+  const out = [];
+  for(let mask=0; mask<32; mask++){
+    const heldCards = [];
+    for(let i=0;i<5;i++) if(mask & (1<<i)) heldCards.push(hand[i]);
+    const drawN = 5 - heldCards.length;
+    for(let i=0;i<heldCards.length;i++) rh[i] = heldCards[i];
+    const handSum    = new Float64Array(nCats);
+    const handCounts = new Int32Array(nCats);
+    let cnt = 0;
+    if(drawN === 0){
+      const hi = evalFn(hand);
+      handSum[hi]    += rows[hi].pays[coinBet-1];
+      handCounts[hi] += 1;
+      cnt = 1;
+    } else {
+      iterCombos(deck, drawN, combo => {
+        for(let i=0;i<drawN;i++) rh[heldCards.length+i] = combo[i];
+        const hi = evalFn(rh);
+        handSum[hi]    += rows[hi].pays[coinBet-1];
+        handCounts[hi] += 1;
+        cnt++;
+      });
     }
-    if(mask < 32) setTimeout(step, 16);
-    else analysisResults = partial.slice().sort((a,b) => b.ev - a.ev);
+    const handEV   = Array.from(handSum,    v => v / cnt);
+    const handOdds = Array.from(handCounts, c => c / cnt);
+    out.push({ mask, heldCards, ev: handEV.reduce((s,v)=>s+v,0), handEV, handOdds });
   }
-  setTimeout(step, 60);
+  out.sort((a,b) => b.ev - a.ev);
+  self.postMessage({ token, results: out });
+};`;
+  return 'const RANKS = ' + JSON.stringify(RANKS) + ';\n' + fns + '\n' + main;
 }
 
-// Best hold mask for the trainer — background result if ready, else compute now
-function getBestMask(){
-  if(analysisResults) return analysisResults[0].mask;
-  analysisResults = computeAllEVs(hand.slice(), deck.slice());
-  analysisToken++;    // cancel any in-flight background pass
-  return analysisResults[0].mask;
+let evWorker  = null;
+let evPending = {};
+function getEVWorker(){
+  if(evWorker) return evWorker;
+  const blob = new Blob([evWorkerSource()], { type: 'text/javascript' });
+  evWorker = new Worker(URL.createObjectURL(blob));
+  evWorker.onmessage = e => {
+    const { token, results } = e.data;
+    const resolve = evPending[token];
+    delete evPending[token];
+    if(resolve) resolve(results);
+  };
+  return evWorker;
+}
+
+// Discard any computed/in-flight analysis (new deal, game or pay-table change)
+function invalidateAnalysis(){
+  analysisResults = null;
+  analysisPromise = null;
+  analysisToken++;
+}
+
+// Kick off EV computation in the worker. Snapshots hand/deck so changes
+// during the hold phase don't corrupt results. Returns a promise of the
+// ranked results; also stores them in analysisResults when they arrive.
+let analysisPromise = null;
+function startAnalysisAsync() {
+  analysisResults = null;
+  const token = ++analysisToken;
+  analysisPromise = new Promise(resolve => {
+    try {
+      evPending[token] = resolve;
+      getEVWorker().postMessage({
+        token, gameKey: currentGame, rows: curPayRows(), coinBet,
+        hand: hand.slice(), deck: deck.slice(),
+      });
+    } catch(err) {
+      // No Worker support — fall back to a main-thread computation
+      delete evPending[token];
+      resolve(computeAllEVs(hand.slice(), deck.slice()));
+    }
+  }).then(results => {
+    if(token === analysisToken) analysisResults = results;
+    return results;
+  });
+  return analysisPromise;
 }
 
 // EV for one hold bitmask against the current game's pay table.
@@ -2009,11 +2092,17 @@ function showAnalysis() {
     if(lastRanked) render(lastRanked);
   });
 
-  // Compute on button press; modal renders first. Reuse the trainer's
-  // background result when it's already finished.
-  setTimeout(() => {
-    render(analysisResults || computeAllEVs(hand.slice(), deck.slice()));
-  }, 30);
+  // Compute in the worker on button press; modal renders (and stays
+  // responsive) while it runs. Reuses the trainer's result if ready.
+  if(analysisResults){
+    setTimeout(() => render(analysisResults), 30);
+  } else {
+    const p = analysisPromise || startAnalysisAsync();
+    const token = analysisToken;   // capture AFTER starting (start bumps it)
+    p.then(results => {
+      if(overlay.parentNode && token === analysisToken) render(results);
+    });
+  }
 }
 
 // ════════════════════════════════════════════════════════════
@@ -2284,8 +2373,7 @@ function showSettings() {
     i => {
       if(phase === 'holding'){ alert('Finish the current hand before changing the pay table.'); return; }
       payTableIdx = i;
-      analysisResults = null;
-      analysisToken++;
+      invalidateAnalysis();
       saveState();
       buildPayTable();
     }
@@ -2630,10 +2718,14 @@ function init(){
   document.getElementById('btn-graph').addEventListener('click',       showGraph);
   document.getElementById('btn-analyze').addEventListener('click',     showAnalysis);
 
-  // Delegated card tap — works for both mouse click and iOS touch
-  document.getElementById('cards-row').addEventListener('click', e => {
+  // Delegated card tap on pointerdown — registers the instant the finger
+  // touches, so rapid multi-card taps all land (click waits for finger-up
+  // and iOS can swallow quick successive ones)
+  document.getElementById('cards-row').addEventListener('pointerdown', e => {
+    if (e.button !== undefined && e.button !== 0) return;   // primary button/touch only
     const cardEl = e.target.closest('.card');
     if (!cardEl) return;
+    e.preventDefault();   // suppress the follow-up synthetic mouse events
     const i = parseInt(cardEl.dataset.index);
     if (!isNaN(i)) toggleHold(i);
   });
