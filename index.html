@@ -2410,8 +2410,11 @@ function setButtons(betting){
   document.getElementById('btn-bet-max').disabled = !betting;
   document.getElementById('btn-deal').textContent = betting ? 'Deal' : 'Draw';
   document.getElementById('btn-deal').disabled    = false;
-  // Analyze is only meaningful during the holding phase (before draw)
-  document.getElementById('btn-analyze').disabled = betting;
+  // During the hold phase the button analyzes the live hand; between
+  // hands it opens the Non-Optimal Plays viewer instead of going grey
+  const ab = document.getElementById('btn-analyze');
+  ab.disabled    = false;
+  ab.textContent = betting ? 'Sub-Opt Play' : 'Analyze';
 }
 
 // Guard against double-presses: deal/draw animations and the trainer's
@@ -2882,9 +2885,11 @@ function showAnalysis(customHand, customDeck) {
   let oddsMode = false;   // false = payouts, true = odds %
 
   // ── Overlay ────────────────────────────────────────────────
+  // z-index above the Non-Optimal Plays viewer (10000) so tapping a
+  // stored hand there opens its analysis on top
   const overlay = document.createElement('div');
   overlay.style.cssText = [
-    'position:fixed','inset:0','z-index:9999',
+    'position:fixed','inset:0','z-index:10001',
     'background:rgba(0,5,25,0.92)',
     'display:flex','align-items:center','justify-content:center',
     'font-family:Arial,Helvetica,sans-serif',
@@ -3252,13 +3257,22 @@ function showSubPlays(){
         'gap:8px 20px','padding:8px 4px','border-top:1px solid #1a3a7a',
       ].join(';');
 
-      // Col 1: dealt board — HELD = what you held, glow = what you should have held
+      // Col 1: dealt board — HELD = what you held, glow = what you should
+      // have held. Tapping it opens the full EV analysis for that hand.
       const glowPre = [];
       for(let i=0;i<5;i++) if(rec.oheld & (1<<i)) glowPre.push(i);
-      row.appendChild(column(
+      const dealtCol = column(
         `#${subPlays.length - ri} DEALT — glow = best hold`, '#f0c040',
-        strip(rec.pre, rec.held, glowPre), '', '#8899bb'
-      ));
+        strip(rec.pre, rec.held, glowPre), 'tap to analyze', '#8899bb'
+      );
+      dealtCol.style.cursor = 'pointer';
+      dealtCol.addEventListener('click', () => {
+        sfx.button();
+        const remaining = fullDeckFor().filter(c =>
+          !rec.pre.some(x => x.rank === c.rank && x.suit === c.suit));
+        showAnalysis(rec.pre.slice(), remaining);
+      });
+      row.appendChild(dealtCol);
 
       // Col 2: your actual result
       const aCat  = catOf(rec.res);
@@ -4477,6 +4491,7 @@ function init(){
   buildPayTable();
   buildDenomButtons();
   updateInfoRow();
+  setButtons(true);      // idle state: Analyze button reads "Sub-Opt Play"
 
   // Render empty card backs as placeholders
   renderCardsBack();
@@ -4489,8 +4504,12 @@ function init(){
   document.getElementById('btn-reset').addEventListener('click',       resetCredits);
   document.getElementById('btn-settings').addEventListener('click',    showSettings);
   document.getElementById('btn-graph').addEventListener('click',       showGraph);
-  // wrapped: the raw click event must not reach showAnalysis's customHand param
-  document.getElementById('btn-analyze').addEventListener('click',     () => showAnalysis());
+  // Dispatcher: live-hand analysis while holding, sub-opt viewer otherwise.
+  // (Wrapped: the click event must not reach showAnalysis's customHand param.)
+  document.getElementById('btn-analyze').addEventListener('click', () => {
+    if(phase === 'holding') showAnalysis();
+    else showSubPlays();
+  });
   document.getElementById('cs-coin').addEventListener('click',         showDenomPopup);
 
   // Delegated card tap on pointerdown — registers the instant the finger
