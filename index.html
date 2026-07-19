@@ -2568,7 +2568,8 @@ async function dealCore(){
 
     // Patch in the optimal-play counterfactual once the analysis resolves:
     // replay the best hold against the same deck order the draw used.
-    const postHand = hand.slice();   // the actual post-draw hand, snapshotted now
+    const postHand = hand.slice();       // the actual post-draw hand, snapshotted now
+    const handNo   = handHistory.length; // this hand's number on the graph (1-based)
     handAnalysis.then(ranked => {
       if(!ranked || !ranked.length) return;
       const bestMask = ranked[0].mask;
@@ -2582,6 +2583,7 @@ async function dealCore(){
       // Full replay record for the Non-Optimal Plays viewer (last 8 per game)
       if(entry.sub){
         subPlays.push({
+          n: handNo,
           pre:  preHand,  held:  playerMask, bet: handBet,
           post: postHand, res:   entry.res,  win: winCoins,
           opost: oh, oheld: bestMask, ores: handRows[cat].name,
@@ -2977,20 +2979,7 @@ function showAnalysis(customHand, customDeck) {
   closeBtn.addEventListener('click', close);
   overlay.addEventListener('click', e => { if(e.target===overlay) close(); });
 
-  // Non-Optimal Plays: replay viewer for the last 8 suboptimal holds
-  const subBtn = document.createElement('button');
-  subBtn.textContent = 'Non-Optimal Plays';
-  subBtn.style.cssText = [
-    'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
-    'letter-spacing:2px','text-transform:uppercase','padding:8px 22px',
-    'background:linear-gradient(180deg,#8a4a10,#5a2e08)',
-    'border:2px solid #ff8c30','border-radius:8px',
-    'color:#ffc890','cursor:pointer','touch-action:manipulation',
-  ].join(';');
-  subBtn.addEventListener('click', showSubPlays);
-
   bottomBar.appendChild(toggleBtn);
-  bottomBar.appendChild(subBtn);
   bottomBar.appendChild(closeBtn);
 
   panel.appendChild(title);
@@ -3250,7 +3239,7 @@ function showSubPlays(){
     empty.textContent = 'No non-optimal plays recorded yet for this game — nice!';
     panel.appendChild(empty);
   } else {
-    [...subPlays].reverse().forEach((rec, ri) => {
+    [...subPlays].reverse().forEach(rec => {
       const row = document.createElement('div');
       row.style.cssText = [
         'display:flex','flex-wrap:wrap','justify-content:center','align-items:flex-start',
@@ -3262,7 +3251,7 @@ function showSubPlays(){
       const glowPre = [];
       for(let i=0;i<5;i++) if(rec.oheld & (1<<i)) glowPre.push(i);
       const dealtCol = column(
-        `#${subPlays.length - ri} DEALT — glow = best hold`, '#f0c040',
+        `${rec.n ? 'HAND #' + rec.n + ' ' : ''}DEALT — glow = best hold`, '#f0c040',
         strip(rec.pre, rec.held, glowPre), 'tap to analyze', '#8899bb'
       );
       dealtCol.style.cursor = 'pointer';
@@ -4126,6 +4115,10 @@ function showGraph(){
     document.body.appendChild(ov2);
   });
 
+  // Non-Optimal Plays replay viewer (opens above this window)
+  const subBtn = makeModalBtn('Sub-Opt Plays','linear-gradient(180deg,#8a4a10,#5a2e08)','#ff8c30','#ffc890');
+  subBtn.addEventListener('click', showSubPlays);
+
   // Optimal-line toggle
   const optBtn = makeModalBtn('', 'linear-gradient(180deg,#155a8a,#0c3a5c)', '#38b6ff', '#a8dcff');
   const optLabel = () => { optBtn.textContent = graphShowOpt ? 'Optimal: On' : 'Optimal: Off'; };
@@ -4142,6 +4135,7 @@ function showGraph(){
   clearBtn.addEventListener('click', () => {
     if(!confirm('Clear all session history? This cannot be undone.')) return;
     handHistory = [];
+    subPlays = [];       // their hand numbers reference the cleared log
     graphRangeStart = 1;
     saveState();
     history.splice(0);     // clear the local copy too
@@ -4160,6 +4154,7 @@ function showGraph(){
   btnRow.appendChild(allBtn);
   btnRow.appendChild(optBtn);
   btnRow.appendChild(cmpBtn);
+  btnRow.appendChild(subBtn);
   btnRow.appendChild(clearBtn);
   btnRow.appendChild(closeBtn);
 
