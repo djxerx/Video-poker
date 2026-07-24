@@ -558,8 +558,27 @@
        CREDIT status line, serif card corners with suit + big pip. */
 
     /* Elements that exist in the DOM but only show in classic mode */
-    .card-portrait, .wild-stack,
+    .card-portrait,
     #classic-status, #classic-gamename { display: none; }
+
+    /* ── Wild badge (deuces) — modern theme ──
+       Classic mode restyles this below with its own Impact/red-gold look. */
+    .wild-stack {
+      display: flex;
+      flex-direction: column;
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      line-height: 1.05;
+      font-family: Arial, Helvetica, sans-serif;
+      font-weight: 900;
+      font-size: 13px;
+      letter-spacing: 0.5px;
+      text-align: right;
+      color: #c89a20;
+    }
+    .wild-stack span:nth-child(2) { opacity: 0.6; }
+    .wild-stack span:nth-child(3) { opacity: 0.3; }
 
     body.classic { background: #0000b4; }
     body.classic #terminal {
@@ -724,16 +743,12 @@
     }
     body.classic .card-portrait img { width: 100%; height: auto; display: block; }
     body.classic .wild-stack {
-      display: flex;
-      flex-direction: column;
-      position: absolute;
       top: 10px;
       right: 9px;
-      line-height: 1.05;
       font-family: Impact, 'Arial Black', sans-serif;
       font-size: 15px;
       letter-spacing: 1px;
-      text-align: right;
+      /* color inherited from .card-face.red/.black, same as classic ranks */
     }
     body.classic .wild-stack span:nth-child(2) { opacity: 0.6; }
     body.classic .wild-stack span:nth-child(3) { opacity: 0.3; }
@@ -2262,7 +2277,7 @@ function buildCardFace(card){
     art.innerHTML=classicPortraitSVG(card.rank);
     face.appendChild(art);
   }
-  if(card.rank==='2' && currentGame==='deuces'){
+  if(card.rank==='2' && (currentGame==='deuces' || currentGame==='bdeuces')){
     const w=document.createElement('div');
     w.className='wild-stack';
     w.innerHTML='<span>WILD</span><span>WILD</span><span>WILD</span>';
