@@ -1324,13 +1324,17 @@ const GAME_KEYS = [
   'tbonus','tdbonus','sdbonus','sddbonus',
   'joker','joker2','deuces','bdeuces',
 ];
+// Remember each game's built-in tables; user custom tables get appended
+// after these at load time (see rebuildPayTables)
+GAME_KEYS.forEach(k => { GAMES[k]._builtin = GAMES[k].payTables.slice(); });
 
 // ════════════════════════════════════════════════════════════
 //  STATE
 // ════════════════════════════════════════════════════════════
 // Per-game state (each game is its own machine: bankroll, history, pay table)
 function defaultGameState(){
-  return { credits:100, handHistory:[], graphRangeStart:1, payTableIdx:0, subPlays:[] };
+  return { credits:100, handHistory:[], graphRangeStart:1, payTableIdx:0,
+           subPlays:[], customTables:[] };
 }
 let gameState   = Object.fromEntries(GAME_KEYS.map(k => [k, defaultGameState()]));
 let currentGame = 'jacks';
@@ -1354,6 +1358,7 @@ let highlightErrOn = false;     // red-flash the optimal hold on a non-optimal p
 let graphShowOpt = true;        // show the optimal-play line on the graph
 
 let deck            = [];
+let pendingLive     = null;   // in-flight hand recovered from a mid-hand reload
 let analysisResults = null;   // pre-computed EV table for the current deal
 let analysisToken   = 0;      // invalidates in-flight background analysis
 let trainerWarned   = false;  // first non-optimal Draw press warned; second accepted
@@ -1367,7 +1372,30 @@ const SAVE_KEY = 'vp_state';
 
 // Copy the live globals back into the per-game record
 function syncToGameState() {
-  gameState[currentGame] = { credits, handHistory, graphRangeStart, payTableIdx, subPlays };
+  const prev = gameState[currentGame] || {};
+  gameState[currentGame] = { credits, handHistory, graphRangeStart, payTableIdx, subPlays,
+                             customTables: prev.customTables || [] };
+}
+
+// ── Custom pay tables ────────────────────────────────────────
+// Stored per game as { label, vals: [per-coin value per row] } (max 3).
+// Materialized into full pay-table entries appended after the built-ins.
+function materializeCustom(key, ct){
+  const base = GAMES[key]._builtin[0].rows;
+  const rows = base.map((r, i) => {
+    if(r.name === 'Nothing') return r;
+    const v = typeof ct.vals[i] === 'number' ? ct.vals[i] : r.pays[0];
+    // Jackpot rows (royals) keep their max-coin bonus multiple (e.g. ×16)
+    const jkMult = r.pays[0] > 0 ? r.pays[4] / r.pays[0] : 5;
+    const top = jkMult !== 5 ? Math.round(v * jkMult) : 5 * v;
+    return { ...r, pays: [v, 2*v, 3*v, 4*v, top] };
+  });
+  return { label: '★ ' + ct.label, rows, custom: true };
+}
+
+function rebuildPayTables(key){
+  const customs = (gameState[key].customTables || []).map(ct => materializeCustom(key, ct));
+  GAMES[key].payTables = GAMES[key]._builtin.concat(customs);
 }
 
 // Pull the per-game record into the live globals
@@ -1387,6 +1415,9 @@ function saveState() {
       v: 2, currentGame, games: gameState,
       coinBet, denomIdx, flipDuration, dealDelay, theme, soundOn, trainerOn,
       highlightErrOn, graphShowOpt,
+      // In-flight hand: the bet is deducted at Deal time, so an app
+      // reload mid-hand must restore the hand instead of eating the bet
+      live: phase === 'holding' ? { game: currentGame, hand, held, deck } : null,
     }));
   } catch(e) {}
 }
@@ -1407,6 +1438,7 @@ function loadState() {
         if (typeof g.graphRangeStart === 'number' && g.graphRangeStart>=1) gs.graphRangeStart = g.graphRangeStart;
         if (typeof g.payTableIdx === 'number' && g.payTableIdx >= 0)      gs.payTableIdx = g.payTableIdx;
         if (Array.isArray(g.subPlays))                                    gs.subPlays = g.subPlays.slice(-8);
+        if (Array.isArray(g.customTables))                                gs.customTables = g.customTables.slice(0, 3);
       });
       if (GAME_KEYS.includes(s.currentGame)) currentGame = s.currentGame;
     } else {
@@ -1427,7 +1459,10 @@ function loadState() {
     if (typeof s.trainerOn      === 'boolean')                                    trainerOn      = s.trainerOn;
     if (typeof s.highlightErrOn === 'boolean')                                    highlightErrOn = s.highlightErrOn;
     if (typeof s.graphShowOpt   === 'boolean')                                    graphShowOpt   = s.graphShowOpt;
+    if (s.live && s.live.game === s.currentGame &&
+        Array.isArray(s.live.hand) && s.live.hand.length === 5)                   pendingLive    = s.live;
   } catch(e) {}
+  GAME_KEYS.forEach(rebuildPayTables);   // append saved custom tables
   syncFromGameState();
 }
 
@@ -2461,6 +2496,7 @@ async function dealCore(){
     await Promise.all([0,1,2,3,4].map(i => flipCard(i, i*dealDelay)));
 
     phase = 'holding';
+    saveState();   // persist the in-flight hand so a reload can't eat the bet
 
     // Compute the EV ranking in the background every hand — the trainer
     // needs it at Draw time, and the graph's optimal-play line needs the
@@ -3511,6 +3547,170 @@ function showHandPicker(){
 }
 
 // ════════════════════════════════════════════════════════════
+//  CUSTOM PAY TABLE EDITOR
+//  Every hand of the current game listed with an editable per-coin
+//  payout, pre-filled from the selected table. Saved per game (max 3)
+//  and offered everywhere pay tables appear, including graph compares.
+// ════════════════════════════════════════════════════════════
+function showCustomEditor(onSaved){
+  sfx.button();
+  const gs   = gameState[currentGame];
+  const base = GAMES[currentGame]._builtin[0].rows;
+  const cur  = curPayRows();
+  const curTable = curGame().payTables[payTableIdx];
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = [
+    'position:fixed','inset:0','z-index:10000',
+    'background:rgba(0,5,25,0.9)',
+    'display:flex','align-items:center','justify-content:center',
+    'font-family:Arial,Helvetica,sans-serif',
+  ].join(';');
+
+  const panel = document.createElement('div');
+  panel.style.cssText = [
+    'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)',
+    'border:2px solid #2a4a9a','border-radius:14px',
+    'box-shadow:0 0 30px rgba(20,60,180,0.6)',
+    'padding:18px 24px','width:min(420px,94vw)',
+    'max-height:92vh','overflow-y:auto',
+    'display:flex','flex-direction:column','gap:10px',
+  ].join(';');
+
+  const title = document.createElement('div');
+  title.style.cssText = 'text-align:center;font-size:15px;font-weight:bold;color:#f0c040;letter-spacing:2px;text-transform:uppercase;';
+  title.textContent = 'Custom Pay Table — ' + curGame().name;
+  panel.appendChild(title);
+
+  // Name field — editing an existing custom pre-fills its name
+  const nameRow = document.createElement('div');
+  nameRow.style.cssText = 'display:flex;align-items:center;gap:8px;';
+  const nameLbl = document.createElement('div');
+  nameLbl.style.cssText = 'font-size:13px;font-weight:bold;color:#c0c8d8;';
+  nameLbl.textContent = 'Name:';
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.maxLength = 24;
+  nameInput.style.cssText = [
+    'flex:1','padding:7px 10px','font-size:14px','font-weight:bold',
+    'background:#0a1a40','border:2px solid #3a5aaa','border-radius:6px','color:#fff',
+  ].join(';');
+  nameInput.value = curTable.custom
+    ? curTable.label.replace(/^★ /, '')
+    : 'Custom ' + ((gs.customTables || []).length + 1);
+  nameRow.appendChild(nameLbl);
+  nameRow.appendChild(nameInput);
+  panel.appendChild(nameRow);
+
+  // One editable per-coin payout per hand
+  const inputs = [];   // aligned to base row indices
+  base.forEach((r, i) => {
+    if(r.name === 'Nothing'){ inputs.push(null); return; }
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;';
+    const lbl = document.createElement('div');
+    lbl.style.cssText = 'flex:1;font-size:13px;color:#e0e8f8;';
+    const jkMult = r.pays[0] > 0 ? r.pays[4] / r.pays[0] : 5;
+    lbl.textContent = r.name + (jkMult !== 5 ? '  (×' + jkMult + ' at 5 coins)' : '');
+    const inp = document.createElement('input');
+    inp.type = 'number';
+    inp.min = '0';
+    inp.max = '99999';
+    inp.value = cur[i].pays[0];
+    inp.style.cssText = [
+      'width:84px','padding:6px 8px','font-size:14px','font-weight:bold','text-align:right',
+      'background:#0a1a40','border:2px solid #3a5aaa','border-radius:6px','color:#f0c040',
+    ].join(';');
+    inputs.push(inp);
+    row.appendChild(lbl);
+    row.appendChild(inp);
+    panel.appendChild(row);
+  });
+
+  const note = document.createElement('div');
+  note.style.cssText = 'font-size:11px;color:#8899bb;text-align:center;';
+  note.textContent = 'Payouts are per coin. Up to 3 custom tables per game; saving with an existing name overwrites it.';
+  panel.appendChild(note);
+
+  // Buttons
+  const btnRow = document.createElement('div');
+  btnRow.style.cssText = 'display:flex;gap:10px;justify-content:center;flex-wrap:wrap;';
+  const mkBtn = (label, bg, border, color) => {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.style.cssText = [
+      'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
+      'letter-spacing:1px','text-transform:uppercase','padding:8px 20px',
+      `background:${bg}`,`border:2px solid ${border}`,'border-radius:8px',
+      `color:${color}`,'cursor:pointer','touch-action:manipulation',
+    ].join(';');
+    return b;
+  };
+  const saveBtn   = mkBtn('Save','linear-gradient(180deg,#2a8a4a,#1a6a34)','#4acc6a','#fff');
+  const delBtn    = mkBtn('Delete','linear-gradient(180deg,#8a2020,#601414)','#cc4444','#ffaaaa');
+  const cancelBtn = mkBtn('Cancel','linear-gradient(180deg,#3a3a3a,#1a1a1a)','#666','#ccc');
+
+  const close = () => { if(overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+  cancelBtn.addEventListener('click', close);
+  overlay.addEventListener('click', e => { if(e.target === overlay) close(); });
+
+  saveBtn.addEventListener('click', () => {
+    const label = nameInput.value.trim();
+    if(!label){ alert('Please enter a name for the custom pay table.'); return; }
+    const vals = inputs.map((inp, i) => {
+      if(!inp) return 0;
+      const v = parseInt(inp.value, 10);
+      return isNaN(v) || v < 0 ? 0 : Math.min(v, 99999);
+    });
+    gs.customTables = gs.customTables || [];
+    const existing = gs.customTables.findIndex(ct => ct.label === label);
+    if(existing >= 0){
+      gs.customTables[existing] = { label, vals };
+    } else if(gs.customTables.length >= 3){
+      alert('Limit of 3 custom pay tables per game — delete one first (save with an existing name to overwrite it).');
+      return;
+    } else {
+      gs.customTables.push({ label, vals });
+    }
+    rebuildPayTables(currentGame);
+    // Select the saved table (only between hands; mid-hand keeps the old one)
+    if(phase !== 'holding'){
+      payTableIdx = GAMES[currentGame]._builtin.length +
+                    gs.customTables.findIndex(ct => ct.label === label);
+      invalidateAnalysis();
+    }
+    saveState();
+    buildPayTable();
+    close();
+    if(onSaved) onSaved();
+  });
+
+  delBtn.addEventListener('click', () => {
+    const label = nameInput.value.trim();
+    const idx = (gs.customTables || []).findIndex(ct => ct.label === label);
+    if(idx < 0){ alert('No custom table named "' + label + '" to delete.'); return; }
+    if(!confirm('Delete custom pay table "' + label + '"?')) return;
+    gs.customTables.splice(idx, 1);
+    rebuildPayTables(currentGame);
+    if(payTableIdx >= curGame().payTables.length){
+      payTableIdx = 0;
+      invalidateAnalysis();
+    }
+    saveState();
+    buildPayTable();
+    close();
+    if(onSaved) onSaved();
+  });
+
+  btnRow.appendChild(saveBtn);
+  btnRow.appendChild(delBtn);
+  btnRow.appendChild(cancelBtn);
+  panel.appendChild(btnRow);
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+}
+
+// ════════════════════════════════════════════════════════════
 //  SETTINGS MODAL
 // ════════════════════════════════════════════════════════════
 function showSettings() {
@@ -3796,6 +3996,22 @@ function showSettings() {
       buildPayTable();
     }
   ));
+
+  // Custom pay table editor — reopens Settings after so the selector
+  // row above picks up the new/changed option
+  const customBtn = document.createElement('button');
+  customBtn.textContent = 'Custom Pay Table…';
+  customBtn.style.cssText = [
+    'align-self:flex-end','font-family:Arial,Helvetica,sans-serif','font-size:12px',
+    'font-weight:bold','letter-spacing:1px','text-transform:uppercase','padding:7px 14px',
+    'background:linear-gradient(180deg,#5a2a8a,#3a1a6a)','border:2px solid #aa66dd',
+    'border-radius:7px','color:#ddb8ff','cursor:pointer','touch-action:manipulation',
+    'margin-top:-12px',
+  ].join(';');
+  customBtn.addEventListener('click', () => {
+    showCustomEditor(() => { close(); showSettings(); });
+  });
+  panel.appendChild(customBtn);
 
   // Look & feel: retro-modern vs authentic Game King
   panel.appendChild(makeToggleRow(
@@ -4201,10 +4417,19 @@ function drawGraph(canvas, history, offset=0, hoverIdx=null, altIdxs=[]){
   // optimal-hold counterfactual result instead of the actual result.
   // Hands without recorded counterfactuals fall back to the actual delta;
   // credit adds apply equally; resets re-sync to the actual value.
+  // Unrecorded credit changes (e.g. a bet deducted for a hand that was
+  // never completed before an app reload) appear as a mismatch between the
+  // credits step and the recorded delta. Fold that gap into every
+  // comparison line so they stay honest against the actual line.
+  const stepGap = i => {
+    const h = history[i];
+    return h.type === 'hand' ? (values[i] - values[i-1]) - h.delta : 0;
+  };
+
   const optValues = [values[0]];
   for(let i=1; i<history.length; i++){
     const h = history[i];
-    if(h.type === 'hand')     optValues.push(optValues[i-1] + (typeof h.opt === 'number' ? h.opt : h.delta));
+    if(h.type === 'hand')     optValues.push(optValues[i-1] + (typeof h.opt === 'number' ? h.opt : h.delta) + stepGap(i));
     else if(h.type === 'add') optValues.push(optValues[i-1] + (h.delta || 0));
     else                      optValues.push(values[i]);
   }
@@ -4229,7 +4454,7 @@ function drawGraph(canvas, history, offset=0, hoverIdx=null, altIdxs=[]){
           const cat = rows.findIndex(r => r.name === h.res);
           if(cat >= 0) d = rows[cat].pays[h.bet-1] - h.bet;
         }
-        vals.push(vals[i-1] + d);
+        vals.push(vals[i-1] + d + stepGap(i));
       }
       else if(h.type === 'add') vals.push(vals[i-1] + (h.delta || 0));
       else                      vals.push(values[i]);
@@ -4518,6 +4743,23 @@ function init(){
     const i = parseInt(cardEl.dataset.index);
     if (!isNaN(i)) toggleHold(i);
   });
+
+  // Restore an in-flight hand from a mid-hand reload — the bet was
+  // already deducted at Deal time, so the player picks up where they left off
+  if (pendingLive) {
+    hand  = pendingLive.hand;
+    held  = Array.isArray(pendingLive.held) && pendingLive.held.length === 5
+            ? pendingLive.held : [false,false,false,false,false];
+    deck  = Array.isArray(pendingLive.deck) ? pendingLive.deck : [];
+    phase = 'holding';
+    pendingLive = null;
+    renderCards(true, false);
+    document.querySelectorAll('.card').forEach((c,i) => c.classList.toggle('held', held[i]));
+    document.querySelectorAll('.hold-badge').forEach((b,i) => b.classList.toggle('visible', held[i]));
+    setButtons(false);
+    startAnalysisAsync();
+    setMessage('Hand restored — select cards to hold, then Draw', false);
+  }
 
   rescale();
 

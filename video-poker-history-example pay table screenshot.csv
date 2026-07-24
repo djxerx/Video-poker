@@ -1,0 +1,117 @@
+entry,credits,delta,type,result,suboptimal,optDelta,optResult,bet
+1,95,-5,hand,Nothing,0,-5,Nothing,5
+2,90,-5,hand,Nothing,1,-5,Nothing,5
+3,85,-5,hand,Nothing,1,-5,Nothing,5
+4,85,0,hand,Two Pair,0,0,Two Pair,5
+5,80,-5,hand,Nothing,1,-5,Nothing,5
+6,80,0,hand,Kings or Better,0,0,Kings or Better,5
+7,80,0,hand,Two Pair,0,0,Two Pair,5
+8,75,-5,hand,Nothing,0,-5,Nothing,5
+9,60,-5,hand,Nothing,0,-5,Nothing,5
+10,65,5,hand,Three of a Kind,0,5,Three of a Kind,5
+11,60,-5,hand,Nothing,0,-5,Nothing,5
+12,60,0,hand,Two Pair,0,0,Two Pair,5
+13,55,-5,hand,Nothing,0,-5,Nothing,5
+14,50,-5,hand,Nothing,0,-5,Nothing,5
+15,45,-5,hand,Nothing,0,-5,Nothing,5
+16,55,10,hand,Straight,0,10,Straight,5
+17,60,5,hand,Three of a Kind,0,5,Three of a Kind,5
+18,65,5,hand,Three of a Kind,0,5,Three of a Kind,5
+19,70,5,hand,Three of a Kind,0,5,Three of a Kind,5
+20,65,-5,hand,Nothing,0,-5,Nothing,5
+21,60,-5,hand,Nothing,0,-5,Nothing,5
+22,55,-5,hand,Nothing,0,-5,Nothing,5
+23,50,-5,hand,Nothing,1,20,Flush,5
+24,50,0,hand,Two Pair,0,0,Two Pair,5
+25,45,-5,hand,Nothing,0,-5,Nothing,5
+26,45,0,hand,Two Pair,0,0,Two Pair,5
+27,40,-5,hand,Nothing,1,-5,Nothing,5
+28,35,-5,hand,Nothing,0,-5,Nothing,5
+29,35,0,hand,Kings or Better,0,0,Kings or Better,5
+30,40,5,hand,Three of a Kind,0,5,Three of a Kind,5
+31,35,-5,hand,Nothing,0,-5,Nothing,5
+32,30,-5,hand,Nothing,0,-5,Nothing,5
+33,25,-5,hand,Nothing,0,-5,Nothing,5
+34,25,0,hand,Kings or Better,0,0,Kings or Better,5
+35,25,0,hand,Two Pair,0,0,Two Pair,5
+36,20,-5,hand,Nothing,1,-5,Nothing,5
+37,40,20,hand,Flush,0,20,Flush,5
+38,35,-5,hand,Nothing,0,-5,Nothing,5
+39,35,0,hand,Two Pair,0,0,Two Pair,5
+40,30,-5,hand,Nothing,0,-5,Nothing,5
+41,25,-5,hand,Nothing,0,-5,Nothing,5
+42,30,5,hand,Three of a Kind,0,5,Three of a Kind,5
+43,25,-5,hand,Nothing,0,-5,Nothing,5
+44,20,-5,hand,Nothing,0,-5,Nothing,5
+45,25,5,hand,Three of a Kind,0,5,Three of a Kind,5
+46,25,0,hand,Kings or Better,0,0,Kings or Better,5
+47,20,-5,hand,Nothing,0,-5,Nothing,5
+48,25,5,hand,Three of a Kind,0,5,Three of a Kind,5
+49,20,-5,hand,Nothing,0,-5,Nothing,5
+50,15,-5,hand,Nothing,0,-5,Nothing,5
+51,10,-5,hand,Nothing,0,-5,Nothing,5
+52,5,-5,hand,Nothing,0,-5,Nothing,5
+53,0,-5,hand,Nothing,0,-5,Nothing,5
+54,100,100,add,,,,,
+55,110,10,hand,Straight,0,10,Straight,5
+56,115,5,hand,Three of a Kind,0,5,Three of a Kind,5
+57,120,5,hand,Three of a Kind,0,5,Three of a Kind,5
+58,125,5,hand,Three of a Kind,0,5,Three of a Kind,5
+59,120,-5,hand,Nothing,0,-5,Nothing,5
+60,115,-5,hand,Nothing,0,-5,Nothing,5
+61,110,-5,hand,Nothing,0,-5,Nothing,5
+62,110,0,hand,Two Pair,0,0,Two Pair,5
+63,110,0,hand,Two Pair,0,0,Two Pair,5
+64,105,-5,hand,Nothing,0,-5,Nothing,5
+65,100,-5,hand,Nothing,0,-5,Nothing,5
+66,105,5,hand,Three of a Kind,0,5,Three of a Kind,5
+67,100,-5,hand,Nothing,0,-5,Nothing,5
+68,100,0,hand,Two Pair,0,0,Two Pair,5
+69,95,-5,hand,Nothing,1,-5,Nothing,5
+70,90,-5,hand,Nothing,0,-5,Nothing,5
+71,85,-5,hand,Nothing,0,-5,Nothing,5
+72,80,-5,hand,Nothing,0,-5,Nothing,5
+73,75,-5,hand,Nothing,0,-5,Nothing,5
+74,75,0,hand,Two Pair,0,0,Two Pair,5
+75,70,-5,hand,Nothing,0,-5,Nothing,5
+76,75,5,hand,Three of a Kind,0,5,Three of a Kind,5
+77,70,-5,hand,Nothing,0,-5,Nothing,5
+78,65,-5,hand,Nothing,0,-5,Nothing,5
+79,70,5,hand,Three of a Kind,0,5,Three of a Kind,5
+80,65,-5,hand,Nothing,0,-5,Nothing,5
+81,65,0,hand,Kings or Better,1,-5,Nothing,5
+82,60,-5,hand,Nothing,0,-5,Nothing,5
+83,65,5,hand,Three of a Kind,0,5,Three of a Kind,5
+84,60,-5,hand,Nothing,0,-5,Nothing,5
+85,55,-5,hand,Nothing,0,-5,Nothing,5
+86,50,-5,hand,Nothing,0,-5,Nothing,5
+87,50,0,hand,Two Pair,0,0,Two Pair,5
+88,45,-5,hand,Nothing,0,-5,Nothing,5
+89,40,-5,hand,Nothing,0,-5,Nothing,5
+90,45,5,hand,Three of a Kind,0,5,Three of a Kind,5
+91,45,0,hand,Kings or Better,0,0,Kings or Better,5
+92,40,-5,hand,Nothing,0,-5,Nothing,5
+93,40,0,hand,Two Pair,0,0,Two Pair,5
+94,40,0,hand,Kings or Better,0,0,Kings or Better,5
+95,35,-5,hand,Nothing,0,-5,Nothing,5
+96,35,0,hand,Kings or Better,0,0,Kings or Better,5
+97,40,5,hand,Three of a Kind,0,5,Three of a Kind,5
+98,40,0,hand,Kings or Better,1,5,Three of a Kind,5
+99,35,-5,hand,Nothing,0,-5,Nothing,5
+100,35,0,hand,Kings or Better,0,0,Kings or Better,5
+101,30,-5,hand,Nothing,0,-5,Nothing,5
+102,25,-5,hand,Nothing,0,-5,Nothing,5
+103,20,-5,hand,Nothing,0,-5,Nothing,5
+104,25,5,hand,Three of a Kind,0,5,Three of a Kind,5
+105,20,-5,hand,Nothing,1,-5,Nothing,5
+106,15,-5,hand,Nothing,0,-5,Nothing,5
+107,15,0,hand,Kings or Better,0,0,Kings or Better,5
+108,35,20,hand,Flush,0,20,Flush,5
+109,35,0,hand,Kings or Better,0,0,Kings or Better,5
+110,55,20,hand,Flush,0,20,Flush,5
+111,50,-5,hand,Nothing,0,-5,Nothing,5
+112,45,-5,hand,Nothing,0,-5,Nothing,5
+113,40,-5,hand,Nothing,1,-5,Nothing,5
+114,35,-5,hand,Nothing,0,-5,Nothing,5
+115,30,-5,hand,Nothing,1,0,Two Pair,5
+116,35,5,hand,Three of a Kind,1,0,Kings or Better,5
