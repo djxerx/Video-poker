@@ -1511,11 +1511,52 @@ function applyTheme() {
 //  (no audio files: everything stays in this one file, offline-safe)
 // ════════════════════════════════════════════════════════════
 let audioCtx = null;
+const AC = window.AudioContext || window.webkitAudioContext;
+
+// iOS suspends the AudioContext when the app is backgrounded or the device
+// locks, and sometimes leaves it in a dead state where resume() "succeeds"
+// yet nothing ever plays. So we never trust a non-running context: resume
+// it, verify its clock actually advances, and if it doesn't, throw it away
+// and build a fresh one. unlockAudio() runs on every tap and whenever the
+// app returns to the foreground — not just on the first touch.
 function ac() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
+  if (!audioCtx || audioCtx.state === 'closed') audioCtx = new AC();
+  if (audioCtx.state !== 'running') unlockAudio();
   return audioCtx;
 }
+let audioCheckTimer = null;
+function unlockAudio() {
+  if (!AC) return;
+  try {
+    if (!audioCtx || audioCtx.state === 'closed') audioCtx = new AC();
+    const ctx = audioCtx;
+    if (ctx.state === 'running') return;
+    const t0 = ctx.currentTime;
+    ctx.resume().catch(() => {});
+    // Silent one-sample kick — nudges iOS to actually open the output path
+    try {
+      const src = ctx.createBufferSource();
+      src.buffer = ctx.createBuffer(1, 1, 22050);
+      src.connect(ctx.destination);
+      src.start(0);
+    } catch(e) {}
+    // Verify: a healthy context's clock advances. If it hasn't after a
+    // moment, the context is a zombie — replace it on the next sound.
+    clearTimeout(audioCheckTimer);
+    audioCheckTimer = setTimeout(() => {
+      if (audioCtx !== ctx) return;
+      if (ctx.state !== 'running' || ctx.currentTime <= t0) {
+        try { ctx.close(); } catch(e) {}
+        audioCtx = null;
+      }
+    }, 400);
+  } catch(e) { audioCtx = null; }
+}
+document.addEventListener('pointerdown', () => { if (soundOn) unlockAudio(); }, { passive: true });
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && soundOn) unlockAudio();
+});
+window.addEventListener('pageshow', () => { if (soundOn) unlockAudio(); });
 // One square-wave beep. slide shifts the pitch over the note (Hz, +/-).
 function beep(freq, dur = 0.08, type = 'square', vol = 0.12, when = 0, slide = 0) {
   if (!soundOn) return;
@@ -1569,10 +1610,10 @@ let lastHandIdx= -1;
 // ════════════════════════════════════════════════════════════
 //  DECK
 // ════════════════════════════════════════════════════════════
-function fullDeckFor(){
+function fullDeckFor(key = currentGame){
   const d = [];
   for(const s of SUITS) for(const r of RANKS) d.push({rank:r,suit:s});
-  if(curGame().joker) d.push({ rank:'JOKER', suit:'★', joker:true });
+  if(GAMES[key].joker) d.push({ rank:'JOKER', suit:'★', joker:true });
   return d;
 }
 function buildDeck(){
@@ -2684,14 +2725,10 @@ function betOne(){
   updateInfoRow();
 }
 
-function addCredits(){
-  const input = prompt('How many credits would you like to add?');
-  if(input === null) return;               // user cancelled
-  const n = parseInt(input, 10);
-  if(isNaN(n) || n <= 0){
-    alert('Please enter a positive whole number.');
-    return;
-  }
+async function addCredits(){
+  sfx.button();
+  const n = await showNumPad({ title: 'Add Credits', hint: 'How many credits to add?', min: 1 });
+  if(n === null) return;                   // user cancelled
   credits += n;
   recordEvent('add', n);
   saveState();
@@ -2699,14 +2736,10 @@ function addCredits(){
   setMessage('Added ' + n + ' credits!', false);
 }
 
-function resetCredits(){
-  const input = prompt('Reset credits to what amount?');
-  if(input === null) return;               // user cancelled
-  const n = parseInt(input, 10);
-  if(isNaN(n) || n < 0){
-    alert('Please enter a whole number of 0 or more.');
-    return;
-  }
+async function resetCredits(){
+  sfx.button();
+  const n = await showNumPad({ title: 'Reset Credits', hint: 'Set credits to:', initial: credits, min: 0 });
+  if(n === null) return;                   // user cancelled
   credits = n;
   recordEvent('reset', 0);
   saveState();
@@ -2897,17 +2930,170 @@ function computeAllEVs(snapHand, snapDeck) {
   return out.sort((a,b) => b.ev - a.ev);
 }
 
+// ════════════════════════════════════════════════════════════
+//  SHARED WIDGETS — mini card graphic + number pad
+// ════════════════════════════════════════════════════════════
+
+// Small card graphic used by the Non-Optimal Plays viewer and the Analyze
+// table. opts: held ('HELD' | '' | null — null omits the label row),
+// glow (gold winning glow), w/h/font (pixel sizes).
+function miniCardEl(c, opts = {}){
+  const { held = null, glow = false, w = 40, h = 54, font = 19 } = opts;
+  const wrap = document.createElement('div');
+  wrap.style.cssText = `display:flex;flex-direction:column;align-items:center;width:${w+2}px;`;
+  if(held !== null){
+    const lbl = document.createElement('div');
+    lbl.style.cssText = 'height:11px;font-size:8px;font-weight:bold;letter-spacing:0.5px;color:#fff;';
+    lbl.textContent = held;
+    wrap.appendChild(lbl);
+  }
+  const card = document.createElement('div');
+  card.style.cssText = [
+    `width:${w}px`,`height:${h}px`,'background:#fdf6e3','border-radius:4px',
+    'display:flex','flex-direction:column','align-items:center','justify-content:center',
+    'font-weight:800','line-height:1','flex-shrink:0',
+    `color:${SUIT_COLOR[c.suit]==='red' ? '#cc0000' : '#111'}`,
+    glow ? 'border:2px solid #ffd700;box-shadow:0 0 8px 3px rgba(255,215,0,0.85)'
+         : 'border:1px solid #8899aa',
+  ].join(';');
+  card.innerHTML = c.joker
+    ? `<span style="font-size:${Math.round(font*0.5)}px">JOKER</span><span style="font-size:${font}px">★</span>`
+    : `<span style="font-size:${font}px">${c.rank}</span><span style="font-size:${font}px">${c.suit}</span>`;
+  wrap.appendChild(card);
+  return wrap;
+}
+
+// Number pad — replaces the iOS keyboard for every numeric entry.
+// Resolves to the entered integer, or null if cancelled.
+function showNumPad({ title = 'Enter a number', initial = '', min = 0, max = 9999999, hint = '' } = {}){
+  return new Promise(resolve => {
+    let val = (initial === null || initial === undefined) ? '' : String(initial);
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = [
+      'position:fixed','inset:0','z-index:10002',
+      'background:rgba(0,5,25,0.85)',
+      'display:flex','align-items:center','justify-content:center',
+      'font-family:Arial,Helvetica,sans-serif',
+    ].join(';');
+    const panel = document.createElement('div');
+    panel.style.cssText = [
+      'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)',
+      'border:2px solid #2a4a9a','border-radius:14px',
+      'box-shadow:0 0 30px rgba(20,60,180,0.6)',
+      'padding:16px 18px','width:min(300px,90vw)',
+      'display:flex','flex-direction:column','gap:10px',
+    ].join(';');
+
+    const ttl = document.createElement('div');
+    ttl.style.cssText = 'text-align:center;font-size:14px;font-weight:bold;color:#f0c040;letter-spacing:2px;text-transform:uppercase;';
+    ttl.textContent = title;
+
+    const hintEl = document.createElement('div');
+    hintEl.style.cssText = 'text-align:center;font-size:11px;color:#8899bb;min-height:14px;';
+    hintEl.textContent = hint;
+
+    const disp = document.createElement('div');
+    disp.style.cssText = [
+      'background:#0a1a40','border:2px solid #3a5aaa','border-radius:8px',
+      'padding:10px 14px','text-align:right','font-size:28px','font-weight:bold',
+      'color:#f0c040','min-height:52px','letter-spacing:1px','font-variant-numeric:tabular-nums',
+    ].join(';');
+    const refresh = () => { disp.textContent = val === '' ? ' ' : val; };
+    refresh();
+
+    const grid = document.createElement('div');
+    grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;';
+    const mkKey = (label, fn, extra = '') => {
+      const b = document.createElement('button');
+      b.textContent = label;
+      b.style.cssText = [
+        'font-family:Arial,Helvetica,sans-serif','font-size:22px','font-weight:bold',
+        'height:54px','background:#0a1a40','border:2px solid #3a5aaa','border-radius:8px',
+        'color:#e0e8f8','cursor:pointer','touch-action:manipulation',
+        '-webkit-tap-highlight-color:transparent', extra,
+      ].join(';');
+      b.addEventListener('pointerdown', () => { b.style.background = '#1a2a60'; });
+      b.addEventListener('pointerup',   () => { b.style.background = '#0a1a40'; });
+      b.addEventListener('pointerleave',() => { b.style.background = '#0a1a40'; });
+      b.addEventListener('click', () => { sfx.button(); fn(); });
+      return b;
+    };
+    const digit = d => { if(val.length >= 7) return; val = (val === '0') ? d : val + d; hintEl.style.color = '#8899bb'; hintEl.textContent = hint; refresh(); };
+    ['1','2','3','4','5','6','7','8','9'].forEach(d => grid.appendChild(mkKey(d, () => digit(d))));
+    grid.appendChild(mkKey('C', () => { val = ''; refresh(); }, 'color:#ff8080;font-size:18px'));
+    grid.appendChild(mkKey('0', () => digit('0')));
+    grid.appendChild(mkKey('⌫', () => { val = val.slice(0, -1); refresh(); }, 'color:#ffcc66'));
+
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;gap:8px;';
+    const mkAct = (label, bg, border, color) => {
+      const b = document.createElement('button');
+      b.textContent = label;
+      b.style.cssText = [
+        'flex:1','font-family:Arial,Helvetica,sans-serif','font-size:14px','font-weight:bold',
+        'letter-spacing:2px','text-transform:uppercase','padding:11px 0',
+        `background:${bg}`,`border:2px solid ${border}`,'border-radius:8px',
+        `color:${color}`,'cursor:pointer','touch-action:manipulation',
+      ].join(';');
+      return b;
+    };
+    const okBtn     = mkAct('OK','linear-gradient(180deg,#2a8a4a,#1a6a34)','#4acc6a','#fff');
+    const cancelBtn = mkAct('Cancel','linear-gradient(180deg,#3a3a3a,#1a1a1a)','#666','#ccc');
+
+    const close = result => {
+      document.removeEventListener('keydown', onKey);
+      if(overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      resolve(result);
+    };
+    const submit = () => {
+      const n = parseInt(val, 10);
+      if(isNaN(n)){ hintEl.style.color = '#ff8080'; hintEl.textContent = 'Enter a number'; sfx.thump(); return; }
+      if(n < min || n > max){
+        hintEl.style.color = '#ff8080';
+        hintEl.textContent = `Enter a value from ${min} to ${max}`;
+        sfx.thump();
+        return;
+      }
+      sfx.button();
+      close(n);
+    };
+    okBtn.addEventListener('click', submit);
+    cancelBtn.addEventListener('click', () => close(null));
+    overlay.addEventListener('click', e => { if(e.target === overlay) close(null); });
+    // Desktop convenience: physical keyboard works too
+    const onKey = e => {
+      if(/^[0-9]$/.test(e.key)) { digit(e.key); e.preventDefault(); }
+      else if(e.key === 'Backspace') { val = val.slice(0,-1); refresh(); e.preventDefault(); }
+      else if(e.key === 'Enter')  { submit(); e.preventDefault(); }
+      else if(e.key === 'Escape') { close(null); e.preventDefault(); }
+    };
+    document.addEventListener('keydown', onKey);
+
+    actions.appendChild(cancelBtn);
+    actions.appendChild(okBtn);
+    panel.appendChild(ttl);
+    panel.appendChild(disp);
+    panel.appendChild(hintEl);
+    panel.appendChild(grid);
+    panel.appendChild(actions);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+  });
+}
+
 // One-off analysis of an arbitrary hand+deck (used by "Analyze a Hand").
 // Runs in the worker on a separate token space so it never disturbs the
-// live game's analysisResults/analysisPromise/token state.
+// live game's analysisResults/analysisPromise/token state. The game and
+// pay table are parameters so a hand can be analyzed under any variant.
 let adhocToken = 1000000000;
-function analyzeHandAsync(h, d){
+function analyzeHandAsync(h, d, gameKey = currentGame, rows = curPayRows()){
   const token = ++adhocToken;
   return new Promise(resolve => {
     try {
       evPending[token] = resolve;
       getEVWorker().postMessage({
-        token, gameKey: currentGame, rows: curPayRows(), coinBet,
+        token, gameKey, rows, coinBet,
         hand: h.slice(), deck: d.slice(),
       });
     } catch(err) {
@@ -2917,11 +3103,18 @@ function analyzeHandAsync(h, d){
   });
 }
 
-// customHand/customDeck: analyze a hypothetical hand (no "you" row/footer)
-function showAnalysis(customHand, customDeck) {
+// customHand/customDeck: analyze a hypothetical hand (no "you" row/footer).
+// opts.gameKey: analyze under another game's rules (its selected pay table);
+// opts.onBack: adds a Back button that closes this and calls it.
+function showAnalysis(customHand, customDeck, opts = {}) {
   const isCustom = !!customHand;
   const aHand = customHand || hand;
   const denom = DENOMINATIONS[denomIdx].value;
+  const gKey  = (isCustom && opts.gameKey) || currentGame;
+  const game  = GAMES[gKey];
+  const rows  = isCustom
+    ? game.payTables[Math.min(gameState[gKey].payTableIdx, game.payTables.length - 1)].rows
+    : curPayRows();
 
   let playerMask = -1;             // custom hands have no player hold
   if(!isCustom){
@@ -2930,7 +3123,7 @@ function showAnalysis(customHand, customDeck) {
   }
 
   // Column order: most common → rarest (reverse of the pay-table order)
-  const HAND_COLS = curPayRows()
+  const HAND_COLS = rows
     .map((r, idx) => ({ label: r.col, idx }))
     .filter(c => c.label)      // drop the "Nothing" row
     .reverse();
@@ -2967,12 +3160,12 @@ function showAnalysis(customHand, customDeck) {
     'color:#f0c040','letter-spacing:3px','text-transform:uppercase',
     'text-shadow:0 0 8px rgba(240,192,64,0.5)','flex-shrink:0',
   ].join(';');
-  title.textContent = isCustom ? curGame().name + ' — Hand Analysis' : 'Optimal Hold Analysis';
+  title.textContent = isCustom ? game.name + ' — Hand Analysis' : 'Optimal Hold Analysis';
 
+  // The hand as a strip of mini cards (same style as the Non-Optimal Plays viewer)
   const handLine = document.createElement('div');
-  handLine.style.cssText = 'text-align:center;font-size:12px;color:#c0c8d8;letter-spacing:1px;flex-shrink:0;';
-  const cardLabel = c => c.joker ? 'JKR' : c.rank + c.suit;
-  handLine.textContent = 'Hand:  ' + aHand.map(cardLabel).join('   ');
+  handLine.style.cssText = 'display:flex;justify-content:center;gap:5px;flex-shrink:0;';
+  aHand.forEach(c => handLine.appendChild(miniCardEl(c, { held: null })));
 
   // ── Scrollable table wrapper ───────────────────────────────
   const scroll = document.createElement('div');
@@ -3031,6 +3224,19 @@ function showAnalysis(customHand, customDeck) {
   closeBtn.addEventListener('click', close);
   overlay.addEventListener('click', e => { if(e.target===overlay) close(); });
 
+  // Back (custom hands only): return to the picker with the same cards
+  if(isCustom && typeof opts.onBack === 'function'){
+    const backBtn = document.createElement('button');
+    backBtn.textContent = 'Back';
+    backBtn.style.cssText = [
+      'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
+      'letter-spacing:2px','text-transform:uppercase','padding:8px 22px',
+      'background:linear-gradient(180deg,#3a3a3a,#1a1a1a)','border:2px solid #666',
+      'border-radius:8px','color:#ccc','cursor:pointer','touch-action:manipulation',
+    ].join(';');
+    backBtn.addEventListener('click', () => { sfx.button(); close(); opts.onBack(); });
+    bottomBar.appendChild(backBtn);
+  }
   bottomBar.appendChild(toggleBtn);
   bottomBar.appendChild(closeBtn);
 
@@ -3046,13 +3252,9 @@ function showAnalysis(customHand, customDeck) {
 
   function render(ranked) {
     lastRanked = ranked;
-    // Top 8 options; if the player's hold isn't among them, append it with
-    // its full stats so the current selection is always visible.
-    const shown      = ranked.slice(0, 8).map((c, i) => ({ combo: c, rank: i + 1 }));
+    // All 32 hold options, best first — the table area scrolls
+    const shown      = ranked.map((c, i) => ({ combo: c, rank: i + 1 }));
     const playerRank = ranked.findIndex(r => r.mask === playerMask) + 1;
-    if(playerRank > 8){
-      shown.push({ combo: ranked[playerRank - 1], rank: playerRank });
-    }
 
     // ── Cell helpers ──────────────────────────────────────
     const thStyle = (extra='') =>
@@ -3123,23 +3325,34 @@ function showAnalysis(customHand, customDeck) {
       row.style.cssText = isPlayer
         ? 'background:rgba(240,192,64,0.13);'
         : (ri%2===0 ? '' : 'background:rgba(255,255,255,0.03);');
-      // Appended out-of-top-8 player row gets a separator border
-      if(rank > 8) row.style.borderTop = '2px solid #2a4a9a';
-
       // # cell — actual rank among all 32 holds
       const rnkTd = row.insertCell();
       rnkTd.textContent = rank;
       rnkTd.style.cssText = 'text-align:center;padding:5px 4px;font-weight:bold;color:#f0c040;font-size:18px;';
 
-      // Hold label
+      // Hold cell — the held cards as mini cards ("Draw 5 new" for none)
       const holdTd = row.insertCell();
-      let label;
-      if(combo.mask === 0b11111) label = 'Hold all 5';
-      else if(combo.mask === 0)  label = 'Draw 5 new';
-      else label = combo.heldCards.map(cardLabel).join(' ');
-      holdTd.style.cssText = `padding:5px 4px;font-size:17px;white-space:nowrap;` +
+      holdTd.style.cssText = `padding:3px 4px;white-space:nowrap;` +
         (isPlayer ? 'color:#f0c040;font-weight:bold;' : 'color:#c0c8d8;');
-      holdTd.textContent = label + (isPlayer ? ' ← you' : '');
+      const holdWrap = document.createElement('div');
+      holdWrap.style.cssText = 'display:flex;align-items:center;gap:2px;';
+      if(combo.mask === 0){
+        const t = document.createElement('span');
+        t.style.cssText = 'font-size:15px;';
+        t.textContent = 'Draw 5 new';
+        holdWrap.appendChild(t);
+      } else {
+        combo.heldCards.forEach(c => holdWrap.appendChild(
+          miniCardEl(c, { held: null, w: 30, h: 40, font: 14 })
+        ));
+      }
+      if(isPlayer){
+        const you = document.createElement('span');
+        you.style.cssText = 'font-size:13px;margin-left:6px;';
+        you.textContent = '← you';
+        holdWrap.appendChild(you);
+      }
+      holdTd.appendChild(holdWrap);
 
       // Total cell
       const totVal = oddsMode
@@ -3182,7 +3395,7 @@ function showAnalysis(customHand, customDeck) {
   // Compute in the worker on button press; modal renders (and stays
   // responsive) while it runs. Reuses the trainer's result if ready.
   if(isCustom){
-    analyzeHandAsync(customHand, customDeck).then(results => {
+    analyzeHandAsync(customHand, customDeck, gKey, rows).then(results => {
       if(overlay.parentNode) render(results);
     });
   } else if(analysisResults){
@@ -3234,36 +3447,13 @@ function showSubPlays(){
   title.textContent = curGame().name + ' — Non-Optimal Plays';
   panel.appendChild(title);
 
-  // One mini card with an optional HELD label and gold winning glow
-  function miniCardEl(c, heldTxt, glow){
-    const wrap = document.createElement('div');
-    wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;width:38px;';
-    const lbl = document.createElement('div');
-    lbl.style.cssText = 'height:11px;font-size:8px;font-weight:bold;letter-spacing:0.5px;color:#fff;';
-    lbl.textContent = heldTxt;
-    const card = document.createElement('div');
-    card.style.cssText = [
-      'width:36px','height:48px','background:#fdf6e3','border-radius:4px',
-      'display:flex','flex-direction:column','align-items:center','justify-content:center',
-      'font-weight:800','line-height:1',
-      `color:${SUIT_COLOR[c.suit]==='red' ? '#cc0000' : '#111'}`,
-      glow ? 'border:2px solid #ffd700;box-shadow:0 0 8px 3px rgba(255,215,0,0.85)'
-           : 'border:1px solid #8899aa',
-    ].join(';');
-    card.innerHTML = c.joker
-      ? '<span style="font-size:9px">JOKER</span><span style="font-size:16px">★</span>'
-      : `<span style="font-size:13px">${c.rank}</span><span style="font-size:13px">${c.suit}</span>`;
-    wrap.appendChild(lbl);
-    wrap.appendChild(card);
-    return wrap;
-  }
-
   // A 5-card strip: heldMask marks HELD labels, glowIdxs get the gold glow
+  // (mini cards come from the shared miniCardEl — larger rank/suit text)
   function strip(cards, heldMask, glowIdxs){
     const s = document.createElement('div');
     s.style.cssText = 'display:flex;gap:3px;';
     cards.forEach((c, i) => s.appendChild(
-      miniCardEl(c, (heldMask & (1<<i)) ? 'HELD' : '', glowIdxs.includes(i))
+      miniCardEl(c, { held: (heldMask & (1<<i)) ? 'HELD' : '', glow: glowIdxs.includes(i) })
     ));
     return s;
   }
@@ -3361,10 +3551,12 @@ function showSubPlays(){
 //  Ten quick presses: rank then suit, five times over. Feeds the
 //  chosen hand into the same EV analysis screen as the Analyze button.
 // ════════════════════════════════════════════════════════════
-function showHandPicker(){
+// initCards/initGame: re-open with a previous selection (Back from analysis)
+function showHandPicker(initCards, initGame){
   sfx.button();
-  const cards = [];
+  const cards = (initCards || []).map(c => ({ ...c }));
   let pendingRank = null;
+  let gameKey = (initGame && GAMES[initGame]) ? initGame : currentGame;
 
   const overlay = document.createElement('div');
   overlay.style.cssText = [
@@ -3380,6 +3572,7 @@ function showHandPicker(){
     'border:2px solid #2a4a9a','border-radius:14px',
     'box-shadow:0 0 30px rgba(20,60,180,0.6)',
     'padding:18px 22px','width:min(520px,94vw)',
+    'max-height:92vh','overflow-y:auto',
     'display:flex','flex-direction:column','gap:14px','align-items:center',
   ].join(';');
 
@@ -3389,7 +3582,40 @@ function showHandPicker(){
 
   const hint = document.createElement('div');
   hint.style.cssText = 'font-size:11px;color:#8899bb;text-align:center;';
-  hint.textContent = 'Tap a rank, then a suit — five times. (' + curGame().name + ')';
+  hint.textContent = 'Tap a rank, then a suit — five times.';
+
+  // ── Game rules selector (defaults to the current game) ──
+  const gameRow = document.createElement('div');
+  gameRow.style.cssText = 'display:flex;align-items:center;gap:8px;';
+  const gameLbl = document.createElement('div');
+  gameLbl.style.cssText = 'font-size:12px;font-weight:bold;color:#c0c8d8;letter-spacing:1px;';
+  gameLbl.textContent = 'Rules:';
+  const gameSel = document.createElement('select');
+  gameSel.style.cssText = [
+    'font-family:Arial,Helvetica,sans-serif','font-size:14px','font-weight:bold',
+    'padding:7px 10px','background:#0a1a40','border:2px solid #3a5aaa',
+    'border-radius:6px','color:#f0c040','max-width:260px',
+  ].join(';');
+  GAME_KEYS.forEach(k => {
+    const o = document.createElement('option');
+    o.value = k;
+    o.textContent = GAMES[k].name;
+    gameSel.appendChild(o);
+  });
+  gameSel.value = gameKey;
+  gameSel.addEventListener('change', () => {
+    gameKey = gameSel.value;
+    // Joker only exists in joker games — drop it if the new rules lack one
+    if(!GAMES[gameKey].joker){
+      for(let i = cards.length - 1; i >= 0; i--) if(cards[i].joker) cards.splice(i, 1);
+    }
+    rankBtns.JOKER.style.display = GAMES[gameKey].joker ? '' : 'none';
+    status.textContent = '';
+    sfx.button();
+    refresh();
+  });
+  gameRow.appendChild(gameLbl);
+  gameRow.appendChild(gameSel);
 
   // ── Five card slots ─────────────────────────────────────
   const slotsRow = document.createElement('div');
@@ -3435,8 +3661,10 @@ function showHandPicker(){
     rankBtns[r] = b;
     rankRow.appendChild(b);
   });
-  if(curGame().joker){
+  {
+    // JOKER key is always built; shown only when the selected rules use one
     const b = mkBtn('JOKER', true);
+    b.style.display = GAMES[gameKey].joker ? '' : 'none';
     b.addEventListener('click', () => {
       if(cards.length >= 5) return;
       if(cards.some(c => c.joker)){ status.textContent = 'The joker is already in the hand.'; return; }
@@ -3506,10 +3734,15 @@ function showHandPicker(){
 
   analyzeBtn.addEventListener('click', () => {
     if(cards.length !== 5) return;
-    const remaining = fullDeckFor().filter(c =>
+    const remaining = fullDeckFor(gameKey).filter(c =>
       !cards.some(x => x.rank === c.rank && x.suit === c.suit));
+    const chosen = cards.slice();
     close();
-    showAnalysis(cards.slice(), remaining);
+    // Back returns here with the same cards and rules pre-selected
+    showAnalysis(chosen, remaining, {
+      gameKey,
+      onBack: () => showHandPicker(chosen, gameKey),
+    });
   });
 
   // ── State refresh ───────────────────────────────────────
@@ -3553,6 +3786,7 @@ function showHandPicker(){
   actRow.appendChild(cancelBtn);
   panel.appendChild(title);
   panel.appendChild(hint);
+  panel.appendChild(gameRow);
   panel.appendChild(slotsRow);
   panel.appendChild(status);
   panel.appendChild(rankRow);
@@ -3628,15 +3862,22 @@ function showCustomEditor(onSaved){
     lbl.style.cssText = 'flex:1;font-size:13px;color:#e0e8f8;';
     const jkMult = r.pays[0] > 0 ? r.pays[4] / r.pays[0] : 5;
     lbl.textContent = r.name + (jkMult !== 5 ? '  (×' + jkMult + ' at 5 coins)' : '');
+    // Read-only field: tapping opens the number pad instead of the iOS keyboard
     const inp = document.createElement('input');
-    inp.type = 'number';
-    inp.min = '0';
-    inp.max = '99999';
+    inp.type = 'text';
+    inp.readOnly = true;
+    inp.inputMode = 'none';
     inp.value = cur[i].pays[0];
     inp.style.cssText = [
       'width:84px','padding:6px 8px','font-size:14px','font-weight:bold','text-align:right',
       'background:#0a1a40','border:2px solid #3a5aaa','border-radius:6px','color:#f0c040',
+      'cursor:pointer',
     ].join(';');
+    inp.addEventListener('click', async () => {
+      const n = await showNumPad({ title: r.name, hint: 'Per-coin payout',
+                                   initial: inp.value, min: 0, max: 99999 });
+      if(n !== null) inp.value = n;
+    });
     inputs.push(inp);
     row.appendChild(lbl);
     row.appendChild(inp);
@@ -3754,6 +3995,7 @@ function showSettings() {
     'border:2px solid #2a4a9a','border-radius:14px',
     'box-shadow:0 0 30px rgba(20,60,180,0.6)',
     'padding:20px 28px','width:min(480px,92vw)',
+    'max-height:92vh','overflow-y:auto',   // scrolls on short screens (phone landscape)
     'display:flex','flex-direction:column','gap:22px',
   ].join(';');
 
@@ -4262,13 +4504,15 @@ function showGraph(){
 
   // Range button
   const rangeBtn = makeModalBtn('Range','linear-gradient(180deg,#1a6a6a,#0e4444)','#3acccc','#aaffff');
-  rangeBtn.addEventListener('click', () => {
+  rangeBtn.addEventListener('click', async () => {
     const total = history.length;
     if(total === 0){ alert('No entries to filter.'); return; }
-    const s = parseInt(prompt(`Start entry (1–${total}):`, rangeStart), 10);
-    if(isNaN(s) || s < 1 || s > total){ alert('Invalid start entry.'); return; }
-    const e = parseInt(prompt(`End entry (${s}–${total}):`, Math.min(rangeEnd, total)), 10);
-    if(isNaN(e) || e < s || e > total){ alert('Invalid end entry.'); return; }
+    const s = await showNumPad({ title: 'Start Entry', hint: `1 – ${total}`,
+                                 initial: rangeStart, min: 1, max: total });
+    if(s === null) return;
+    const e = await showNumPad({ title: 'End Entry', hint: `${s} – ${total}`,
+                                 initial: Math.min(rangeEnd, total), min: s, max: total });
+    if(e === null) return;
     rangeStart = s;
     rangeEnd   = e;
     graphRangeStart = s;
@@ -4848,15 +5092,71 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
       .then(reg => {
-        // iOS home-screen apps resume from memory instead of relaunching,
-        // which skips the normal update check — so re-check for a new
-        // sw.js every time the app returns to the foreground.
+        // iOS home-screen apps resume from memory for days instead of
+        // relaunching, so a fresh deploy would never be noticed. Whenever
+        // the app comes to the foreground (or regains connectivity, or
+        // every 30 min while open) re-check sw.js AND compare the live
+        // index.html against the version this page loaded with.
+        const checkForUpdates = () => {
+          if (navigator.onLine === false) return;
+          reg.update().catch(()=>{});
+          checkAppVersion();
+        };
         document.addEventListener('visibilitychange', () => {
-          if (document.visibilityState === 'visible') reg.update().catch(()=>{});
+          if (document.visibilityState === 'visible') checkForUpdates();
         });
+        window.addEventListener('online', checkForUpdates);
+        setInterval(checkForUpdates, 30 * 60 * 1000);
+        checkAppVersion(true);   // record this page's version as the baseline
       })
       .catch(err => console.warn('SW registration failed:', err));
   });
+}
+
+// Version check: compare the server's ETag (or Last-Modified) for
+// index.html against the one recorded when this page loaded. HEAD requests
+// bypass the service worker (it only handles GET), so this always reflects
+// the live server — and it costs a few hundred bytes, not a full download.
+let appVersionTag = null;
+let updateBannerShown = false;
+function checkAppVersion(baseline){
+  fetch('/index.html', { method: 'HEAD', cache: 'no-store' }).then(res => {
+    if (!res.ok) return;
+    const tag = res.headers.get('etag') || res.headers.get('last-modified');
+    if (!tag) return;
+    if (baseline || appVersionTag === null) { appVersionTag = tag; return; }
+    if (tag !== appVersionTag) showUpdateBanner();
+  }).catch(() => {});   // offline: nothing to do
+}
+
+// Non-intrusive banner: one tap reloads into the new version. A reload
+// mid-hand is safe — the in-flight hand is persisted and restored.
+function showUpdateBanner(){
+  if (updateBannerShown) return;
+  updateBannerShown = true;
+  const bar = document.createElement('div');
+  bar.style.cssText = [
+    'position:fixed','top:0','left:0','right:0','z-index:20000',
+    'display:flex','align-items:center','justify-content:center','gap:14px',
+    'padding:10px 14px','padding-top:calc(10px + env(safe-area-inset-top, 0px))',
+    'background:linear-gradient(180deg,#1a3a8a,#0d2255)','border-bottom:2px solid #f0c040',
+    'font-family:Arial,Helvetica,sans-serif','font-size:14px','font-weight:bold',
+    'color:#f0c040','letter-spacing:1px','cursor:pointer',
+    'box-shadow:0 4px 18px rgba(0,0,0,0.6)',
+  ].join(';');
+  const msg = document.createElement('span');
+  msg.textContent = 'New version available — tap to update';
+  const dismiss = document.createElement('span');
+  dismiss.textContent = '✕';
+  dismiss.style.cssText = 'color:#8899bb;padding:0 6px;font-size:16px;';
+  dismiss.addEventListener('click', e => { e.stopPropagation(); bar.remove(); });
+  bar.appendChild(msg);
+  bar.appendChild(dismiss);
+  bar.addEventListener('click', () => {
+    saveState();            // make sure the live hand/bankroll are persisted
+    location.reload();      // network-first SW serves the new build
+  });
+  document.body.appendChild(bar);
 }
 </script>
 </body>

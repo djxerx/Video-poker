@@ -21,10 +21,13 @@ http.createServer((req, res) => {
   if (!file.startsWith(ROOT)) { res.writeHead(403); res.end(); return; }
   fs.readFile(file, (err, data) => {
     if (err) { res.writeHead(404); res.end('Not found'); return; }
+    // ETag from mtime+size (mirrors Vercel) so the app's update check works locally
+    const st = fs.statSync(file);
     res.writeHead(200, {
       'Content-Type': MIME[path.extname(file)] || 'application/octet-stream',
       'Cache-Control': 'no-cache',
+      'ETag': '"' + Math.round(st.mtimeMs) + '-' + st.size + '"',
     });
-    res.end(data);
+    res.end(req.method === 'HEAD' ? undefined : data);
   });
 }).listen(PORT, () => console.log('video-poker dev server on http://localhost:' + PORT));

@@ -1,13 +1,17 @@
 // ─── Service Worker — Video Poker ───────────────────────────
 // Strategy:
-//   • index.html / navigations → NETWORK-FIRST: always load the newest
-//     deploy when online; fall back to the cached copy offline.
+//   • index.html / navigations → NETWORK-FIRST WITH TIMEOUT: load the
+//     newest deploy when online, but if the network hasn't answered
+//     within NET_TIMEOUT_MS (weak signal, captive portal, iOS waking
+//     up) serve the cached copy immediately. The network fetch keeps
+//     running in the background so the cache still gets refreshed.
 //   • everything else → STALE-WHILE-REVALIDATE: serve from cache
 //     instantly, refresh the cache in the background.
 // With this strategy new deploys show up on the next launch without
 // bumping CACHE_NAME — the version only needs to change if you want to
 // force-purge old cached entries.
-const CACHE_NAME = 'video-poker-v3';
+const CACHE_NAME     = 'video-poker-v4';
+const NET_TIMEOUT_MS = 3500;
 const ASSETS = [
   '/',
   '/index.html',
@@ -48,20 +52,27 @@ self.addEventListener('fetch', event => {
                        url.pathname === '/' || url.pathname === '/index.html';
 
   if (isNavigation) {
-    // Network-first: newest version whenever online
+    // Network-first with a timeout. The network promise is never aborted:
+    // if the cache wins the race, the late network response still updates
+    // the cache for next launch.
+    const network = fetch(event.request, { cache: 'no-cache' }).then(response => {
+      if (response && response.status === 200) {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then(cache => {
+          cache.put('/index.html', clone.clone());
+          cache.put('/', clone);
+        });
+      }
+      return response;
+    });
+    const cached  = () => caches.match('/index.html').then(c => c || caches.match('/'));
+    const timeout = new Promise(resolve => setTimeout(() => resolve(null), NET_TIMEOUT_MS));
+
     event.respondWith(
-      fetch(event.request, { cache: 'no-cache' }).then(response => {
-        if (response && response.status === 200) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => {
-            cache.put('/index.html', clone.clone());
-            cache.put('/', clone);
-          });
-        }
-        return response;
-      }).catch(() =>
-        caches.match('/index.html').then(c => c || caches.match('/'))
-      )
+      Promise.race([network.catch(() => null), timeout]).then(response => {
+        if (response) return response;                 // network answered in time
+        return cached().then(c => c || network);       // offline/slow → cache; else wait
+      })
     );
     return;
   }
