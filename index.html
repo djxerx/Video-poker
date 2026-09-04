@@ -3576,7 +3576,7 @@ function showSubPlays(){
 // initCards/initGame: re-open with a previous selection (Back from analysis)
 function showHandPicker(initCards, initGame){
   sfx.button();
-  const cards = (initCards || []).map(c => ({ ...c }));
+  const cards = (Array.isArray(initCards) ? initCards : []).map(c => ({ ...c }));
   let pendingRank = null;
   let gameKey = (initGame && GAMES[initGame]) ? initGame : currentGame;
 
@@ -4357,7 +4357,8 @@ function showSettings() {
     'border:2px solid #ccaa00','border-radius:8px',
     'color:#ffee88','cursor:pointer','touch-action:manipulation',
   ].join(';');
-  pickBtn.addEventListener('click', showHandPicker);
+  // wrapped: the raw click event must not reach showHandPicker's initCards param
+  pickBtn.addEventListener('click', () => showHandPicker());
   panel.appendChild(pickBtn);
 
   panel.appendChild(histSection);
@@ -4904,33 +4905,45 @@ function drawGraph(canvas, history, offset=0, hoverIdx=null, altIdxs=[]){
   ctx.font = 'bold 10px Arial';
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
-  const actLabel = graphCombineAdds ? 'ACTUAL · ADDS AT START' : 'ACTUAL';
-  const actW = Math.ceil(ctx.measureText(actLabel).width) + 24;
-  let lx = W - pad.right - (actW + (showOpt ? 68 : 0) + (hasSub ? 78 : 0));
   const ly = pad.top - 12;
-  ctx.strokeStyle = '#f0c040'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx+16, ly); ctx.stroke();
-  ctx.fillStyle = '#c0c8d8'; ctx.fillText(actLabel, lx+20, ly);
-  if(showOpt){
-    lx += actW + 8;
-    ctx.strokeStyle = '#38b6ff';
-    ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx+16, ly); ctx.stroke();
-    ctx.fillText('OPTIMAL', lx+20, ly);
-  }
-  if(hasSub){
-    lx += 74;
-    ctx.beginPath(); ctx.arc(lx+4, ly, 3, 0, Math.PI*2);
-    ctx.fillStyle = '#ff5050'; ctx.fill();
-    ctx.fillStyle = '#c0c8d8'; ctx.fillText('SUBOPT.', lx+11, ly);
-  }
-  // Alternate pay-table legend, left-aligned on the same line
+  // Items are measured and laid out sequentially, so any combination of
+  // labels (including the long "ADDS AT START" variant) fits without overlap
+  const legend = [{ kind:'line', color:'#f0c040',
+                    text: graphCombineAdds ? 'ACTUAL · ADDS AT START' : 'ACTUAL' }];
+  if(showOpt) legend.push({ kind:'line', color:'#38b6ff', text:'OPTIMAL' });
+  if(hasSub)  legend.push({ kind:'dot',  color:'#ff5050', text:'SUBOPT.' });
+  const LGAP = 14;
+  legend.forEach(it => {
+    it.mark = it.kind === 'line' ? 16 : 8;             // swatch width
+    it.w    = it.mark + 4 + Math.ceil(ctx.measureText(it.text).width);
+  });
+  const legendW = legend.reduce((s, it) => s + it.w, 0) + LGAP * (legend.length - 1);
+  let lx = W - pad.right - legendW;
+  const legendLeft = lx;                               // alt labels must stop before this
+  legend.forEach(it => {
+    if(it.kind === 'line'){
+      ctx.strokeStyle = it.color; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx + it.mark, ly); ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.arc(lx + 4, ly, 3, 0, Math.PI*2);
+      ctx.fillStyle = it.color; ctx.fill();
+    }
+    ctx.fillStyle = '#c0c8d8';
+    ctx.fillText(it.text, lx + it.mark + 4, ly);
+    lx += it.w + LGAP;
+  });
+
+  // Alternate pay-table legend, left-aligned on the same line —
+  // stops if it would run into the right-hand legend
   let ax = pad.left + 4;
   altLines.forEach(a => {
+    const w = 28 + Math.ceil(ctx.measureText(a.label).width);
+    if(ax + w > legendLeft - 10) return;
     ctx.strokeStyle = a.color; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(ax, ly); ctx.lineTo(ax+16, ly); ctx.stroke();
     ctx.fillStyle = '#c0c8d8';
     ctx.fillText(a.label, ax+20, ly);
-    ax += 28 + ctx.measureText(a.label).width;
+    ax += w;
   });
 
   // ── Hover crosshair + readout ──────────────────────────
