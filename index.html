@@ -1171,10 +1171,10 @@ const GAMES = {
     name: 'Jacks or Better',
     titleHTML: '<span class="t-red">Jacks</span> <span class="t-yellow">or</span> <span class="t-red">Better</span>',
     payTables: [
-      { label:'9/6 Full Pay', rows: jobRows(9,6) },
-      { label:'8/6',          rows: jobRows(8,6) },
-      { label:'9/5',          rows: jobRows(9,5) },
-      { label:'8/5',          rows: jobRows(8,5) },
+      { label:'9/6 Full Pay', rows: jobRows(9,6), strat:'jacks96' },
+      { label:'8/6',          rows: jobRows(8,6), strat:'jacks86' },
+      { label:'9/5',          rows: jobRows(9,5), strat:'jacks95' },
+      { label:'8/5',          rows: jobRows(8,5), strat:'jacks85' },
     ],
     evaluate: cards => evaluate(cards),
     winCards: (cat, h) => winCardsStandard(cat, false, h),
@@ -1183,9 +1183,9 @@ const GAMES = {
     name: 'Bonus Poker',
     titleHTML: '<span class="t-red">Bonus</span> <span class="t-yellow">Poker</span>',
     payTables: [
-      { label:'8/5 Full Pay', rows: bonusRows(80,40,25, 8,5, 4, 2) },
-      { label:'7/5',          rows: bonusRows(80,40,25, 7,5, 4, 2) },
-      { label:'6/5',          rows: bonusRows(80,40,25, 6,5, 4, 2) },
+      { label:'8/5 Full Pay', rows: bonusRows(80,40,25, 8,5, 4, 2), strat:'bonus85' },
+      { label:'7/5',          rows: bonusRows(80,40,25, 7,5, 4, 2), strat:'bonus75' },
+      { label:'6/5',          rows: bonusRows(80,40,25, 6,5, 4, 2), strat:'bonus65' },
     ],
     evaluate: cards => evalBonusStyle(cards),
     winCards: (cat, h) => winCardsStandard(cat, true, h),
@@ -1194,9 +1194,9 @@ const GAMES = {
     name: 'Double Bonus Poker',
     titleHTML: '<span class="t-red">Double</span> <span class="t-yellow">Bonus</span> <span class="t-red">Poker</span>',
     payTables: [
-      { label:'10/7 Full Pay', rows: bonusRows(160,80,50, 10,7, 5, 1) },
-      { label:'9/7',           rows: bonusRows(160,80,50,  9,7, 5, 1) },
-      { label:'9/6',           rows: bonusRows(160,80,50,  9,6, 5, 1) },
+      { label:'10/7 Full Pay', rows: bonusRows(160,80,50, 10,7, 5, 1), strat:'db107' },
+      { label:'9/7',           rows: bonusRows(160,80,50,  9,7, 5, 1), strat:'db97' },
+      { label:'9/6',           rows: bonusRows(160,80,50,  9,6, 5, 1), strat:'db96' },
     ],
     evaluate: cards => evalBonusStyle(cards),
     winCards: (cat, h) => winCardsStandard(cat, true, h),
@@ -1205,8 +1205,8 @@ const GAMES = {
     name: 'Tens or Better',
     titleHTML: '<span class="t-red">Tens</span> <span class="t-yellow">or</span> <span class="t-red">Better</span>',
     payTables: [
-      { label:'25/6/5 Full Pay', rows: tensRows(25) },
-      { label:'20/6/5',          rows: tensRows(20) },
+      { label:'25/6/5 Full Pay', rows: tensRows(25), strat:'tens25' },
+      { label:'20/6/5',          rows: tensRows(20), strat:'tens20' },
     ],
     evaluate: cards => evalTens(cards),
     winCards: (cat, h) => winCardsStandard(cat, false, h),
@@ -1215,9 +1215,9 @@ const GAMES = {
     name: 'Double Double Bonus',
     titleHTML: '<span class="t-red">Double Double</span> <span class="t-yellow">Bonus</span>',
     payTables: [
-      { label:'10/6 Full Pay', rows: ddbRows(10,6) },
-      { label:'9/6',           rows: ddbRows(9,6)  },
-      { label:'9/5',           rows: ddbRows(9,5)  },
+      { label:'10/6 Full Pay', rows: ddbRows(10,6), strat:'ddb106' },
+      { label:'9/6',           rows: ddbRows(9,6),  strat:'ddb96' },
+      { label:'9/5',           rows: ddbRows(9,5), strat:'ddb95'  },
     ],
     evaluate: cards => evalDDB(cards),
     winCards: (cat, h) => winCardsDDB(cat, h),
@@ -1227,9 +1227,9 @@ const GAMES = {
     titleHTML: '<span class="t-red">Joker\'s</span> <span class="t-yellow">Wild</span>',
     joker: true,
     payTables: [
-      { label:'20/7/5 Full Pay', rows: jokerRows(20) },
-      { label:'18/7/5',          rows: jokerRows(18) },
-      { label:'17/7/5',          rows: jokerRows(17) },
+      { label:'20/7/5 Full Pay', rows: jokerRows(20), strat:'joker20' },
+      { label:'18/7/5',          rows: jokerRows(18), strat:'joker18' },
+      { label:'17/7/5',          rows: jokerRows(17), strat:'joker17' },
     ],
     evaluate: cards => evalJoker(cards),
     winCards: (cat, h) => winCardsJoker(cat, h),
@@ -1238,9 +1238,9 @@ const GAMES = {
     name: 'All American',
     titleHTML: '<span class="t-red">All</span> <span class="t-yellow">American</span>',
     payTables: [
-      { label:'35/8 Full Pay', rows: aaRows(35) },
-      { label:'30/8',          rows: aaRows(30) },
-      { label:'25/8',          rows: aaRows(25) },
+      { label:'35/8 Full Pay', rows: aaRows(35), strat:'aa35' },
+      { label:'30/8',          rows: aaRows(30), strat:'aa30' },
+      { label:'25/8',          rows: aaRows(25), strat:'aa25' },
     ],
     evaluate: cards => evaluate(cards),
     winCards: (cat, h) => winCardsStandard(cat, false, h),
@@ -1249,9 +1249,9 @@ const GAMES = {
     name: 'Bonus Poker Deluxe',
     titleHTML: '<span class="t-red">Bonus Poker</span> <span class="t-yellow">Deluxe</span>',
     payTables: [
-      { label:'9/6 Full Pay', rows: bpdRows(9,6) },
-      { label:'8/6',          rows: bpdRows(8,6) },
-      { label:'8/5',          rows: bpdRows(8,5) },
+      { label:'9/6 Full Pay', rows: bpdRows(9,6), strat:'bpd96' },
+      { label:'8/6',          rows: bpdRows(8,6), strat:'bpd86' },
+      { label:'8/5',          rows: bpdRows(8,5), strat:'bpd85' },
     ],
     evaluate: cards => evaluate(cards),
     winCards: (cat, h) => winCardsStandard(cat, false, h),
@@ -1260,9 +1260,9 @@ const GAMES = {
     name: 'Triple Bonus',
     titleHTML: '<span class="t-red">Triple</span> <span class="t-yellow">Bonus</span>',
     payTables: [
-      { label:'10/7/5 Full Pay', rows: tbRows(10,7,5) },
-      { label:'11/7/4',          rows: tbRows(11,7,4) },
-      { label:'10/7/4',          rows: tbRows(10,7,4) },
+      { label:'10/7/5 Full Pay', rows: tbRows(10,7,5), strat:'tb1075' },
+      { label:'11/7/4',          rows: tbRows(11,7,4), strat:'tb1174' },
+      { label:'10/7/4',          rows: tbRows(10,7,4), strat:'tb1074' },
     ],
     evaluate: cards => evalTripleBonus(cards),
     winCards: (cat, h) => winCardsStandard(cat, true, h),
@@ -1271,9 +1271,9 @@ const GAMES = {
     name: 'Triple Double Bonus',
     titleHTML: '<span class="t-red">Triple Double</span> <span class="t-yellow">Bonus</span>',
     payTables: [
-      { label:'9/7 Full Pay', rows: tdbRows(9,7) },
-      { label:'9/6',          rows: tdbRows(9,6) },
-      { label:'9/5',          rows: tdbRows(9,5) },
+      { label:'9/7 Full Pay', rows: tdbRows(9,7), strat:'tdb97' },
+      { label:'9/6',          rows: tdbRows(9,6), strat:'tdb96' },
+      { label:'9/5',          rows: tdbRows(9,5), strat:'tdb95' },
     ],
     evaluate: cards => evalDDB(cards),
     winCards: (cat, h) => winCardsDDB(cat, h),
@@ -1282,9 +1282,9 @@ const GAMES = {
     name: 'Super Double Bonus',
     titleHTML: '<span class="t-red">Super Double</span> <span class="t-yellow">Bonus</span>',
     payTables: [
-      { label:'9/5 Full Pay', rows: sdbRows(9) },
-      { label:'8/5',          rows: sdbRows(8) },
-      { label:'7/5',          rows: sdbRows(7) },
+      { label:'9/5 Full Pay', rows: sdbRows(9), strat:'sdb95' },
+      { label:'8/5',          rows: sdbRows(8), strat:'sdb85' },
+      { label:'7/5',          rows: sdbRows(7), strat:'sdb75' },
     ],
     evaluate: cards => evalSuperDB(cards),
     winCards: (cat, h) => winCardsSDB(cat, h),
@@ -1293,9 +1293,9 @@ const GAMES = {
     name: 'Super Double Double Bonus',
     titleHTML: '<span class="t-red">Super Double Double</span> <span class="t-yellow">Bonus</span>',
     payTables: [
-      { label:'8/5 Full Pay',  rows: sddbRows(50, 8) },
-      { label:'7/5 (SF 100)',  rows: sddbRows(100, 7) },
-      { label:'7/5',           rows: sddbRows(50, 7) },
+      { label:'8/5 Full Pay',  rows: sddbRows(50, 8), strat:'sddb85' },
+      { label:'7/5 (SF 100)',  rows: sddbRows(100, 7), strat:'sddb75sf100' },
+      { label:'7/5',           rows: sddbRows(50, 7), strat:'sddb75' },
     ],
     evaluate: cards => evalSuperDDB(cards),
     winCards: (cat, h) => winCardsSDDB(cat, h),
@@ -1305,8 +1305,8 @@ const GAMES = {
     titleHTML: '<span class="t-red">Joker\'s</span> <span class="t-yellow">Wild</span> <span class="t-red">Two Pair</span>',
     joker: true,
     payTables: [
-      { label:'20/10/6 Full Pay', rows: jtpRows(5000,100, 50, 50,20,10,6,5) },
-      { label:'16/8/5',           rows: jtpRows(4000,800,100,100,16, 8,5,4) },
+      { label:'20/10/6 Full Pay', rows: jtpRows(5000,100, 50, 50,20,10,6,5), strat:'jokertp20' },
+      { label:'16/8/5',           rows: jtpRows(4000,800,100,100,16, 8,5,4), strat:'jokertp16' },
     ],
     evaluate: cards => evalJokerTP(cards),
     winCards: (cat, h) => cat === 10 ? [] : winCardsJoker(cat, h),
@@ -1315,9 +1315,9 @@ const GAMES = {
     name: 'Deuces Wild',
     titleHTML: '<span class="t-red">Deuces</span> <span class="t-yellow">Wild</span>',
     payTables: [
-      { label:'Full Pay 25/15/9',     rows: deucesRows(15, 9, 5, 3, 2) },
-      { label:'Not So Ugly 25/16/10', rows: deucesRows(16,10, 4, 4, 3) },
-      { label:'Airport 25/15/10',     rows: deucesRows(15,10, 4, 4, 3) },
+      { label:'Full Pay 25/15/9',     rows: deucesRows(15, 9, 5, 3, 2), strat:'deuces2515' },
+      { label:'Not So Ugly 25/16/10', rows: deucesRows(16,10, 4, 4, 3), strat:'deuces2516' },
+      { label:'Airport 25/15/9',      rows: deucesRows(15, 9, 4, 4, 3), strat:'deuces25159' },
     ],
     evaluate: cards => evalDeuces(cards),
     winCards: (cat, h) => winCardsDeuces(cat, h),
@@ -1326,9 +1326,9 @@ const GAMES = {
     name: 'Bonus Deuces Wild',
     titleHTML: '<span class="t-red">Bonus</span> <span class="t-yellow">Deuces</span> <span class="t-red">Wild</span>',
     payTables: [
-      { label:'10/4/3 Full Pay', rows: bdRows(10) },
-      { label:'9/4/3',           rows: bdRows(9)  },
-      { label:'8/4/3',           rows: bdRows(8)  },
+      { label:'10/4/3 Full Pay', rows: bdRows(10), strat:'bdeuces10' },
+      { label:'9/4/3',           rows: bdRows(9),  strat:'bdeuces9' },
+      { label:'8/4/3',           rows: bdRows(8),  strat:'bdeuces8' },
     ],
     evaluate: cards => evalBonusDeuces(cards),
     winCards: (cat, h) => winCardsBDeuces(cat, h),
@@ -1373,6 +1373,9 @@ let trainerOn    = false;       // thump + retry on non-optimal hold
 let highlightErrOn = false;     // red-flash the optimal hold on a non-optimal play
 let graphShowOpt = true;        // show the optimal-play line on the graph
 let graphCombineAdds = false;   // graph: show all added cash as if added at the start (display only)
+let holdJudge    = 'analyzer';  // trainer/highlight verdict: 'analyzer' (top-EV hold) | 'strategy' (book line)
+let stratLevel   = 'full';      // strategy list in use: 'full' | '0.9995' | '0.999' | '0.996' | '0.993'
+let analyzeStripOn = true;      // Analyze screen: strategy strip shown (remembers last choice)
 
 let deck            = [];
 let pendingLive     = null;   // in-flight hand recovered from a mid-hand reload
@@ -1432,6 +1435,7 @@ function saveState() {
       v: 2, currentGame, games: gameState,
       coinBet, denomIdx, flipDuration, dealDelay, theme, soundOn, trainerOn,
       highlightErrOn, graphShowOpt, graphCombineAdds,
+      holdJudge, stratLevel, analyzeStripOn,
       // In-flight hand: the bet is deducted at Deal time, so an app
       // reload mid-hand must restore the hand instead of eating the bet
       live: phase === 'holding' ? { game: currentGame, hand, held, deck } : null,
@@ -1477,6 +1481,9 @@ function loadState() {
     if (typeof s.highlightErrOn === 'boolean')                                    highlightErrOn = s.highlightErrOn;
     if (typeof s.graphShowOpt   === 'boolean')                                    graphShowOpt   = s.graphShowOpt;
     if (typeof s.graphCombineAdds === 'boolean')                                  graphCombineAdds = s.graphCombineAdds;
+    if (s.holdJudge === 'analyzer' || s.holdJudge === 'strategy')                 holdJudge      = s.holdJudge;
+    if (typeof s.stratLevel === 'string' && STRAT_LEVELS.some(l => l[0] === s.stratLevel)) stratLevel = s.stratLevel;
+    if (typeof s.analyzeStripOn === 'boolean')                                    analyzeStripOn = s.analyzeStripOn;
     if (s.live && s.live.game === s.currentGame &&
         Array.isArray(s.live.hand) && s.live.hand.length === 5)                   pendingLive    = s.live;
   } catch(e) {}
@@ -2561,6 +2568,9 @@ async function dealCore(){
     // needs it at Draw time, and the graph's optimal-play line needs the
     // counterfactual result recorded for every hand played.
     startAnalysisAsync();
+    // Strategy-based judging needs the pay table's strategy file in memory
+    // (one fetch, then cached) so the Draw verdict is instant
+    if(holdJudge === 'strategy') loadStrategy(stratKeyFor());
 
     // Dealt a winner already? Flash the winning cards, then show the hand name
     const dealtCat  = curEvaluate(hand);
@@ -2580,25 +2590,34 @@ async function dealCore(){
     }
 
   } else if(phase === 'holding'){
-    // Hold trainer: thump on a non-optimal hold, allow one retry.
-    // A second Draw press (without changing the hold) is accepted.
-    if(trainerOn && !trainerWarned){
-      let ranked = analysisResults;
-      if(!ranked){
-        // Worker hasn't finished yet (very fast Draw press) — wait for it
-        setMessage('Checking your hold…', false);
-        ranked = await (analysisPromise || startAnalysisAsync());
-      }
-      if(ranked && ranked.length){
-        let pm = 0;
-        for(let i=0;i<5;i++) if(held[i]) pm |= (1<<i);
-        if(pm !== ranked[0].mask){
-          trainerWarned = true;
-          sfx.thump();
-          setMessage('Not the best hold — change it, or Draw again to keep it', false);
-          return;
+    let playerMask = 0;
+    for(let i=0;i<5;i++) if(held[i]) playerMask |= (1<<i);
+
+    // Verdict on the hold for the trainer / Highlight Error: the strategy
+    // list at the chosen level (instant, no worker) when "Judge Holds By" is
+    // Strategy and a list exists for this pay table; otherwise the
+    // analyzer's top-EV hold (waits for the worker if it isn't done yet).
+    let verdict = null;
+    if((trainerOn && !trainerWarned) || highlightErrOn){
+      verdict = bookVerdict(playerMask);
+      if(!verdict){
+        let ranked = analysisResults;
+        if(!ranked){
+          setMessage('Checking your hold…', false);
+          ranked = await (analysisPromise || startAnalysisAsync());
         }
+        if(ranked && ranked.length) verdict = { ok: ranked[0].mask === playerMask, bestMask: ranked[0].mask };
       }
+    }
+
+    // Hold trainer: thump on a wrong hold, allow one retry.
+    // A second Draw press (without changing the hold) is accepted.
+    if(trainerOn && !trainerWarned && verdict && !verdict.ok){
+      trainerWarned = true;
+      sfx.thump();
+      setMessage(verdict.book ? 'Not the strategy play — change it, or Draw again to keep it'
+                              : 'Not the best hold — change it, or Draw again to keep it', false);
+      return;
     }
     trainerWarned = false;
     sfx.button();
@@ -2610,19 +2629,14 @@ async function dealCore(){
     const handBet  = coinBet;
     const handRows = curPayRows();
     const handEval = curGame().evaluate;
-    let playerMask = 0;
-    for(let i=0;i<5;i++) if(held[i]) playerMask |= (1<<i);
     const handAnalysis = analysisPromise || startAnalysisAsync(preHand, preDeck);
 
-    // Highlight Error: on a non-optimal hold, red-flash the cards that
-    // should have been held — while they're still face-up, before the draw
-    if(highlightErrOn){
-      const ranked = analysisResults || await handAnalysis;
-      if(ranked && ranked.length && ranked[0].mask !== playerMask){
-        flashErrorCards(ranked[0].mask);
-        sfx.thump();
-        await new Promise(r => setTimeout(r, 700));
-      }
+    // Highlight Error: on a wrong hold, red-flash the cards that should
+    // have been held — while they're still face-up, before the draw
+    if(highlightErrOn && verdict && !verdict.ok){
+      flashErrorCards(verdict.bestMask);
+      sfx.thump();
+      await new Promise(r => setTimeout(r, 700));
     }
 
     // Draw: replace non-held cards
@@ -2788,17 +2802,27 @@ function iterCombos(arr, k, fn) {
 // main thread so card taps stay instant during the hold phase. The worker
 // is built from a Blob of this file's own evaluator functions, so the game
 // stays a single self-contained file (and works offline).
-function evWorkerSource(){
+// Shared by the EV worker and the strategy simulator worker: constants, every
+// evaluator, the combination iterator and the strategy classifier.
+function workerCommonSource(){
   const fns = [rankIndex, evaluate, rankVal, evalBonusStyle, evalDeuces, evalTens, evalDDB,
                evalJoker, evalJokerTP, evalTripleBonus, evalSuperDB, evalSuperDDB,
-               evalBonusDeuces, iterCombos]
+               evalBonusDeuces, iterCombos, nStraightWindows, nWindowsNeeding2,
+               classifyHold, classifyHoldWild]
     .map(f => f.toString()).join('\n');
-  const main = `
+  return 'const RANKS = ' + JSON.stringify(RANKS) + ';\n' +
+         'const SUITS = ' + JSON.stringify(SUITS) + ';\n' +
+         'const RL_STRAT = ' + JSON.stringify(RL_STRAT) + ';\n' + fns + `
 const EVAL_FNS = { jacks: evaluate, tens: evalTens, allamerican: evaluate, bonus: evalBonusStyle,
                    bpdeluxe: evaluate, dbonus: evalBonusStyle, ddbonus: evalDDB,
                    tbonus: evalTripleBonus, tdbonus: evalDDB, sdbonus: evalSuperDB,
                    sddbonus: evalSuperDDB, joker: evalJoker, joker2: evalJokerTP,
                    deuces: evalDeuces, bdeuces: evalBonusDeuces };
+`;
+}
+
+function evWorkerSource(){
+  const main = `
 self.onmessage = e => {
   const { token, gameKey, rows, coinBet, hand, deck } = e.data;
   const evalFn = EVAL_FNS[gameKey];
@@ -2834,7 +2858,7 @@ self.onmessage = e => {
   out.sort((a,b) => b.ev - a.ev);
   self.postMessage({ token, results: out });
 };`;
-  return 'const RANKS = ' + JSON.stringify(RANKS) + ';\n' + fns + '\n' + main;
+  return workerCommonSource() + main;
 }
 
 let evWorker  = null;
@@ -2930,6 +2954,264 @@ function computeAllEVs(snapHand, snapDeck) {
   const out = [];
   for(let mask=0; mask<32; mask++) out.push(computeMaskEV(mask, snapHand, snapDeck));
   return out.sort((a,b) => b.ev - a.ev);
+}
+
+// ════════════════════════════════════════════════════════════
+//  STRATEGY GUIDE
+//  Pre-computed Wizard-of-Odds-style strategy lists, generated offline by
+//  strategy/strategy-gen.js and shipped as strategy-data/<key>.json.
+//  classifyHold() is a straight port of the generator's classify() — the
+//  two MUST stay in sync or line lookups silently mis-rank.
+// ════════════════════════════════════════════════════════════
+
+// Per-game pattern config, mirroring the generator's GAMES entries.
+// minPair = lowest rank index that counts as a "high" pair (RANKS index:
+// 8='10', 9='J', 11='K'). quadGroup splits quads the way the pay table does.
+const STRAT_CFG = {
+  jacks:    { minPair: 9, quadGroup: () => '' },
+  tens:     { minPair: 8, quadGroup: () => '' },
+  allamerican:{ minPair: 9, quadGroup: () => '' },
+  bonus:    { minPair: 9, quadGroup: r => r === 12 ? 'A' : r <= 2 ? '234' : '5K' },
+  bpdeluxe: { minPair: 9, quadGroup: () => '' },
+  dbonus:   { minPair: 9, quadGroup: r => r === 12 ? 'A' : r <= 2 ? '234' : '5K' },
+  ddbonus:  { minPair: 9, quadGroup: r => r === 12 ? 'A' : r <= 2 ? '234' : '5K' },
+  tbonus:   { minPair: 11, quadGroup: r => r === 12 ? 'A' : r <= 2 ? '234' : '5K' },
+  tdbonus:  { minPair: 9, quadGroup: r => r === 12 ? 'A' : r <= 2 ? '234' : '5K' },
+  sdbonus:  { minPair: 9, quadGroup: r => r === 12 ? 'A' : (r >= 9 && r <= 11) ? 'JK' : r <= 2 ? '234' : '5T' },
+  sddbonus: { minPair: 9, quadGroup: r => r === 12 ? 'A' : (r >= 9 && r <= 11) ? 'JK' : r <= 2 ? '234' : '5T' },
+  // Wild games (generator: classifyWild). wild(c) marks the wild cards;
+  // pat(cards) names a 5-card hand's paying category (null = nothing);
+  // noNat2 = no natural 2 exists (deuces games); fiveGroup splits
+  // five-of-a-kind / trips / pairs the way the pay table does.
+  deuces:  { wild: c => c.rank === '2', wildName: 'deuce', noNat2: true, minPair: 13, fiveGroup: () => '',
+             pat: cards => ['NRF','4D','WRF','5K','SF','4K','FH','FL','ST','3K'][evalDeuces(cards)] || null },
+  bdeuces: { wild: c => c.rank === '2', wildName: 'deuce', noNat2: true, minPair: 13,
+             fiveGroup: r => r === 12 ? 'A' : r <= 3 ? '35' : '6K',
+             pat: cards => ['NRF','4DA','4D','WRF','5A','5_35','5_6K','SF','4K','FH','FL','ST','3K'][evalBonusDeuces(cards)] || null },
+  joker:   { wild: c => !!c.joker, wildName: 'joker', noNat2: false, minPair: 11, fiveGroup: () => '',
+             pat: cards => ['NRF','5K','WRF','SF','4K','FH','FL','ST','3K','2P','KB'][evalJoker(cards)] || null },
+  joker2:  { wild: c => !!c.joker, wildName: 'joker', noNat2: false, minPair: 13, fiveGroup: () => '',
+             pat: cards => ['NRF','5K','WRF','SF','4K','FH','FL','ST','3K','2P'][evalJokerTP(cards)] || null },
+};
+
+// Serialize a STRAT_CFG entry for a worker (functions by source; they only
+// reference evaluators that the worker also carries)
+function cfgSource(cfg){
+  return '{' + Object.entries(cfg).map(([k, v]) => `${k}: ${typeof v === 'function' ? v.toString() : JSON.stringify(v)}`).join(', ') + '}';
+}
+
+const RL_STRAT = '23456789TJQKA';   // generator's rank letters, by rank index
+
+// #5-card straight windows containing all of `ranks` (lo=-1 → the A2345 wheel)
+function nStraightWindows(ranks){
+  let n = 0;
+  for(let lo = -1; lo <= 8; lo++){
+    let ok = true;
+    for(const r of ranks){
+      const rr = (lo === -1 && r === 12) ? -1 : r;
+      if(rr < lo || rr > lo + 4){ ok = false; break; }
+    }
+    if(ok) n++;
+  }
+  return n;
+}
+
+// Pattern id for a set of held cards — port of the generator's classify().
+// Structural (not pay-based) so it stays correct for tables where several
+// hand types share a payout (e.g. All American's 8/8/8).
+function classifyHold(heldCards, cfg){
+  if(cfg.wild) return classifyHoldWild(heldCards, cfg);
+  const k = heldCards.length;
+  if(k === 0) return 'DISCARD';
+  const ranks = heldCards.map(c => rankIndex(c.rank)).sort((a,b) => b-a);
+  const suited = heldCards.every(c => c.suit === heldCards[0].suit);
+  const nHigh = ranks.filter(r => r >= 9).length;
+  const cnt = new Int8Array(13); ranks.forEach(r => cnt[r]++);
+  let pairs = 0, pr = -1, trip = -1, quad = -1;
+  for(let r = 0; r < 13; r++){
+    if(cnt[r] === 2){ pairs++; pr = r; }
+    if(cnt[r] === 3) trip = r;
+    if(cnt[r] === 4) quad = r;
+  }
+  const rs = ranks.map(r => RL_STRAT[r]).join('');
+  const qg = r => cfg.quadGroup(r);
+
+  if(k === 5){
+    if(quad >= 0) return `PAT_4K${qg(quad)}+${RL_STRAT[ranks.find(r => cnt[r] === 1)]}`;
+    if(trip >= 0 && pairs) return 'PAT_FH';
+    const straight = pairs === 0 && trip < 0 && quad < 0 && nStraightWindows(ranks) > 0;
+    const royal = ranks.every(r => r >= 8);
+    if(suited && straight && royal) return 'PAT_RF';
+    if(suited && straight)          return 'PAT_SF';
+    if(suited)                      return 'PAT_FL';
+    if(straight)                    return 'PAT_ST';
+    return 'JUNK';
+  }
+  if(quad >= 0) return `QUADS${qg(quad)}`;
+  if(trip >= 0) return k === 3 ? `TRIPS${qg(trip)}` : 'JUNK';
+  if(pairs === 2) return '2PAIR';
+  if(pairs === 1){
+    if(k !== 2) return 'JUNK';
+    return (pr >= cfg.minPair ? 'PAIR_HI' : 'PAIR_LO') + qg(pr);
+  }
+  // all distinct ranks
+  const nS = nStraightWindows(ranks);
+  const royal = ranks.every(r => r >= 8);
+  if(suited){
+    if(k === 4) return royal ? 'RF4' : nS ? `SF4_s${nS}_h${nHigh}` : `FL4_h${nHigh}`;
+    if(k === 3) return royal ? `RF3_${rs}` : nS ? `SF3_s${nS}_h${nHigh}` : `FL3_h${nHigh}`;
+    if(k === 2) return royal ? `RF2_${rs}` : nS ? `SF2_s${nS}_h${nHigh}` : 'JUNK';
+  } else {
+    if(k === 4) return nS ? `ST4_s${nS}_h${nHigh}` : 'JUNK';
+    if(k === 3) return nS ? `ST3_s${nS}_h${nHigh}` : nHigh === 3 ? `HI3_${rs}` : 'JUNK';
+    if(k === 2) return nHigh === 2 ? `HI2_${rs}` : 'JUNK';
+  }
+  if(k === 1) return nHigh ? `HI1_${rs}` : 'JUNK';
+  return 'JUNK';
+}
+
+// Straight windows A2345 / 23456 containing all ranks — in deuces games that
+// 2-slot can only be filled by a wild (there is no natural 2)
+function nWindowsNeeding2(ranks){
+  let n = 0;
+  for(const lo of [-1, 0]){
+    let ok = true;
+    for(const r of ranks){ const rr = (lo === -1 && r === 12) ? -1 : r; if(rr < lo || rr > lo + 4){ ok = false; break; } }
+    if(ok) n++;
+  }
+  return n;
+}
+
+// Wild games — port of the generator's classifyWild(). Ids carry a "W<n>_"
+// prefix for the wilds held plus the structure of the natural cards:
+// W2_RF2 = 2 deuces + 2 suited high cards, W1_PAIR = deuce + pair, W3_ONLY.
+function classifyHoldWild(heldCards, cfg){
+  const nat = [];
+  let w = 0;
+  for(const c of heldCards){ if(cfg.wild(c)) w++; else nat.push(c); }
+  const k = nat.length;
+  if(k + w === 0) return 'DISCARD';
+  const pre = w ? `W${w}_` : '';
+  if(k + w === 5){ const nm = cfg.pat(heldCards); return nm ? `${pre}PAT_${nm}` : 'JUNK'; }
+  if(k === 0) return `W${w}_ONLY`;
+  const ranks = nat.map(c => rankIndex(c.rank)).sort((a,b) => b-a);
+  const rs = ranks.map(r => RL_STRAT[r]).join('');
+  const suited = nat.every(c => c.suit === nat[0].suit);
+  const nHigh = ranks.filter(r => r >= cfg.minPair).length;
+  const hq = cfg.minPair < 13 ? `_h${nHigh}` : '';
+  const cnt = new Int8Array(13); ranks.forEach(r => cnt[r]++);
+  let quad = -1, trip = -1, pr = -1, pairs = 0;
+  for(let r = 0; r < 13; r++){ if(cnt[r] === 4) quad = r; if(cnt[r] === 3) trip = r; if(cnt[r] === 2){ pairs++; pr = r; } }
+  const grp = cfg.fiveGroup;
+  if(quad >= 0) return `${pre}QUADS${grp(quad)}`;
+  if(trip >= 0) return k === 3 ? `${pre}TRIPS${grp(trip)}` : 'JUNK';
+  if(pairs === 2) return `${pre}2PAIR`;
+  if(pairs === 1){
+    if(k !== 2) return 'JUNK';
+    const tag = cfg.minPair < 13 ? (pr >= cfg.minPair ? 'PAIR_HI' : 'PAIR_LO') : 'PAIR';
+    return `${pre}${tag}${grp(pr)}`;
+  }
+  // all naturals of distinct rank
+  const nS = nStraightWindows(ranks);
+  const n2 = (cfg.noNat2 && nS) ? `_n${nWindowsNeeding2(ranks)}` : '';
+  const royal = ranks.every(r => r >= 8);
+  if(k >= 2){
+    if(suited){
+      if(royal) return k === 4 ? 'RF4' : `${pre}RF${k}` + (w ? '' : `_${rs}`);
+      if(nS) return `${pre}SF${k}_s${nS}${n2}${hq}`;
+      return (w || k >= 3) ? `${pre}FL${k}${hq}` : 'JUNK';
+    }
+    if(nS) return `${pre}ST${k}_s${nS}${n2}${hq}`;
+    return nHigh === k ? `${pre}HI${k}_${rs}` : 'JUNK';
+  }
+  // one natural card (rank-tagged: which card matters in wild games)
+  if(nHigh) return `${pre}HI1_${rs}`;
+  return `${pre}ONE_${rs}`;
+}
+
+// ── Strategy file loading ────────────────────────────────────
+// One ~19 KB JSON per pay table, fetched on demand and then cached by the
+// service worker (so a game you've opened once works offline).
+const stratCache = {};     // key → data | 'missing'
+function stratKeyFor(gameKey = currentGame, ptIdx = payTableIdx){
+  const pt = GAMES[gameKey].payTables[ptIdx];
+  return (pt && pt.strat) || null;
+}
+function loadStrategy(key){
+  if(!key) return Promise.resolve(null);
+  if(stratCache[key]) return Promise.resolve(stratCache[key] === 'missing' ? null : stratCache[key]);
+  return fetch(`strategy-data/${key}.json`)
+    .then(r => r.ok ? r.json() : Promise.reject(new Error('not found')))
+    .then(d => { stratCache[key] = d; return d; })
+    .catch(() => { stratCache[key] = 'missing'; return null; });
+}
+
+// Strategy levels: the full list, plus the simplified lists the generator
+// exports (keyed by the fraction of optimal return they keep)
+const STRAT_LEVELS = [['full','Full'], ['0.9995','Intermediate'], ['0.999','Simple'],
+                      ['0.996','Basic'], ['0.993','Minimal']];
+function stratLevelName(lvl = stratLevel){
+  const e = STRAT_LEVELS.find(l => l[0] === lvl);
+  return e ? e[1] : lvl;
+}
+// Line list [{ids, label}] and expected return for a level (falls back to full)
+function stratLines(strat, lvl = stratLevel){
+  const s = lvl !== 'full' && strat.simplified && strat.simplified[lvl];
+  return s ? s.lines : strat.mergedLines;
+}
+function stratReturn(strat, lvl = stratLevel){
+  const s = lvl !== 'full' && strat.simplified && strat.simplified[lvl];
+  return s ? s.return : strat.basicReturn;
+}
+
+// Rank of each pattern id within a level's line list (lower = play first).
+// The JSON's id arrays ARE the machine-readable strategy; labels are only
+// for display. Cached per strategy object and level.
+function stratRankMap(strat, lvl = stratLevel){
+  strat._rankMaps = strat._rankMaps || {};
+  if(!strat._rankMaps[lvl]){
+    const m = {};
+    stratLines(strat, lvl).forEach((line, i) => line.ids.forEach(id => { if(m[id] === undefined) m[id] = i; }));
+    strat._rankMaps[lvl] = m;
+  }
+  return strat._rankMaps[lvl];
+}
+
+// The "book" play for a hand at a strategy level: of all 32 holds, the one
+// whose pattern sits highest on the list. Several holds can land on the
+// same line (a simplified list may say "unsuited QJ, KJ" for a Q-J-K hand);
+// all of them are returned in `masks` and count as following the book.
+// Returns { mask, masks, id, rank, label } or null when no line matches.
+function bookPlay(handCards, strat, cfg, lvl = stratLevel){
+  const rankMap = stratRankMap(strat, lvl);
+  let best = null;
+  for(let mask = 0; mask < 32; mask++){
+    const heldCards = [];
+    for(let i = 0; i < 5; i++) if(mask & (1<<i)) heldCards.push(handCards[i]);
+    const id = classifyHold(heldCards, cfg);
+    const rank = rankMap[id];
+    if(rank === undefined) continue;           // never-played pattern
+    if(!best || rank < best.rank) best = { mask, masks: [mask], id, rank };
+    else if(rank === best.rank) best.masks.push(mask);
+  }
+  if(best){
+    const line = stratLines(strat, lvl)[best.rank];
+    best.label = line ? line.label : best.id;
+  }
+  return best;
+}
+
+// Instant verdict on the player's hold from the loaded strategy, or null
+// when the analyzer must be used instead (judge setting is "Analyzer", no
+// strategy for this pay table, or its file hasn't loaded yet).
+function bookVerdict(playerMask){
+  if(holdJudge !== 'strategy') return null;
+  const strat = stratCache[stratKeyFor()];
+  const cfg   = STRAT_CFG[currentGame];
+  if(!strat || strat === 'missing' || !cfg) return null;
+  const book = bookPlay(hand, strat, cfg);
+  if(!book) return null;
+  return { ok: book.masks.includes(playerMask), bestMask: book.mask, book: true };
 }
 
 // ════════════════════════════════════════════════════════════
@@ -3106,13 +3388,13 @@ function showNumPad({ title = 'Enter a number', initial = '', min = 0, max = 999
 // live game's analysisResults/analysisPromise/token state. The game and
 // pay table are parameters so a hand can be analyzed under any variant.
 let adhocToken = 1000000000;
-function analyzeHandAsync(h, d, gameKey = currentGame, rows = curPayRows()){
+function analyzeHandAsync(h, d, gameKey = currentGame, rows = curPayRows(), bet = coinBet){
   const token = ++adhocToken;
   return new Promise(resolve => {
     try {
       evPending[token] = resolve;
       getEVWorker().postMessage({
-        token, gameKey, rows, coinBet,
+        token, gameKey, rows, coinBet: bet,
         hand: h.slice(), deck: d.slice(),
       });
     } catch(err) {
@@ -3247,6 +3529,108 @@ function showAnalysis(customHand, customDeck, opts = {}) {
   closeBtn.addEventListener('click', close);
   overlay.addEventListener('click', e => { if(e.target===overlay) close(); });
 
+  // ── Strategy strip: a few lines of the guide centred on this hand's
+  // book play, toggled from the bottom bar ──────────────────
+  // Header stays fixed; the whole list at the current level scrolls beneath
+  // it, opened with the book line in view.
+  const stripWrap = document.createElement('div');
+  stripWrap.style.cssText = 'flex-shrink:0;display:none;flex-direction:column;border-top:2px solid #2a4a9a;padding-top:6px;';
+  const stripHead = document.createElement('div');
+  stripHead.style.cssText = 'display:flex;justify-content:space-between;align-items:baseline;padding:0 8px 4px;flex-shrink:0;';
+  const stripList = document.createElement('div');
+  stripList.style.cssText = 'overflow-y:auto;max-height:min(230px,30vh);padding:0 4px;-webkit-overflow-scrolling:touch;';
+  const stripWarn = document.createElement('div');
+  stripWarn.style.cssText = 'font-size:11px;color:#ffcc66;padding:4px 8px 0;flex-shrink:0;display:none;';
+  stripWrap.appendChild(stripHead);
+  stripWrap.appendChild(stripList);
+  stripWrap.appendChild(stripWarn);
+
+  let stripOn = analyzeStripOn;      // remembered across openings
+  let stripBook = null;              // book play shown, for the exception note
+  const ptIdxFor = isCustom ? Math.min(gameState[gKey].payTableIdx, GAMES[gKey].payTables.length - 1) : payTableIdx;
+
+  // "Exception" note: the analyzer's top hold isn't on the book line
+  function updateStripWarn(){
+    const show = stripOn && stripBook && lastRanked && !stripBook.masks.includes(lastRanked[0].mask);
+    stripWarn.style.display = show ? '' : 'none';
+    if(show) stripWarn.textContent = 'Exception: on this hand the analyzer\'s top-EV hold differs from the book line.';
+  }
+
+  function renderStrip(){
+    stripWrap.style.display = stripOn ? 'flex' : 'none';
+    if(!stripOn) return;
+    const key = stratKeyFor(gKey, ptIdxFor);
+    const cfg = STRAT_CFG[gKey];
+    stripHead.innerHTML = '';
+    stripWarn.style.display = 'none';
+    if(!key || !cfg){
+      stripList.innerHTML = '<div style="text-align:center;color:#8899bb;font-size:12px;padding:8px">' +
+        'No strategy guide for this pay table yet.</div>';
+      return;
+    }
+    stripList.innerHTML = '<div style="text-align:center;color:#f0c040;font-size:12px;padding:8px">Loading strategy…</div>';
+    loadStrategy(key).then(strat => {
+      if(!stripOn) return;
+      if(!strat){ stripList.innerHTML = '<div style="text-align:center;color:#ff8080;font-size:12px;padding:8px">Strategy unavailable.</div>'; return; }
+      const book = bookPlay(aHand, strat, cfg);
+      const list = stratLines(strat);
+      stripBook = book;
+
+      const ptLabel = GAMES[gKey].payTables[ptIdxFor].label;
+      stripHead.innerHTML = `<span style="font-size:11px;font-weight:bold;letter-spacing:1px;color:#3acccc">` +
+                            `STRATEGY (${stratLevelName().toUpperCase()}) — ${ptLabel}</span>`;
+      const more = document.createElement('span');
+      more.textContent = 'Full screen ›';
+      more.style.cssText = 'font-size:11px;color:#aaffff;cursor:pointer;';
+      more.addEventListener('click', () => showStrategy(book && book.id));
+      stripHead.appendChild(more);
+
+      stripList.innerHTML = '';
+      let bookRow = null;
+      list.forEach((line, i) => {
+        const isBook = !!book && i === book.rank;
+        const r = document.createElement('div');
+        r.style.cssText = [
+          'display:flex','align-items:center','gap:8px','padding:4px 6px','border-radius:5px',
+          'font-size:13px',
+          isBook ? 'background:rgba(240,192,64,0.20);color:#f0c040;font-weight:bold'
+                 : (i % 2 ? 'background:rgba(255,255,255,0.03);color:#c0c8d8' : 'color:#c0c8d8'),
+        ].join(';');
+        r.innerHTML = `<span style="width:22px;text-align:right;color:#f0c040;font-weight:bold">${i + 1}</span>` +
+                      `<span style="flex:1">${line.label}</span>` +
+                      (isBook ? '<span style="font-size:11px;letter-spacing:1px">← PLAY THIS</span>' : '');
+        if(isBook) bookRow = r;
+        stripList.appendChild(r);
+      });
+      // open with the book line roughly centred in the scroll window
+      if(bookRow){
+        stripList.scrollTop = Math.max(0, bookRow.offsetTop - stripList.offsetTop - stripList.clientHeight / 2 + bookRow.offsetHeight / 2);
+      }
+      updateStripWarn();
+    });
+  }
+
+  const stratToggle = document.createElement('button');
+  const styleStratToggle = () => {
+    stratToggle.textContent = 'Strategy';
+    stratToggle.style.cssText = [
+      'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
+      'letter-spacing:2px','text-transform:uppercase','padding:8px 22px','border-radius:8px',
+      'cursor:pointer','touch-action:manipulation',
+      stripOn ? 'background:linear-gradient(180deg,#1a6a6a,#0e4444);border:2px solid #3acccc;color:#aaffff'
+              : 'background:linear-gradient(180deg,#24345a,#16223d);border:2px solid #3a5aaa;color:#8fa8c8',
+    ].join(';');
+  };
+  styleStratToggle();
+  stratToggle.addEventListener('click', () => {
+    stripOn = !stripOn;
+    analyzeStripOn = stripOn;      // remembered for next time
+    saveState();
+    sfx.button();
+    styleStratToggle();
+    renderStrip();
+  });
+
   // Back (custom hands only): return to the picker with the same cards
   if(isCustom && typeof opts.onBack === 'function'){
     const backBtn = document.createElement('button');
@@ -3261,20 +3645,24 @@ function showAnalysis(customHand, customDeck, opts = {}) {
     bottomBar.appendChild(backBtn);
   }
   bottomBar.appendChild(toggleBtn);
+  bottomBar.appendChild(stratToggle);
   bottomBar.appendChild(closeBtn);
 
   panel.appendChild(title);
   panel.appendChild(handLine);
   panel.appendChild(scroll);
+  panel.appendChild(stripWrap);      // strategy strip, above the buttons
   panel.appendChild(bottomBar);
   overlay.appendChild(panel);
   document.body.appendChild(overlay);
 
   // ── Render function — redraws the table in current mode ────
   let lastRanked = null;
+  renderStrip();                     // strip opens in its remembered state
 
   function render(ranked) {
     lastRanked = ranked;
+    updateStripWarn();
     // All 32 hold options, best first — the table area scrolls
     const shown      = ranked.map((c, i) => ({ combo: c, rank: i + 1 }));
     const playerRank = ranked.findIndex(r => r.mask === playerMask) + 1;
@@ -3566,6 +3954,142 @@ function showSubPlays(){
   panel.appendChild(closeBtn);
   overlay.appendChild(panel);
   document.body.appendChild(overlay);
+}
+
+// ════════════════════════════════════════════════════════════
+//  STRATEGY GUIDE SCREEN
+//  The ordered hold list for the current pay table. highlightId scrolls to
+//  and highlights one line (used when opened from the Analyze screen).
+// ════════════════════════════════════════════════════════════
+function showStrategy(highlightId){
+  sfx.button();
+  const key = stratKeyFor();
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = [
+    'position:fixed','inset:0','z-index:10002',
+    'background:rgba(0,5,25,0.92)',
+    'display:flex','align-items:center','justify-content:center',
+    'font-family:Arial,Helvetica,sans-serif',
+  ].join(';');
+  const panel = document.createElement('div');
+  panel.style.cssText = [
+    'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)',
+    'border:2px solid #2a4a9a','border-radius:14px',
+    'box-shadow:0 0 30px rgba(20,60,180,0.6)',
+    'padding:16px','width:min(560px,95vw)',
+    'max-height:92vh','display:flex','flex-direction:column','gap:10px',
+  ].join(';');
+
+  const title = document.createElement('div');
+  title.style.cssText = [
+    'text-align:center','font-size:15px','font-weight:bold','color:#f0c040',
+    'letter-spacing:2px','text-transform:uppercase','flex-shrink:0',
+  ].join(';');
+  title.textContent = 'Strategy — ' + curGame().name;
+
+  const sub = document.createElement('div');
+  sub.style.cssText = 'text-align:center;font-size:11px;color:#8899bb;flex-shrink:0;';
+
+  const body = document.createElement('div');
+  body.style.cssText = 'overflow-y:auto;flex:1;';
+
+  const levelRow = document.createElement('div');
+  levelRow.style.cssText = 'display:flex;gap:6px;justify-content:center;flex-wrap:wrap;flex-shrink:0;';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = 'Close';
+  closeBtn.style.cssText = [
+    'align-self:center','font-family:Arial,Helvetica,sans-serif','font-size:13px',
+    'font-weight:bold','letter-spacing:2px','text-transform:uppercase','padding:8px 28px',
+    'background:linear-gradient(180deg,#2a4aaa,#1a2a7a)','border:2px solid #5a7acc',
+    'border-radius:8px','color:#fff','cursor:pointer','touch-action:manipulation','flex-shrink:0',
+  ].join(';');
+  const close = () => { if(overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+  closeBtn.addEventListener('click', close);
+  overlay.addEventListener('click', e => { if(e.target === overlay) close(); });
+
+  panel.appendChild(title);
+  panel.appendChild(sub);
+  panel.appendChild(levelRow);
+  panel.appendChild(body);
+  panel.appendChild(closeBtn);
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+
+  if(!key){
+    sub.textContent = curGame().payTables[payTableIdx].label;
+    body.innerHTML = '<div style="text-align:center;color:#8899bb;font-size:13px;padding:26px 10px;line-height:1.6">' +
+      'No strategy guide for this pay table yet.<br><br>' +
+      'Guides are generated per pay table; this one hasn\'t been generated yet.</div>';
+    return;
+  }
+
+  body.innerHTML = '<div style="text-align:center;color:#f0c040;font-size:13px;padding:26px">Loading strategy…</div>';
+  loadStrategy(key).then(strat => {
+    if(!overlay.parentNode) return;
+    if(!strat){
+      body.innerHTML = '<div style="text-align:center;color:#ff8080;font-size:13px;padding:26px">Strategy file could not be loaded.</div>';
+      return;
+    }
+    const render = () => {
+      const list = stratLines(strat, stratLevel);
+      const ret  = stratReturn(strat, stratLevel);
+      sub.textContent = `${curGame().payTables[payTableIdx].label}  ·  ${list.length} lines  ·  ` +
+                        `${(ret*100).toFixed(2)}% return  (optimal ${(strat.optimalReturn*100).toFixed(2)}%)`;
+
+      // level buttons — the chosen level is shared with the Analyze strip
+      // and (when "Judge Holds By" is Strategy) the hold trainer
+      levelRow.innerHTML = '';
+      STRAT_LEVELS.filter(([val]) => val === 'full' || strat.simplified[val]).forEach(([val, label]) => {
+        const b = document.createElement('button');
+        b.textContent = label;
+        const on = stratLevel === val;
+        b.style.cssText = [
+          'font-family:Arial,Helvetica,sans-serif','font-size:11px','font-weight:bold',
+          'letter-spacing:1px','text-transform:uppercase','padding:6px 12px','border-radius:6px',
+          'cursor:pointer','touch-action:manipulation',
+          on ? 'background:linear-gradient(180deg,#c89a20,#a07a10);border:2px solid #f0c040;color:#000'
+             : 'background:#1a2a60;border:2px solid #3a5aaa;color:#c0c8d8',
+        ].join(';');
+        b.addEventListener('click', () => { stratLevel = val; saveState(); sfx.button(); render(); });
+        levelRow.appendChild(b);
+      });
+
+      // the ordered list
+      body.innerHTML = '';
+      const tbl = document.createElement('table');
+      tbl.style.cssText = 'border-collapse:collapse;width:100%;';
+      let hit = null;
+      list.forEach((line, i) => {
+        const row = tbl.insertRow();
+        const isHit = highlightId && line.ids.includes(highlightId);
+        if(isHit) hit = row;
+        row.style.cssText = isHit
+          ? 'background:rgba(240,192,64,0.18);'
+          : (i % 2 ? 'background:rgba(255,255,255,0.03);' : '');
+        const n = row.insertCell();
+        n.textContent = i + 1;
+        n.style.cssText = 'width:28px;text-align:center;padding:6px 4px;font-weight:bold;font-size:14px;color:#f0c040;';
+        const l = row.insertCell();
+        l.textContent = line.label;
+        l.style.cssText = 'padding:6px 4px;font-size:14px;' +
+          (isHit ? 'color:#f0c040;font-weight:bold;' : 'color:#e0e8f8;');
+      });
+      body.appendChild(tbl);
+
+      // footnotes
+      const note = document.createElement('div');
+      note.style.cssText = 'font-size:11px;color:#8899bb;padding:10px 4px 2px;line-height:1.5;';
+      note.innerHTML = 'Play the <b>first</b> line that matches your hand.  ' +
+        'Assumes max coins (5).' +
+        (strat.exceptions.length ? `<br>${strat.exceptions.length} rare exception${strat.exceptions.length!==1?'s':''} not shown.` : '');
+      body.appendChild(note);
+
+      if(hit) setTimeout(() => hit.scrollIntoView({ block:'center' }), 30);
+    };
+    render();
+  });
 }
 
 // ════════════════════════════════════════════════════════════
@@ -4338,6 +4862,23 @@ function showSettings() {
     v => { highlightErrOn = v; saveState(); }
   ));
 
+  // What the trainer / Highlight Error compare the hold against: the
+  // analyzer's exact top-EV hold, or the strategy list at the chosen level
+  // (instant — no waiting on the worker; falls back to the analyzer for
+  // pay tables without a strategy file)
+  panel.appendChild(makeToggleRow(
+    'Judge Holds By',
+    [{ label:'Analyzer (EV)', value:'analyzer' }, { label:'Strategy', value:'strategy' }],
+    () => holdJudge,
+    v => { holdJudge = v; saveState(); if(v === 'strategy') loadStrategy(stratKeyFor()); }
+  ));
+  panel.appendChild(makeToggleRow(
+    'Strategy Level',
+    STRAT_LEVELS.map(([value, label]) => ({ label, value })),
+    () => stratLevel,
+    v => { stratLevel = v; saveState(); }
+  ));
+
   // Graph: show all added cash as if it were added at the start of the
   // visible range (display only — history data is never modified)
   panel.appendChild(makeToggleRow(
@@ -4359,12 +4900,534 @@ function showSettings() {
   ].join(';');
   // wrapped: the raw click event must not reach showHandPicker's initCards param
   pickBtn.addEventListener('click', () => showHandPicker());
-  panel.appendChild(pickBtn);
+
+  // ── Strategy Guide: the full ordered hold list for this pay table ──
+  const stratBtn = document.createElement('button');
+  stratBtn.textContent = 'Strategy Guide';
+  stratBtn.style.cssText = [
+    'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
+    'letter-spacing:1px','text-transform:uppercase','padding:9px 12px',
+    'background:linear-gradient(180deg,#1a6a6a,#0e4444)',
+    'border:2px solid #3acccc','border-radius:8px',
+    'color:#aaffff','cursor:pointer','touch-action:manipulation',
+  ].join(';');
+  stratBtn.addEventListener('click', () => showStrategy());
+
+  const toolRow = document.createElement('div');
+  toolRow.style.cssText = 'display:flex;gap:8px;';
+  pickBtn.style.flex = '1';
+  stratBtn.style.flex = '1';
+  toolRow.appendChild(pickBtn);
+  toolRow.appendChild(stratBtn);
+  panel.appendChild(toolRow);
+
+  // ── Simulator: play a strategy at full speed, or check it against the analyzer ──
+  const simBtn = document.createElement('button');
+  simBtn.textContent = 'Strategy Simulator';
+  simBtn.style.cssText = [
+    'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
+    'letter-spacing:1px','text-transform:uppercase','padding:9px 12px',
+    'background:linear-gradient(180deg,#5a2a8a,#3a1a5a)',
+    'border:2px solid #b070ff','border-radius:8px',
+    'color:#e0c8ff','cursor:pointer','touch-action:manipulation',
+  ].join(';');
+  simBtn.addEventListener('click', () => showSimulator());
+  panel.appendChild(simBtn);
 
   panel.appendChild(histSection);
   panel.appendChild(doneBtn);
   overlay.appendChild(panel);
   document.body.appendChild(overlay);
+}
+
+// ════════════════════════════════════════════════════════════
+//  STRATEGY SIMULATOR
+//  Fast Play: a worker deals random hands and plays every one by the chosen
+//  strategy level AND by the full list, on the same cards, so the running
+//  returns can be compared to each other and to the exact expected returns
+//  in the strategy file.
+//  Verify: deals hands one at a time to the analyzer (exact EV of all 32
+//  holds) and checks whether the book play is the analyzer's top hold.
+//  Both assume max coins (5), like the strategy guide.
+// ════════════════════════════════════════════════════════════
+function simWorkerSource(){
+  return workerCommonSource() + `
+let running = false;
+self.onmessage = e => {
+  const m = e.data;
+  if(m.cmd === 'stop'){ running = false; return; }
+  running = true;
+  const evalFn  = EVAL_FNS[m.gameKey];
+  const cfg     = new Function('return (' + m.cfgSrc + ')')();
+  const pays    = m.pays;                  // coins paid per hand category (5-coin bet)
+  const rankSel = m.rankSel, rankFull = m.rankFull;
+  const target  = m.target;                // 0 = run until stopped
+  const deck = []; for(const s of SUITS) for(const r of RANKS) deck.push({ rank: r, suit: s });
+  if(m.joker) deck.push({ rank: 'JOKER', suit: '★', joker: true });
+  const ND = deck.length;
+  const hand = new Array(5), out = new Array(5), heldBuf = [];
+  const cntSel = new Float64Array(pays.length), cntFull = new Float64Array(pays.length);
+  let n = 0, sumSel = 0, sumFull = 0, same = 0;
+  const play = mask => {
+    let d = 5;
+    for(let i = 0; i < 5; i++) out[i] = (mask & (1 << i)) ? hand[i] : deck[d++];
+    return evalFn(out);
+  };
+  const step = () => {
+    const t0 = Date.now();
+    while(running && (!target || n < target) && Date.now() - t0 < 60){
+      // partial Fisher-Yates: only the 10 cards a hand can use need shuffling
+      for(let i = 0; i < 10; i++){ const j = i + Math.floor(Math.random() * (ND - i)); const t = deck[i]; deck[i] = deck[j]; deck[j] = t; }
+      for(let i = 0; i < 5; i++) hand[i] = deck[i];
+      // book play at each level; holds tied on one line are picked at random
+      let bestS = Infinity, bestF = Infinity, mS = 0, mF = 0, tS = 0, tF = 0;
+      for(let mask = 0; mask < 32; mask++){
+        heldBuf.length = 0;
+        for(let i = 0; i < 5; i++) if(mask & (1 << i)) heldBuf.push(hand[i]);
+        const id = classifyHold(heldBuf, cfg);
+        const rs = rankSel[id];
+        if(rs !== undefined){
+          if(rs < bestS){ bestS = rs; mS = mask; tS = 1; }
+          else if(rs === bestS && Math.random() * ++tS < 1) mS = mask;
+        }
+        const rf = rankFull[id];
+        if(rf !== undefined){
+          if(rf < bestF){ bestF = rf; mF = mask; tF = 1; }
+          else if(rf === bestF && Math.random() * ++tF < 1) mF = mask;
+        }
+      }
+      const cS = play(mS), cF = play(mF);
+      cntSel[cS]++; cntFull[cF]++;
+      sumSel += pays[cS]; sumFull += pays[cF];
+      if(mS === mF) same++;
+      n++;
+    }
+    const done = !running || (target > 0 && n >= target);
+    self.postMessage({ run: m.run, n, sumSel, sumFull, same, cntSel: Array.from(cntSel), cntFull: Array.from(cntFull), done });
+    if(!done) setTimeout(step, 0);
+  };
+  step();
+};`;
+}
+
+let simWorker = null;
+
+function showSimulator(){
+  sfx.button();
+  const gKey   = currentGame;
+  const rows   = curPayRows();
+  const key    = stratKeyFor();
+  const cfg    = STRAT_CFG[gKey];
+  const BET    = 5;
+  const pays   = rows.map(r => r.pays[BET - 1]);
+
+  // ── Overlay / panel ────────────────────────────────────────
+  const overlay = document.createElement('div');
+  overlay.style.cssText = [
+    'position:fixed','inset:0','z-index:9999',
+    'background:rgba(0,5,25,0.92)',
+    'display:flex','align-items:center','justify-content:center',
+    'font-family:Arial,Helvetica,sans-serif',
+  ].join(';');
+  const panel = document.createElement('div');
+  panel.style.cssText = [
+    'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)',
+    'border:2px solid #2a4a9a','border-radius:14px',
+    'box-shadow:0 0 30px rgba(20,60,180,0.6)',
+    'padding:14px 16px','width:min(760px,96vw)',
+    'max-height:92vh','display:flex','flex-direction:column','gap:8px','overflow:hidden',
+  ].join(';');
+
+  const title = document.createElement('div');
+  title.style.cssText = 'text-align:center;font-size:15px;font-weight:bold;color:#f0c040;letter-spacing:2px;text-transform:uppercase;flex-shrink:0;';
+  title.textContent = 'Strategy Simulator — ' + curGame().name;
+  const sub = document.createElement('div');
+  sub.style.cssText = 'text-align:center;font-size:11px;color:#8899bb;flex-shrink:0;';
+  sub.textContent = curGame().payTables[payTableIdx].label + '  ·  max coins (5)';
+
+  // choice-row builder (same look as the Strategy Guide level buttons)
+  const mkRow = (label, options, getVal, setVal) => {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex-shrink:0;';
+    const lbl = document.createElement('span');
+    lbl.style.cssText = 'font-size:11px;font-weight:bold;color:#c0c8d8;letter-spacing:1px;width:58px;';
+    lbl.textContent = label;
+    wrap.appendChild(lbl);
+    const els = [];
+    const refresh = () => els.forEach(({ b, value }) => {
+      const on = getVal() === value;
+      b.style.background  = on ? 'linear-gradient(180deg,#c89a20,#a07a10)' : '#1a2a60';
+      b.style.color       = on ? '#000' : '#c0c8d8';
+      b.style.borderColor = on ? '#f0c040' : '#3a5aaa';
+    });
+    options.forEach(([value, text]) => {
+      const b = document.createElement('button');
+      b.textContent = text;
+      b.style.cssText = [
+        'font-family:Arial,Helvetica,sans-serif','font-size:11px','font-weight:bold',
+        'letter-spacing:1px','text-transform:uppercase','padding:5px 10px','border-radius:6px',
+        'border:2px solid #3a5aaa','background:#1a2a60','color:#c0c8d8','cursor:pointer','touch-action:manipulation',
+      ].join(';');
+      b.addEventListener('click', () => { if(running) return; sfx.button(); setVal(value); refresh(); });
+      els.push({ b, value });
+      wrap.appendChild(b);
+    });
+    refresh();
+    wrap.refresh = refresh;
+    return wrap;
+  };
+
+  // ── Run state ──────────────────────────────────────────────
+  let mode     = 'fast';          // 'fast' | 'verify'
+  let simLevel = stratLevel;      // level under test (local to the simulator)
+  let target   = 100000;
+  let running  = false;
+  let strat    = null;
+
+  const FAST_TARGETS   = [[10000,'10,000'], [100000,'100,000'], [1000000,'1,000,000'], [0,'Unlimited']];
+  const VERIFY_TARGETS = [[25,'25'], [100,'100'], [500,'500'], [0,'Unlimited']];
+
+  const modeRow  = mkRow('Mode', [['fast','Fast Play'], ['verify','Verify vs Analyzer']],
+                         () => mode, v => { mode = v; target = v === 'fast' ? 100000 : 100; rebuildTargetRow(); resetResults(); });
+  const levelRow = mkRow('Level', STRAT_LEVELS, () => simLevel, v => { simLevel = v; resetResults(); });
+  let targetRow  = null;
+  const targetSlot = document.createElement('div');
+  targetSlot.style.cssText = 'flex-shrink:0;';
+  function rebuildTargetRow(){
+    targetSlot.innerHTML = '';
+    targetRow = mkRow('Hands', mode === 'fast' ? FAST_TARGETS : VERIFY_TARGETS, () => target, v => { target = v; });
+    targetSlot.appendChild(targetRow);
+  }
+  rebuildTargetRow();
+
+  // ── Results area (scrolls) ─────────────────────────────────
+  const body = document.createElement('div');
+  body.style.cssText = 'overflow-y:auto;flex:1;min-height:120px;display:flex;flex-direction:column;gap:8px;';
+  const stats = document.createElement('div');
+  stats.style.cssText = 'font-size:12px;color:#c0c8d8;line-height:1.6;padding:2px 4px;flex-shrink:0;white-space:pre-wrap;';
+  const canvas = document.createElement('canvas');
+  const cw = Math.min(720, Math.round(window.innerWidth * 0.90));
+  canvas.width  = cw;
+  canvas.height = Math.round(Math.min(cw * 0.42, window.innerHeight * 0.34));
+  canvas.style.cssText = 'width:100%;height:auto;display:block;border-radius:6px;flex-shrink:0;';
+  const detail = document.createElement('div');
+  detail.style.cssText = 'flex-shrink:0;';
+  body.appendChild(stats);
+  body.appendChild(canvas);
+  body.appendChild(detail);
+
+  // ── Buttons ────────────────────────────────────────────────
+  const btnRow = document.createElement('div');
+  btnRow.style.cssText = 'display:flex;justify-content:center;gap:12px;flex-shrink:0;';
+  const mkBtn = (text, bg, border, color) => {
+    const b = document.createElement('button');
+    b.textContent = text;
+    b.style.cssText = [
+      'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold','letter-spacing:2px',
+      'text-transform:uppercase','padding:8px 26px',`background:${bg}`,`border:2px solid ${border}`,
+      'border-radius:8px',`color:${color}`,'cursor:pointer','touch-action:manipulation',
+    ].join(';');
+    return b;
+  };
+  const startBtn = mkBtn('Start', 'linear-gradient(180deg,#2a8a4a,#1a6a34)', '#4acc6a', '#fff');
+  const closeBtn = mkBtn('Close', 'linear-gradient(180deg,#2a4aaa,#1a2a7a)', '#5a7acc', '#fff');
+  const styleStart = () => {
+    startBtn.textContent = running ? 'Stop' : 'Start';
+    startBtn.style.background = running ? 'linear-gradient(180deg,#aa2a2a,#7a1a1a)' : 'linear-gradient(180deg,#2a8a4a,#1a6a34)';
+    startBtn.style.borderColor = running ? '#ff6a6a' : '#4acc6a';
+  };
+  btnRow.appendChild(startBtn);
+  btnRow.appendChild(closeBtn);
+
+  panel.appendChild(title);
+  panel.appendChild(sub);
+  panel.appendChild(modeRow);
+  panel.appendChild(levelRow);
+  panel.appendChild(targetSlot);
+  panel.appendChild(body);
+  panel.appendChild(btnRow);
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+
+  const fmtPct = v => (v * 100).toFixed(2) + '%';
+  const fmtN   = n => n.toLocaleString();
+
+  // ── Fast-play results ──────────────────────────────────────
+  let samples = [];            // running returns after each worker batch: {n, rs, rf}
+  let lastMsg = null, t0 = 0;
+  function resetResults(){
+    samples = []; lastMsg = null; verify = null;
+    stats.textContent = '';
+    detail.innerHTML = '';
+    canvas.style.display = mode === 'fast' ? 'block' : 'none';
+    if(mode === 'fast') drawSimGraph(canvas, samples, {});
+  }
+  function refs(){
+    return {
+      selName: stratLevelName(simLevel),
+      expSel:  stratReturn(strat, simLevel),
+      expFull: strat.basicReturn,
+      optimal: strat.optimalReturn,
+      showFull: simLevel !== 'full',
+    };
+  }
+  function renderFast(){
+    if(!lastMsg) return;
+    const m = lastMsg, r = refs();
+    const rs = m.sumSel / (BET * m.n), rf = m.sumFull / (BET * m.n);
+    const secs = Math.max(0.001, (Date.now() - t0) / 1000);
+    let txt = `Hands: ${fmtN(m.n)}   ·   ${fmtN(Math.round(m.n / secs))} hands/s\n` +
+              `${r.selName}: ${fmtPct(rs)}   (expected ${fmtPct(r.expSel)})`;
+    if(r.showFull){
+      txt += `\nFull: ${fmtPct(rf)}   (expected ${fmtPct(r.expFull)})   ·   optimal ${fmtPct(r.optimal)}` +
+             `\n${r.selName} − Full: ${(rs - rf) >= 0 ? '+' : ''}${((rs - rf) * 100).toFixed(3)}%   (expected ${((r.expSel - r.expFull) * 100).toFixed(3)}%)` +
+             `   ·   same hold on ${fmtPct(m.same / m.n)} of hands`;
+    } else {
+      txt += `   ·   optimal ${fmtPct(r.optimal)}`;
+    }
+    stats.textContent = txt;
+    drawSimGraph(canvas, samples, r);
+
+    // hand frequencies
+    const tbl = document.createElement('table');
+    tbl.style.cssText = 'border-collapse:collapse;width:100%;font-size:11px;';
+    const th = (t, al = 'right') => `<th style="padding:3px 6px;text-align:${al};color:#8899bb;border-bottom:1px solid #2a4a9a;font-weight:bold">${t}</th>`;
+    const td = (t, al = 'right', c = '#c0c8d8') => `<td style="padding:2px 6px;text-align:${al};color:${c}">${t}</td>`;
+    tbl.innerHTML = '<tr>' + th('Hand', 'left') + th('Pays') + th(r.selName + ' #') + th('%') +
+                    (r.showFull ? th('Full #') + th('%') : '') + '</tr>';
+    for(let i = 0; i < rows.length; i++){
+      if(rows[i].name === 'Nothing') continue;
+      tbl.innerHTML += '<tr>' + td(rows[i].name, 'left', '#e0e8f8') + td(pays[i]) +
+        td(fmtN(m.cntSel[i])) + td((m.cntSel[i] / m.n * 100).toFixed(3)) +
+        (r.showFull ? td(fmtN(m.cntFull[i])) + td((m.cntFull[i] / m.n * 100).toFixed(3)) : '') + '</tr>';
+    }
+    detail.innerHTML = '';
+    detail.appendChild(tbl);
+  }
+
+  function startFast(){
+    const rankSel  = stratRankMap(strat, simLevel);
+    const rankFull = stratRankMap(strat, 'full');
+    if(!simWorker){
+      const blob = new Blob([simWorkerSource()], { type: 'text/javascript' });
+      simWorker = new Worker(URL.createObjectURL(blob));
+    }
+    samples = []; t0 = Date.now();
+    const myRun = runId;             // a late message from a stopped run is ignored
+    simWorker.onmessage = e => {
+      if(!running || e.data.run !== myRun || myRun !== runId) return;
+      const m = e.data;
+      lastMsg = m;
+      samples.push({ n: m.n, rs: m.sumSel / (BET * m.n), rf: m.sumFull / (BET * m.n) });
+      if(samples.length > 900) samples = samples.filter((_, i) => i % 2 === 0 || i === samples.length - 1);
+      renderFast();
+      if(m.done) stop();
+    };
+    simWorker.postMessage({ cmd: 'start', run: myRun, gameKey: gKey, pays, rankSel, rankFull, target,
+                            cfgSrc: cfgSource(cfg), joker: !!GAMES[gKey].joker });
+  }
+
+  // ── Verify results ─────────────────────────────────────────
+  let verify = null;   // {n, sumBest, sumBook, dis, loss, list[]}
+  function renderVerify(){
+    const v = verify;
+    if(!v || !v.n){ stats.textContent = 'Dealing hands to the analyzer…'; return; }
+    const r = refs();
+    stats.textContent =
+      `Hands checked: ${fmtN(v.n)}   ·   book play = analyzer's best hold: ${fmtN(v.n - v.dis)} (${fmtPct((v.n - v.dis) / v.n)})\n` +
+      `${r.selName} strategy captured ${fmtPct(v.sumBook / v.sumBest)} of the optimal EV on these hands` +
+      `   (long-run expected ${fmtPct(r.expSel / r.optimal)})\n` +
+      `Average cost of the differences: ${(v.loss / v.n).toFixed(4)} coins per hand (5-coin bet)`;
+    detail.innerHTML = '';
+    if(!v.list.length) return;
+    const hdr = document.createElement('div');
+    hdr.style.cssText = 'font-size:11px;color:#8899bb;letter-spacing:1px;padding:4px 4px 2px;';
+    hdr.textContent = 'HANDS WHERE THE BOOK PLAY WAS NOT THE TOP-EV HOLD  (tap for full analysis)';
+    detail.appendChild(hdr);
+    v.list.forEach(d => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:5px 4px;border-bottom:1px solid rgba(42,74,154,0.5);cursor:pointer;';
+      const chips = document.createElement('div');
+      chips.style.cssText = 'display:flex;gap:3px;';
+      d.hand.forEach((c, i) => {
+        const ch = cardChipEl(c, 13);
+        if(d.bestMask & (1 << i)) ch.style.boxShadow = '0 0 0 2px #f0c040';   // analyzer's hold
+        chips.appendChild(ch);
+      });
+      const txt = document.createElement('div');
+      txt.style.cssText = 'font-size:11px;color:#c0c8d8;flex:1;min-width:200px;line-height:1.4;';
+      const bookHold = d.hand.filter((_, i) => d.bookMask & (1 << i)).map(c => c.rank + c.suit).join(' ') || 'discard all';
+      const bestHold = d.hand.filter((_, i) => d.bestMask & (1 << i)).map(c => c.rank + c.suit).join(' ') || 'discard all';
+      txt.innerHTML = `Book: <b style="color:#ffcc66">${d.bookLabel}</b> → hold ${bookHold}  (EV ${d.bookEV.toFixed(3)})<br>` +
+                      `Analyzer: hold <b style="color:#f0c040">${bestHold}</b>  (EV ${d.bestEV.toFixed(3)}, +${(d.bestEV - d.bookEV).toFixed(3)})`;
+      row.appendChild(chips);
+      row.appendChild(txt);
+      row.addEventListener('click', () => { sfx.button(); showAnalysis(d.hand, d.deck, { gameKey: gKey }); });
+      detail.appendChild(row);
+    });
+  }
+
+  async function runVerify(){
+    verify = { n: 0, sumBest: 0, sumBook: 0, dis: 0, loss: 0, list: [] };
+    renderVerify();
+    const myRun = ++runId;
+    while(running && myRun === runId && (!target || verify.n < target)){
+      const d = fullDeckFor(gKey); shuffle(d);
+      const h = [d.pop(), d.pop(), d.pop(), d.pop(), d.pop()];
+      const ranked = await analyzeHandAsync(h, d, gKey, rows, BET);
+      if(!running || myRun !== runId) return;
+      const book   = bookPlay(h, strat, cfg, simLevel);
+      const bestEV = ranked[0].ev;
+      // the card doesn't say which of several holds on one line to take, so
+      // score the line as the average of them (same model as the guide's return)
+      let bookEV, bookMask = 0, bookLabel = '(no line matched — discard all)';
+      if(book){
+        const tied = ranked.filter(r => book.masks.includes(r.mask));
+        bookEV = tied.reduce((s, r) => s + r.ev, 0) / tied.length;
+        bookMask = book.mask; bookLabel = book.label;
+      } else bookEV = ranked.find(r => r.mask === 0).ev;
+      verify.n++; verify.sumBest += bestEV; verify.sumBook += bookEV;
+      if(bookEV < bestEV - 1e-9){
+        verify.dis++; verify.loss += bestEV - bookEV;
+        verify.list.unshift({ hand: h, deck: d, bookMask, bestMask: ranked[0].mask, bookEV, bestEV, bookLabel });
+        if(verify.list.length > 12) verify.list.pop();
+      }
+      renderVerify();
+    }
+    if(running && myRun === runId) stop();
+  }
+  let runId = 0;
+
+  // ── Start / stop / close ───────────────────────────────────
+  function stop(){
+    running = false;
+    runId++;
+    if(simWorker) simWorker.postMessage({ cmd: 'stop' });
+    styleStart();
+    if(mode === 'fast' && lastMsg) renderFast();
+  }
+  startBtn.addEventListener('click', () => {
+    sfx.button();
+    if(running){ stop(); return; }
+    if(!strat) return;
+    running = true;
+    styleStart();
+    resetResults();
+    if(mode === 'fast') startFast(); else runVerify();
+  });
+  const close = () => {
+    stop();
+    if(simWorker){ simWorker.terminate(); simWorker = null; }
+    if(overlay.parentNode) overlay.parentNode.removeChild(overlay);
+  };
+  closeBtn.addEventListener('click', () => { sfx.button(); close(); });
+  overlay.addEventListener('click', e => { if(e.target === overlay) close(); });
+
+  // ── Load the strategy for this pay table ───────────────────
+  resetResults();
+  if(!key || !cfg){
+    stats.textContent = 'No strategy guide for this pay table yet — nothing to simulate.';
+    canvas.style.display = 'none';
+    startBtn.disabled = true; startBtn.style.opacity = '0.4';
+    return;
+  }
+  stats.textContent = 'Loading strategy…';
+  loadStrategy(key).then(s => {
+    if(!overlay.parentNode) return;
+    if(!s){ stats.textContent = 'Strategy file could not be loaded.'; startBtn.disabled = true; startBtn.style.opacity = '0.4'; return; }
+    strat = s;
+    // levels the file actually has
+    levelRow.querySelectorAll('button').forEach((b, i) => {
+      const lv = STRAT_LEVELS[i][0];
+      if(lv !== 'full' && !(s.simplified && s.simplified[lv])) b.style.display = 'none';
+    });
+    if(simLevel !== 'full' && !(s.simplified && s.simplified[simLevel])){ simLevel = 'full'; levelRow.refresh(); }
+    stats.textContent = mode === 'fast'
+      ? `Ready. Press Start to deal hands and play them by the ${stratLevelName(simLevel)} list and the Full list.`
+      : 'Ready. Press Start to compare the book play with the analyzer, one hand at a time.';
+  });
+}
+
+// Running-return graph for the simulator: the chosen level (orange), the
+// full list (blue) and their expected returns (dashed), optimal in gold.
+function drawSimGraph(canvas, samples, r){
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const pad = { top: 26, right: 16, bottom: 30, left: 64 };
+  const cW = W - pad.left - pad.right, cH = H - pad.top - pad.bottom;
+  ctx.fillStyle = '#040d22';
+  ctx.fillRect(0, 0, W, H);
+  ctx.font = 'bold 12px Arial';
+  ctx.textBaseline = 'middle';
+  if(samples.length < 2){
+    ctx.fillStyle = '#8899bb'; ctx.textAlign = 'center';
+    ctx.fillText(samples.length ? 'Running…' : 'Return % over hands played will appear here', W / 2, H / 2);
+    return;
+  }
+  const SEL = '#ff9f40', FULL = '#5ab0ff', OPT = '#f0c040';
+
+  // y-range from the settled part of the run (skip the noisy first 10%)
+  const skip = Math.floor(samples.length * 0.1);
+  const ys = [r.expSel, r.optimal].concat(r.showFull ? [r.expFull] : []).filter(v => typeof v === 'number');
+  for(let i = skip; i < samples.length; i++){ ys.push(samples[i].rs); if(r.showFull) ys.push(samples[i].rf); }
+  let lo = Math.min(...ys), hi = Math.max(...ys);
+  const mid = (lo + hi) / 2, half = Math.max((hi - lo) / 2 * 1.3, 0.003);
+  lo = mid - half; hi = mid + half;
+  const nMax = samples[samples.length - 1].n;
+  const X = n => pad.left + n / nMax * cW;
+  const Y = v => pad.top + (hi - v) / (hi - lo) * cH;
+  const nice = (raw, cands) => cands.find(c => c >= raw) || cands[cands.length - 1];
+
+  // gridlines
+  ctx.strokeStyle = 'rgba(80,110,180,0.35)'; ctx.lineWidth = 1;
+  ctx.fillStyle = '#8899bb'; ctx.font = '11px Arial'; ctx.textAlign = 'right';
+  const yStep = nice((hi - lo) / 5, [0.0005,0.001,0.002,0.005,0.01,0.02,0.05,0.1,0.2,0.5,1]);
+  for(let v = Math.ceil(lo / yStep) * yStep; v <= hi + 1e-12; v += yStep){
+    ctx.beginPath(); ctx.moveTo(pad.left, Y(v)); ctx.lineTo(W - pad.right, Y(v)); ctx.stroke();
+    ctx.fillText((v * 100).toFixed(yStep < 0.001 ? 3 : 2) + '%', pad.left - 6, Y(v));
+  }
+  ctx.textAlign = 'center';
+  const mag = Math.pow(10, Math.floor(Math.log10(Math.max(1, nMax / 6))));
+  const xStep = nice(nMax / 6 / mag, [1, 2, 5, 10]) * mag;
+  for(let n = xStep; n <= nMax; n += xStep){
+    ctx.beginPath(); ctx.moveTo(X(n), pad.top); ctx.lineTo(X(n), H - pad.bottom); ctx.stroke();
+    ctx.fillText(n >= 1000 ? (n / 1000) + 'k' : String(n), X(n), H - pad.bottom + 12);
+  }
+
+  ctx.save();
+  ctx.beginPath(); ctx.rect(pad.left, pad.top, cW, cH); ctx.clip();
+  // expected / optimal reference lines
+  const ref = (v, color) => {
+    if(typeof v !== 'number') return;
+    ctx.setLineDash([6, 4]); ctx.strokeStyle = color; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(pad.left, Y(v)); ctx.lineTo(W - pad.right, Y(v)); ctx.stroke();
+    ctx.setLineDash([]);
+  };
+  ref(r.optimal, OPT);
+  if(r.showFull) ref(r.expFull, FULL);
+  ref(r.expSel, SEL);
+  // running returns
+  const series = (getter, color) => {
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
+    samples.forEach((s, i) => { const x = X(s.n), y = Y(getter(s)); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    ctx.stroke();
+  };
+  if(r.showFull) series(s => s.rf, FULL);
+  series(s => s.rs, SEL);
+  ctx.restore();
+
+  // legend
+  ctx.font = 'bold 11px Arial'; ctx.textAlign = 'left';
+  let lx = pad.left;
+  const leg = (color, text, dashed) => {
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.setLineDash(dashed ? [5, 3] : []);
+    ctx.beginPath(); ctx.moveTo(lx, 12); ctx.lineTo(lx + 18, 12); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = color; ctx.fillText(text, lx + 22, 12);
+    lx += 22 + ctx.measureText(text).width + 16;
+  };
+  leg(SEL, (r.selName || '').toUpperCase());
+  if(r.showFull) leg(FULL, 'FULL');
+  leg(OPT, 'OPTIMAL', true);
 }
 
 // ════════════════════════════════════════════════════════════
