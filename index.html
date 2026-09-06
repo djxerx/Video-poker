@@ -1100,9 +1100,11 @@ function sddbRows(sf, fh){
     { name:'4 2s–4s + A-4',   short:'4 2s–4s\n+ A-4',   col:'424+k',   pays: mult(160) },
     { name:'4 Js–Ks + A-K',   short:'4 Js–Ks\n+ A-K',   col:'4JK+k',   pays: mult(160) },
     { name:'Four Aces',       short:'Four\nAces',       col:'4 Aces',  pays: mult(160) },
-    { name:'Four Js–Ks',      short:'Four\nJs–Ks',      col:'4 J-K',   pays: mult(80)  },
     { name:'Four 2s–4s',      short:'Four\n2s–4s',      col:'4 2-4',   pays: mult(80)  },
-    { name:'Four 5s–10s',     short:'Four\n5s–10s',     col:'4 5-10',  pays: mult(50)  },
+    // Face quads WITHOUT an A/J/Q/K kicker pay the base 50 — the bonus tier
+    // above requires the kicker (Wizard of Odds "Four 5-K"), so there is no
+    // separate Js–Ks row
+    { name:'Four 5s–Ks',      short:'Four\n5s–Ks',      col:'4 5-K',   pays: mult(50)  },
     { name:'Full House',      short:'Full\nHouse',      col:'Full H',  pays: mult(fh)  },
     { name:'Flush',           short:'Flush',            col:'Flush',   pays: mult(5)   },
     { name:'Straight',        short:'Straight',         col:'Str',     pays: mult(4)   },
@@ -1774,10 +1776,12 @@ function evalSuperDB(cards){
   return base < 2 ? base : base + 3;
 }
 
-// Super Double Double Bonus: kicker bonuses on ace AND face quads.
+// Super Double Double Bonus: kicker bonuses on ace AND face quads. Face
+// quads pay the bonus ONLY with an A/J/Q/K kicker; without one they pay the
+// base 50 along with 5s–10s (no separate Js–Ks tier).
 // Categories: 0 Royal, 1 SF, 2 4A+2-4, 3 4A+J-K, 4 4(2-4)+A-4,
-// 5 4(J-K)+A/J/Q/K, 6 4A, 7 4 J-K, 8 4 2-4, 9 4 5-10,
-// 10 FH, 11 FL, 12 ST, 13 3K, 14 2P, 15 JoB, 16 Nothing
+// 5 4(J-K)+A/J/Q/K, 6 4A, 7 4 2-4, 8 4 5s–Ks,
+// 9 FH, 10 FL, 11 ST, 12 3K, 13 2P, 14 JoB, 15 Nothing
 function evalSuperDDB(cards){
   const base = evaluate(cards);
   if(base === 2){
@@ -1787,11 +1791,11 @@ function evalSuperDDB(cards){
     const kicker = Object.keys(freq).find(r => freq[r] === 1);
     const JQK = ['J','Q','K'];
     if(qr === 'A')  return ['2','3','4'].includes(kicker) ? 2 : JQK.includes(kicker) ? 3 : 6;
-    if(['2','3','4'].includes(qr)) return ['A','2','3','4'].includes(kicker) ? 4 : 8;
-    if(JQK.includes(qr)) return (kicker === 'A' || JQK.includes(kicker)) ? 5 : 7;
-    return 9;
+    if(['2','3','4'].includes(qr)) return ['A','2','3','4'].includes(kicker) ? 4 : 7;
+    if(JQK.includes(qr) && (kicker === 'A' || JQK.includes(kicker))) return 5;
+    return 8;
   }
-  return base < 2 ? base : base + 7;
+  return base < 2 ? base : base + 6;
 }
 
 // Bonus Deuces Wild: five-of-a-kinds split by rank, ace kicker on 4 deuces.
@@ -1915,13 +1919,13 @@ function winCardsSDB(cat, h = hand){
   return winCardsStandard(base, false, h);
 }
 
-// Super Double Double Bonus: kicker quads (2–5) flash all five; quads 6–9
+// Super Double Double Bonus: kicker quads (2–5) flash all five; quads 6–8
 function winCardsSDDB(cat, h = hand){
   if(cat >= 2 && cat <= 5) return [0,1,2,3,4];
   let base;
   if(cat < 2) base = cat;
-  else if(cat <= 9) base = 2;
-  else base = cat - 7;
+  else if(cat <= 8) base = 2;
+  else base = cat - 6;
   return winCardsStandard(base, false, h);
 }
 
@@ -3025,7 +3029,8 @@ function classifyHold(heldCards, cfg){
   if(k === 0) return 'DISCARD';
   const ranks = heldCards.map(c => rankIndex(c.rank)).sort((a,b) => b-a);
   const suited = heldCards.every(c => c.suit === heldCards[0].suit);
-  const nHigh = ranks.filter(r => r >= 9).length;
+  // "High" = can make a paying pair in this game (jacks 9, tens 8, kings 11)
+  const nHigh = ranks.filter(r => r >= cfg.minPair).length;
   const cnt = new Int8Array(13); ranks.forEach(r => cnt[r]++);
   let pairs = 0, pr = -1, trip = -1, quad = -1;
   for(let r = 0; r < 13; r++){
@@ -3048,7 +3053,10 @@ function classifyHold(heldCards, cfg){
     return 'JUNK';
   }
   if(quad >= 0) return `QUADS${qg(quad)}`;
-  if(trip >= 0) return k === 3 ? `TRIPS${qg(trip)}` : 'JUNK';
+  // trips, and trips + kicker (only played where the table pays a quad/kicker
+  // bonus — Triple Double Bonus 4 aces + 2-4 kicker pays 800/coin)
+  if(trip >= 0) return k === 3 ? `TRIPS${qg(trip)}`
+    : k === 4 ? `TRIPSK${qg(trip)}_${qg(ranks.find(r => cnt[r] === 1))}` : 'JUNK';
   if(pairs === 2) return '2PAIR';
   if(pairs === 1){
     if(k !== 2) return 'JUNK';
@@ -4933,6 +4941,23 @@ function showSettings() {
   ].join(';');
   simBtn.addEventListener('click', () => showSimulator());
   panel.appendChild(simBtn);
+
+  // ── Payout Comparison: the generated side-by-side sheet of every pay table ──
+  // Opens in a new tab (a separate static page, not part of the game shell)
+  const cmpBtn = document.createElement('button');
+  cmpBtn.textContent = 'Payout Comparison';
+  cmpBtn.style.cssText = [
+    'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
+    'letter-spacing:1px','text-transform:uppercase','padding:9px 12px',
+    'background:linear-gradient(180deg,#1a5a7a,#0e3a50)',
+    'border:2px solid #4ab0d0','border-radius:8px',
+    'color:#bfefff','cursor:pointer','touch-action:manipulation',
+  ].join(';');
+  cmpBtn.addEventListener('click', () => {
+    sfx.button();
+    window.open('video-poker-payouts.html', '_blank');
+  });
+  panel.appendChild(cmpBtn);
 
   panel.appendChild(histSection);
   panel.appendChild(doneBtn);

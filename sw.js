@@ -10,7 +10,11 @@
 // With this strategy new deploys show up on the next launch without
 // bumping CACHE_NAME — the version only needs to change if you want to
 // force-purge old cached entries.
-const CACHE_NAME     = 'video-poker-v4';
+// v5: the strategy-data/*.json files were regenerated (Super Double Double
+// Bonus had a wrong pay table, and the pattern taxonomy changed). Those are
+// stale-while-revalidate, so without a purge a returning player would be
+// advised once from the old files — bump forces a clean re-fetch.
+const CACHE_NAME     = 'video-poker-v5';
 const NET_TIMEOUT_MS = 3500;
 const ASSETS = [
   '/',

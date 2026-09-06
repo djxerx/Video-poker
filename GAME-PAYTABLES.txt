@@ -3,7 +3,16 @@ VIDEO POKER — GAMES, PAY TABLES & VARIATIONS
 All payouts are PER COIN bet. The Royal Flush (or Natural Royal) pays a
 jackpot bonus at max coins: 250/coin at 1-4 coins, 800/coin (4000 total)
 at 5 coins, except where noted. Returns assume optimal play at max coins.
-Sources: Wizard of Odds pay tables and video poker cheat sheet.
+
+Returns shown are EXACT expected values, not simulations: computed by
+strategy/strategy-gen.js over every one of the 2,598,960 possible deals
+(2,869,685 for the 53-card joker games) and cross-checked against the
+published Wizard of Odds figures. All 44 tables below have a generated
+strategy guide in the app (Settings -> Strategy Guide).
+
+15 games, 44 pay tables. A side-by-side payout comparison of every game's
+top variant is in video-poker-payouts.xlsx.
+Last refreshed: 2026-09-06
 
 ============================= NON-WILD GAMES =============================
 
@@ -106,9 +115,13 @@ SUPER DOUBLE DOUBLE BONUS
   Hands: Royal Flush 250(4000), Straight Flush 50 or 100,
          4 Aces + 2-4 kicker 400, 4 Aces + J-K kicker 320,
          4 2s-4s + A-4 kicker 160, 4 Js-Ks + A/J/Q/K kicker 160,
-         Four Aces 160, Four Js-Ks 80, Four 2s-4s 80, Four 5s-10s 50,
+         Four Aces 160, Four 2s-4s 80, Four 5s-Ks 50,
          Full House (varies), Flush 5, Straight 4, Three of a Kind 3,
          Two Pair 1, Jacks or Better 1
+  NOTE: face quads pay the 160 bonus ONLY with an A/J/Q/K kicker; without
+        one they pay the base 50 (there is no separate "Four Js-Ks" tier).
+        This game paid 80 for bare face quads until 2026-09-06, which
+        overstated its return by ~1.2%.
   Variations (Full House / Flush, Straight Flush):
     8/5 (SF 50)  Full Pay  99.69%
     7/5 (SF 100) ......... 99.17%
@@ -122,8 +135,8 @@ JOKER'S WILD  (Kings or Better) — 53-card deck, one fully wild joker
          Flush 5, Straight 3, Three of a Kind 2, Two Pair 1,
          Kings or Better 1
   Variations (Four of a Kind):
-    20/7/5  Full Pay .... 100.64%
-    18/7/5  ............. 98.93%
+    20/7/5  Full Pay .... 100.65%
+    18/7/5  ............. 98.94%
     17/7/5  ............. 98.09%
 
 JOKER'S WILD  (Two Pair or Better) — 53-card deck, one fully wild joker
@@ -144,7 +157,7 @@ DEUCES WILD — all four 2s are wild
   Variations (5K / SF / 4K / FH / FL):
     Full Pay 25/15/9/5/3/2 ....... 100.76%
     Not So Ugly 25/16/10/4/4/3 ... 99.73%
-    Airport 25/15/10/4/4/3 ....... 98.91%
+    Airport 25/15/9/4/4/3 ........ 98.91%   (a.k.a. Illinois Deuces)
 
 BONUS DEUCES WILD — all four 2s wild, bonus five-of-a-kinds
   Hands: Natural Royal 250(4000), Four Deuces + Ace 400, Four Deuces 200,
@@ -155,3 +168,19 @@ BONUS DEUCES WILD — all four 2s wild, bonus five-of-a-kinds
     10/4/3  Full Pay .... 99.86%
     9/4/3   ............. 99.45%
     8/4/3   ............. 99.06%
+
+=========================== NOTES & CORRECTIONS ==========================
+
+Two data corrections were made on 2026-09-06 after every table's return was
+computed exactly and compared with Wizard of Odds:
+
+  * SUPER DOUBLE DOUBLE BONUS — bare face quads were paying 80; the real
+    game pays 50 unless there is an A/J/Q/K kicker (which pays 160). The
+    8/5 variant had been reading 100.87%, which no real machine offers.
+
+  * DEUCES WILD "Airport" — the straight flush was listed at 10; the
+    98.91% Airport/Illinois table pays 9. Now 25/15/9/4/4/3.
+
+The two joker Kings-or-Better figures round up rather than down from the
+values often quoted (100.6463% -> 100.65%, 98.9372% -> 98.94%); the
+underlying numbers agree with Wizard of Odds exactly.

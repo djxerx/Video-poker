@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Video Poker — Payout Comparison</title>
+<style>
+:root{
+  --ink:#1f2937; --muted:#6b7280; --line:#e5e7eb; --head:#1f3864;
+  --bg:#ffffff; --panel:#f8fafc; --accent:#1f3864;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+     color:var(--ink);background:var(--bg);display:flex;flex-direction:column}
+header{padding:10px 14px 9px;border-bottom:1px solid var(--line);flex:0 0 auto}
+.hrow{display:flex;align-items:center;gap:12px}
+.hrow > div{min-width:0;flex:1}
+h1{margin:0;font-size:17px;letter-spacing:.2px}
+.sub{color:var(--muted);font-size:11.5px}
+.panel{padding:12px 20px;background:var(--panel);border-bottom:1px solid var(--line);
+       position:relative;flex:0 0 auto;overflow:auto;max-height:56vh}
+.panel.hidden{display:none}
+.x{position:absolute;top:8px;right:10px;width:26px;height:26px;padding:0;line-height:1;
+   font-size:17px;color:var(--muted);border-radius:50%}
+.x:hover{background:#e5e7eb;color:var(--ink)}
+.row.presets{padding-right:34px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+.row:last-child{margin-bottom:0}
+button{font:inherit;font-size:12px;padding:5px 11px;border:1px solid #cbd5e1;background:#fff;
+       border-radius:6px;cursor:pointer;color:var(--ink)}
+button:hover{background:#eef2ff;border-color:#a5b4fc}
+button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+label.lbl{font-size:12px;color:var(--muted);margin-right:2px}
+select{font:inherit;font-size:12px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;background:#fff}
+details{margin-top:6px}
+summary{cursor:pointer;font-size:12px;color:var(--accent);font-weight:600;outline:none}
+.games{display:grid;grid-template-columns:repeat(auto-fill,minmax(255px,1fr));gap:6px 18px;margin-top:9px}
+.game{border:1px solid var(--line);border-radius:7px;padding:7px 9px;background:#fff}
+.game h3{margin:0 0 4px;font-size:12px;display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+.tag{font-size:9.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;
+     padding:1px 5px;border-radius:9px;white-space:nowrap}
+.t-Standard{background:#e5e7eb;color:#374151}
+.t-Deuces{background:#d1fae5;color:#065f46}
+.t-Joker{background:#fef3c7;color:#92400e}
+.game label{display:flex;align-items:center;gap:6px;font-size:12px;padding:1px 0;cursor:pointer}
+.game label span.pct{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums;font-size:11px}
+.wrap{flex:1 1 auto;overflow:auto;min-height:0}
+table{border-collapse:separate;border-spacing:0;font-variant-numeric:tabular-nums}
+th,td{padding:4px 9px;white-space:nowrap;border-bottom:1px solid var(--line)}
+thead th{position:sticky;background:var(--head);color:#fff;text-align:center;font-size:11.5px;font-weight:600}
+thead tr.r1 th{top:0;z-index:6}
+thead tr.r2 th{top:26px;z-index:6;font-weight:400;font-size:10.5px;opacity:.86}
+thead tr.r3 th{top:47px;z-index:6;font-weight:600;font-size:11px;background:#2c4a86}
+th.hand,td.hand{position:sticky;left:0;text-align:left;font-weight:600;background:#fff;z-index:5;
+                border-right:1px solid var(--line)}
+thead th.hand{background:var(--head);z-index:7}
+tbody tr:nth-child(even) td.hand{background:#fafafa}
+tbody tr:hover td{outline:1px solid #c7d2fe;outline-offset:-1px}
+td.v{text-align:right;font-size:12.5px}
+td.na{text-align:center;color:#cbd5e1}
+td.base{box-shadow:inset 2px 0 0 #1f3864,inset -2px 0 0 #1f3864}
+.empty{padding:40px 20px;color:var(--muted);text-align:center}
+.legend{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted)}
+.sw{width:17px;height:12px;border:1px solid #d1d5db;border-radius:2px;display:inline-block}
+footer{padding:14px 20px 26px;color:var(--muted);font-size:11.5px;max-width:1000px}
+footer li{margin-bottom:5px}
+@media (max-width:640px){
+  .panel{padding:10px 12px}
+  th,td{padding:3px 6px}
+  h1{font-size:15px}
+}
+@media print{.panel,header button{display:none}.wrap{max-height:none;overflow:visible}}
+</style></head><body>
+<header>
+  <div class="hrow">
+    <div>
+      <h1>Video Poker — Payout Comparison</h1>
+      <div class="sub" id="sub"></div>
+    </div>
+    <button id="optBtn" class="on">Hide options</button>
+  </div>
+</header>
+
+<div class="panel" id="panel">
+  <button class="x" id="closeBtn" title="Hide options" aria-label="Hide options">&times;</button>
+  <div class="row presets">
+    <span class="lbl">Show:</span>
+    <button data-pick="standard">Standard only</button>
+    <button data-pick="top">Full-pay of each game</button>
+    <button data-pick="all">All 44</button>
+    <button data-pick="none">None</button>
+    <span style="flex:1"></span>
+    <span class="lbl">Heat map vs</span>
+    <select id="base"></select>
+    <button id="heatToggle" class="on">Heat map on</button>
+  </div>
+  <div class="row legend">
+    <span class="sw" id="sw-lo"></span><span>pays less</span>
+    <span class="sw" style="background:#fff"></span><span>same</span>
+    <span class="sw" id="sw-hi"></span><span>pays more</span>
+    <span style="margin-left:10px">Each row is shaded against its own widest gap, measured across all
+    44 variations. Rows with nothing to show in the ticked columns hide themselves.</span>
+  </div>
+  <details id="picker"><summary>Choose variations individually</summary>
+    <div class="games" id="games"></div>
+  </details>
+</div>
+
+<!-- notes live INSIDE the scroll area: as a flex sibling their height starved
+     the table, which is what you notice first on a phone -->
+<div class="wrap">
+  <div id="table"></div>
+  <footer><strong>Notes</strong><ul id="notes"></ul></footer>
+</div>
+
+<script>
+const D = {"hands": ["Natural Royal", "Royal Flush", "4 Aces + 2-4", "Five of a Kind", "4 2s–4s + A-4", "Four Deuces + Ace", "4 Aces + J-K", "Four Aces", "Four Deuces", "Straight Flush", "4 Js–Ks + A-K", "Four Js–Ks", "Four 2s–4s", "Wild Royal", "Five Aces", "Four of a Kind", "Four 5s–Ks", "Four 5s–10s", "Five 3s–5s", "Five 6s–Ks", "Full House", "Flush", "Straight", "Three of a Kind", "Two Pair", "Jacks or Better", "Kings or Better", "Tens or Better"], "baseline": {"Natural Royal": "Royal Flush", "Royal Flush": "Royal Flush", "Wild Royal": "Royal Flush", "Straight Flush": "Straight Flush", "4 Aces + 2-4": "Four of a Kind", "4 Aces + J-K": "Four of a Kind", "4 2s–4s + A-4": "Four of a Kind", "4 Js–Ks + A-K": "Four of a Kind", "Four Aces": "Four of a Kind", "Four Js–Ks": "Four of a Kind", "Four 2s–4s": "Four of a Kind", "Four 5s–Ks": "Four of a Kind", "Four 5s–10s": "Four of a Kind", "Four of a Kind": "Four of a Kind", "Four Deuces": "Four of a Kind", "Four Deuces + Ace": "Four of a Kind", "Full House": "Full House", "Flush": "Flush", "Straight": "Straight", "Three of a Kind": "Three of a Kind", "Two Pair": "Two Pair", "Jacks or Better": "Jacks or Better", "Tens or Better": "Jacks or Better", "Kings or Better": "Jacks or Better", "Five of a Kind": null, "Five Aces": null, "Five 3s–5s": null, "Five 6s–Ks": null}, "generated": "2026-09-06", "cols": [{"key": "jacks:0", "game": "Jacks or Better", "gameKey": "jacks", "type": "Standard", "label": "9/6 Full Pay", "ret": 99.5439, "pays": {"Royal Flush": 4000, "Straight Flush": 250, "Four of a Kind": 125, "Full House": 45, "Flush": 30, "Straight": 20, "Three of a Kind": 15, "Two Pair": 10, "Jacks or Better": 5}, "top": true}, {"key": "jacks:1", "game": "Jacks or Better", "gameKey": "jacks", "type": "Standard", "label": "8/6", "ret": 98.3927, "pays": {"Royal Flush": 4000, "Straight Flush": 250, "Four of a Kind": 125, "Full House": 40, "Flush": 30, "Straight": 20, "Three of a Kind": 15, "Two Pair": 10, "Jacks or Better": 5}, "top": false}, {"key": "jacks:2", "game": "Jacks or Better", "gameKey": "jacks", "type": "Standard", "label": "9/5", "ret": 98.4498, "pays": {"Royal Flush": 4000, "Straight Flush": 250, "Four of a Kind": 125, "Full House": 45, "Flush": 25, "Straight": 20, "Three of a Kind": 15, "Two Pair": 10, "Jacks or Better": 5}, "top": false}, {"key": "jacks:3", "game": "Jacks or Better", "gameKey": "jacks", "type": "Standard", "label": "8/5", "ret": 97.2984, "pays": {"Royal Flush": 4000, "Straight Flush": 250, "Four of a Kind": 125, "Full House": 40, "Flush": 25, "Straight": 20, "Three of a Kind": 15, "Two Pair": 10, "Jacks or Better": 5}, "top": false}, {"key": "tens:0", "game": "Tens or Better", "gameKey": "tens", "type": "Standard", "label": "25/6/5 Full Pay", "ret": 99.1388, "pays": {"Royal Flush": 4000, "Straight Flush": 250, "Four of a Kind": 125, "Full House": 30, "Flush": 25, "Straight": 20, "Three of a Kind": 15, "Two Pair": 10, "Tens or Better": 5}, "top": true}, {"key": "tens:1", "game": "Tens or Better", "gameKey": "tens", "type": "Standard", "label": "20/6/5", "ret": 97.9598, "pays": {"Royal Flush": 4000, "Straight Flush": 250, "Four of a Kind": 100, "Full House": 30, "Flush": 25, "Straight": 20, "Three of a Kind": 15, "Two Pair": 10, "Tens or Better": 5}, "top": false}, {"key": "allamerican:0", "game": "All American", "gameKey": "allamerican", "type": "Standard", "label": "35/8 Full Pay", "ret": 99.5979, "pays": {"Royal Flush": 4000, "Straight Flush": 1000, "Four of a Kind": 175, "Full House": 40, "Flush": 40, "Straight": 40, "Three of a Kind": 15, "Two Pair": 5, "Jacks or Better": 5}, "top": true}, {"key": "allamerican:1", "game": "All American", "gameKey": "allamerican", "type": "Standard", "label": "30/8", "ret": 98.4898, "pays": {"Royal Flush": 4000, "Straight Flush": 1000, "Four of a Kind": 150, "Full House": 40, "Flush": 40, "Straight": 40, "Three of a Kind": 15, "Two Pair": 5, "Jacks or Better": 5}, "top": false}, {"key": "allamerican:2", "game": "All American", "gameKey": "allamerican", "type": "Standard", "label": "25/8", "ret": 97.3832, "pays": {"Royal Flush": 4000, "Straight Flush": 1000, "Four of a Kind": 125, "Full House": 40, "Flush": 40, "Straight": 40, "Three of a Kind": 15, "Two Pair": 5, "Jacks or Better": 5}, "top": false}, {"key": "bonus:0", "game": "Bonus Poker", "gameKey": "bonus", "type": "Standard", "label": "8/5 Full Pay", "ret": 99.166, "pays": {"Royal Flush": 4000, "Straight Flush": 250, "Four Aces": 400, "Four 2s–4s": 200, "Four 5s–Ks": 125, "Full House": 40, "Flush": 25, "Straight": 20, "Three of a Kind": 15, "Two Pair": 10, "Jacks or Better": 5}, "top": true}, {"key": "bonus:1", "game": "Bonus Poker", "gameKey": "bonus", "type": "Standard", "label": "7/5", "ret": 98.0147, "pays": {"Royal Flush": 4000, "Straight Flush": 250, "Four Aces": 400, "Four 2s–4s": 200, "Four 5s–Ks": 125, "Full House": 35, "Flush": 25, "Straight": 20, "Three of a Kind": 15, "Two Pair": 10, "Jacks or Better": 5}, "top": false}, {"key": "bonus:2", "game": "Bonus Poker", "gameKey": "bonus", "type": "Standard", "label": "6/5", "ret": 96.86869999999999, "pays": {"Royal Flush": 4000, "Straight Flush": 250, "Four Aces": 400, "Four 2s–4s": 200, "Four 5s–Ks": 125, "Full House": 30, "Flush": 25, "Straight": 20, "Three of a Kind": 15, "Two Pair": 10, "Jacks or Better": 5}, "top": false}, {"key": "bpdeluxe:0", "game": "Bonus Poker Deluxe", "gameKey": "bpdeluxe", "type": "Standard", "label": "9/6 Full Pay", "ret": 99.6417, "pays": {"Royal Flush": 4000, "Straight Flush": 250, "Four of a Kind": 400, "Full House": 45, "Flush": 30, "Straight": 20, "Three of a Kind": 15, "Two Pair": 5, "Jacks or Better": 5}, "top": true}, {"key": "bpdeluxe:1", "game": "Bonus Poker Deluxe", "gameKey": "bpdeluxe", "type": "Standard", "label": "8/6", "ret": 98.4928, "pays": {"Royal Flush": 4000, "Straight Flush": 250, "Four of a Kind": 400, "Full House": 40, "Flush": 30, "Straight": 20, "Three of a Kind": 15, "Two Pair": 5, "Jacks or Better": 5}, "top": false}, {"key": "bpdeluxe:2", "game": "Bonus Poker Deluxe", "gameKey": "bpdeluxe", "type": "Standard", "label": "8/5", "ret": 97.40090000000001, "pays": {"Royal Flush": 4000, "Straight Flush": 250, "Four of a Kind": 400, "Full House": 40, "Flush": 25, "Straight": 20, "Three of a Kind": 15, "Two Pair": 5, "Jacks or Better": 5}, "top": false}, {"key": "dbonus:0", "game": "Double Bonus Poker", "gameKey": "dbonus", "type": "Standard", "label": "10/7 Full Pay", "ret": 100.1725, "pays": {"Royal Flush": 4000, "Straight Flush": 250, "Four Aces": 800, "Four 2s–4s": 400, "Four 5s–Ks": 250, "Full House": 50, "Flush": 35, "Straight": 25, "Three of a Kind": 15, "Two Pair": 5, "Jacks or Better": 5}, "top": true}, {"key": "dbonus:1", "game": "Double Bonus Poker", "gameKey": "dbonus", "type": "Standard", "label": "9/7", "ret": 99.1065, "pays": {"Royal Flush": 4000, "Straight Flush": 250, "Four Aces": 800, "Four 2s–4s": 400, "Four 5s–Ks": 250, "Full House": 45, "Flush": 35, "Straight": 25, "Three of a Kind": 15, "Two Pair": 5, "Jacks or Better": 5}, "top": false}, {"key": "dbonus:2", "game": "Double Bonus Poker", "gameKey": "dbonus", "type": "Standard", "label": "9/6", "ret": 97.8062, "pays": {"Royal Flush": 4000, "Straight Flush": 250, "Four Aces": 800, "Four 2s–4s": 400, "Four 5s–Ks": 250, "Full House": 45, "Flush": 30, "Straight": 25, "Three of a Kind": 15, "Two Pair": 5, "Jacks or Better": 5}, "top": false}, {"key": "ddbonus:0", "game": "Double Double Bonus", "gameKey": "ddbonus", "type": "Standard", "label": "10/6 Full Pay", "ret": 100.067, "pays": {"Royal Flush": 4000, "Straight Flush": 250, "4 Aces + 2-4": 2000, "4 2s–4s + A-4": 800, "Four Aces": 800, "Four 2s–4s": 400, "Four 5s–Ks": 250, "Full House": 50, "Flush": 30, "Straight": 20, "Three of a Kind": 15, "Two Pair": 5, "Jacks or Better": 5}, "top": true}, {"key": "ddbonus:1", "game": "Double Double Bonus", "gameKey": "ddbonus", "type": "Standard", "label": "9/6", "ret": 98.9808, "pays": {"Royal Flush": 4000, "Straight Flush": 250, "4 Aces + 2-4": 2000, "4 2s–4s + A-4": 800, "Four Aces": 800, "Four 2s–4s": 400, "Four 5s–Ks": 250, "Full House": 45, "Flush": 30, "Straight": 20, "Three of a Kind": 15, "Two Pair": 5, "Jacks or Better": 5}, "top": false}, {"key": "ddbonus:2", "game": "Double Double Bonus", "gameKey": "ddbonus", "type": "Standard", "label": "9/5", "ret": 97.8729, "pays": {"Royal Flush": 4000, "Straight Flush": 250, "4 Aces + 2-4": 2000, "4 2s–4s + A-4": 800, "Four Aces": 800, "Four 2s–4s": 400, "Four 5s–Ks": 250, "Full House": 45, "Flush": 25, "Straight": 20, "Three of a Kind": 15, "Two Pair": 5, "Jacks or Better": 5}, "top": false}, {"key": "tbonus:0", "game": "Triple Bonus", "gameKey": "tbonus", "type": "Standard", "label": "10/7/5 Full Pay", "ret": 99.9364, "pays": {"Royal Flush": 4000, "Straight Flush": 250, "Four Aces": 1200, "Four 2s–4s": 600, "Four 5s–Ks": 375, "Full House": 50, "Flush": 35, "Straight": 25, "Three of a Kind": 15, "Two Pair": 5, "Kings or Better": 5}, "top": true}, {"key": "tbonus:1", "game": "Triple Bonus", "gameKey": "tbonus", "type": "Standard", "label": "11/7/4", "ret": 99.5881, "pays": {"Royal Flush": 4000, "Straight Flush": 250, "Four Aces": 1200, "Four 2s–4s": 600, "Four 5s–Ks": 375, "Full House": 55, "Flush": 35, "Straight": 20, "Three of a Kind": 15, "Two Pair": 5, "Kings or Better": 5}, "top": false}, {"key": "tbonus:2", "game": "Triple Bonus", "gameKey": "tbonus", "type": "Standard", "label": "10/7/4", "ret": 98.5192, "pays": {"Royal Flush": 4000, "Straight Flush": 250, "Four Aces": 1200, "Four 2s–4s": 600, "Four 5s–Ks": 375, "Full House": 50, "Flush": 35, "Straight": 20, "Three of a Kind": 15, "Two Pair": 5, "Kings or Better": 5}, "top": false}, {"key": "tdbonus:0", "game": "Triple Double Bonus", "gameKey": "tdbonus", "type": "Standard", "label": "9/7 Full Pay", "ret": 99.57780000000001, "pays": {"Royal Flush": 4000, "Straight Flush": 250, "4 Aces + 2-4": 4000, "4 2s–4s + A-4": 2000, "Four Aces": 800, "Four 2s–4s": 400, "Four 5s–Ks": 250, "Full House": 45, "Flush": 35, "Straight": 20, "Three of a Kind": 10, "Two Pair": 5, "Jacks or Better": 5}, "top": true}, {"key": "tdbonus:1", "game": "Triple Double Bonus", "gameKey": "tdbonus", "type": "Standard", "label": "9/6", "ret": 98.154, "pays": {"Royal Flush": 4000, "Straight Flush": 250, "4 Aces + 2-4": 4000, "4 2s–4s + A-4": 2000, "Four Aces": 800, "Four 2s–4s": 400, "Four 5s–Ks": 250, "Full House": 45, "Flush": 30, "Straight": 20, "Three of a Kind": 10, "Two Pair": 5, "Jacks or Better": 5}, "top": false}, {"key": "tdbonus:2", "game": "Triple Double Bonus", "gameKey": "tdbonus", "type": "Standard", "label": "9/5", "ret": 97.0204, "pays": {"Royal Flush": 4000, "Straight Flush": 250, "4 Aces + 2-4": 4000, "4 2s–4s + A-4": 2000, "Four Aces": 800, "Four 2s–4s": 400, "Four 5s–Ks": 250, "Full House": 45, "Flush": 25, "Straight": 20, "Three of a Kind": 10, "Two Pair": 5, "Jacks or Better": 5}, "top": false}, {"key": "sdbonus:0", "game": "Super Double Bonus", "gameKey": "sdbonus", "type": "Standard", "label": "9/5 Full Pay", "ret": 99.6946, "pays": {"Royal Flush": 4000, "Straight Flush": 400, "Four Aces": 800, "Four Js–Ks": 600, "Four 2s–4s": 400, "Four 5s–10s": 250, "Full House": 45, "Flush": 25, "Straight": 20, "Three of a Kind": 15, "Two Pair": 5, "Jacks or Better": 5}, "top": true}, {"key": "sdbonus:1", "game": "Super Double Bonus", "gameKey": "sdbonus", "type": "Standard", "label": "8/5", "ret": 98.6863, "pays": {"Royal Flush": 4000, "Straight Flush": 400, "Four Aces": 800, "Four Js–Ks": 600, "Four 2s–4s": 400, "Four 5s–10s": 250, "Full House": 40, "Flush": 25, "Straight": 20, "Three of a Kind": 15, "Two Pair": 5, "Jacks or Better": 5}, "top": false}, {"key": "sdbonus:2", "game": "Super Double Bonus", "gameKey": "sdbonus", "type": "Standard", "label": "7/5", "ret": 97.77080000000001, "pays": {"Royal Flush": 4000, "Straight Flush": 400, "Four Aces": 800, "Four Js–Ks": 600, "Four 2s–4s": 400, "Four 5s–10s": 250, "Full House": 35, "Flush": 25, "Straight": 20, "Three of a Kind": 15, "Two Pair": 5, "Jacks or Better": 5}, "top": false}, {"key": "sddbonus:0", "game": "Super Double Double Bonus", "gameKey": "sddbonus", "type": "Standard", "label": "8/5 Full Pay", "ret": 99.6859, "pays": {"Royal Flush": 4000, "Straight Flush": 250, "4 Aces + 2-4": 2000, "4 Aces + J-K": 1600, "4 2s–4s + A-4": 800, "4 Js–Ks + A-K": 800, "Four Aces": 800, "Four 2s–4s": 400, "Four 5s–Ks": 250, "Full House": 40, "Flush": 25, "Straight": 20, "Three of a Kind": 15, "Two Pair": 5, "Jacks or Better": 5}, "top": true}, {"key": "sddbonus:1", "game": "Super Double Double Bonus", "gameKey": "sddbonus", "type": "Standard", "label": "7/5 (SF 100)", "ret": 99.1674, "pays": {"Royal Flush": 4000, "Straight Flush": 500, "4 Aces + 2-4": 2000, "4 Aces + J-K": 1600, "4 2s–4s + A-4": 800, "4 Js–Ks + A-K": 800, "Four Aces": 800, "Four 2s–4s": 400, "Four 5s–Ks": 250, "Full House": 35, "Flush": 25, "Straight": 20, "Three of a Kind": 15, "Two Pair": 5, "Jacks or Better": 5}, "top": false}, {"key": "sddbonus:2", "game": "Super Double Double Bonus", "gameKey": "sddbonus", "type": "Standard", "label": "7/5", "ret": 98.6103, "pays": {"Royal Flush": 4000, "Straight Flush": 250, "4 Aces + 2-4": 2000, "4 Aces + J-K": 1600, "4 2s–4s + A-4": 800, "4 Js–Ks + A-K": 800, "Four Aces": 800, "Four 2s–4s": 400, "Four 5s–Ks": 250, "Full House": 35, "Flush": 25, "Straight": 20, "Three of a Kind": 15, "Two Pair": 5, "Jacks or Better": 5}, "top": false}, {"key": "joker:0", "game": "Joker's Wild", "gameKey": "joker", "type": "Joker Wild", "label": "20/7/5 Full Pay", "ret": 100.64630000000001, "pays": {"Natural Royal": 4000, "Five of a Kind": 1000, "Wild Royal": 500, "Straight Flush": 250, "Four of a Kind": 100, "Full House": 35, "Flush": 25, "Straight": 15, "Three of a Kind": 10, "Two Pair": 5, "Kings or Better": 5}, "top": true}, {"key": "joker:1", "game": "Joker's Wild", "gameKey": "joker", "type": "Joker Wild", "label": "18/7/5", "ret": 98.9372, "pays": {"Natural Royal": 4000, "Five of a Kind": 1000, "Wild Royal": 500, "Straight Flush": 250, "Four of a Kind": 90, "Full House": 35, "Flush": 25, "Straight": 15, "Three of a Kind": 10, "Two Pair": 5, "Kings or Better": 5}, "top": false}, {"key": "joker:2", "game": "Joker's Wild", "gameKey": "joker", "type": "Joker Wild", "label": "17/7/5", "ret": 98.0854, "pays": {"Natural Royal": 4000, "Five of a Kind": 1000, "Wild Royal": 500, "Straight Flush": 250, "Four of a Kind": 85, "Full House": 35, "Flush": 25, "Straight": 15, "Three of a Kind": 10, "Two Pair": 5, "Kings or Better": 5}, "top": false}, {"key": "joker2:0", "game": "Joker's Wild (Two Pair)", "gameKey": "joker2", "type": "Joker Wild", "label": "20/10/6 Full Pay", "ret": 99.9205, "pays": {"Natural Royal": 5000, "Five of a Kind": 500, "Wild Royal": 250, "Straight Flush": 250, "Four of a Kind": 100, "Full House": 50, "Flush": 30, "Straight": 25, "Three of a Kind": 10, "Two Pair": 5}, "top": true}, {"key": "joker2:1", "game": "Joker's Wild (Two Pair)", "gameKey": "joker2", "type": "Joker Wild", "label": "16/8/5", "ret": 98.5891, "pays": {"Natural Royal": 4000, "Five of a Kind": 4000, "Wild Royal": 500, "Straight Flush": 500, "Four of a Kind": 80, "Full House": 40, "Flush": 25, "Straight": 20, "Three of a Kind": 10, "Two Pair": 5}, "top": false}, {"key": "deuces:0", "game": "Deuces Wild", "gameKey": "deuces", "type": "Deuces Wild", "label": "Full Pay 25/15/9", "ret": 100.762, "pays": {"Natural Royal": 4000, "Four Deuces": 1000, "Wild Royal": 125, "Five of a Kind": 75, "Straight Flush": 45, "Four of a Kind": 25, "Full House": 15, "Flush": 10, "Straight": 10, "Three of a Kind": 5}, "top": true}, {"key": "deuces:1", "game": "Deuces Wild", "gameKey": "deuces", "type": "Deuces Wild", "label": "Not So Ugly 25/16/10", "ret": 99.7283, "pays": {"Natural Royal": 4000, "Four Deuces": 1000, "Wild Royal": 125, "Five of a Kind": 80, "Straight Flush": 50, "Four of a Kind": 20, "Full House": 20, "Flush": 15, "Straight": 10, "Three of a Kind": 5}, "top": false}, {"key": "deuces:2", "game": "Deuces Wild", "gameKey": "deuces", "type": "Deuces Wild", "label": "Airport 25/15/9", "ret": 98.9131, "pays": {"Natural Royal": 4000, "Four Deuces": 1000, "Wild Royal": 125, "Five of a Kind": 75, "Straight Flush": 45, "Four of a Kind": 20, "Full House": 20, "Flush": 15, "Straight": 10, "Three of a Kind": 5}, "top": false}, {"key": "bdeuces:0", "game": "Bonus Deuces Wild", "gameKey": "bdeuces", "type": "Deuces Wild", "label": "10/4/3 Full Pay", "ret": 99.8603, "pays": {"Natural Royal": 4000, "Four Deuces + Ace": 2000, "Four Deuces": 1000, "Wild Royal": 125, "Five Aces": 400, "Five 3s–5s": 200, "Five 6s–Ks": 100, "Straight Flush": 50, "Four of a Kind": 20, "Full House": 20, "Flush": 15, "Straight": 5, "Three of a Kind": 5}, "top": true}, {"key": "bdeuces:1", "game": "Bonus Deuces Wild", "gameKey": "bdeuces", "type": "Deuces Wild", "label": "9/4/3", "ret": 99.4502, "pays": {"Natural Royal": 4000, "Four Deuces + Ace": 2000, "Four Deuces": 1000, "Wild Royal": 125, "Five Aces": 400, "Five 3s–5s": 200, "Five 6s–Ks": 100, "Straight Flush": 45, "Four of a Kind": 20, "Full House": 20, "Flush": 15, "Straight": 5, "Three of a Kind": 5}, "top": false}, {"key": "bdeuces:2", "game": "Bonus Deuces Wild", "gameKey": "bdeuces", "type": "Deuces Wild", "label": "8/4/3", "ret": 99.0625, "pays": {"Natural Royal": 4000, "Four Deuces + Ace": 2000, "Four Deuces": 1000, "Wild Royal": 125, "Five Aces": 400, "Five 3s–5s": 200, "Five 6s–Ks": 100, "Straight Flush": 40, "Four of a Kind": 20, "Full House": 20, "Flush": 15, "Straight": 5, "Three of a Kind": 5}, "top": false}], "defaultBaseline": "jacks:0", "green": [188, 226, 191], "red": [245, 195, 195], "gamma": 0.5, "notes": ["Payouts are the MAX-BET column (5 coins) — what the machine pays for a full 5-coin wager.", "\"—\" means the game does not offer that hand at all, which is not the same as paying zero.", "Rows run roughly in descending payout order, using the highest each hand reaches across all variations. Games rank hands differently, so the order is indicative, not exact for any one game.", "Heat map compares each payout with the baseline game's equivalent hand: green pays better, red pays worse. Each ROW is scaled to its own widest gap, so a 5-coin difference on Full House is as readable as a 1,075-coin one on Four Aces. That scale always spans all 44 variations, not just the ones on screen, so a shade never changes when you change the selection. Every quad tier is judged against the baseline's single \"Four of a Kind\" line, which is the point of a bonus game.", "Five-of-a-kind hands are left uncoloured: they do not exist in a 52-card non-wild game, so there is nothing honest to compare them with.", "Optimal return is the exact expected value under perfect play, computed over every possible deal — not a simulation. All 44 tables match their published Wizard of Odds figures.", "Generated by tools/build-payout-sheets.py from tools/paytables.json, which is itself read out of index.html. Nothing here is transcribed by hand. Re-run both to refresh after a rules change."]};
+const $ = s => document.querySelector(s);
+let sel = new Set(), baseKey = D.defaultBaseline, heatOn = true;
+
+const colOf = k => D.cols.find(c => c.key === k);
+const mix = (rgb, i) => `rgb(${rgb.map(c => Math.round(255 + (c - 255) * i)).join(',')})`;
+
+// the baseline column's payout for whatever hand this row is judged against
+const baseVal = (bcol, hand) => {
+  const eq = D.baseline[hand];
+  return eq ? (bcol.pays[eq] ?? null) : null;
+};
+// Each row is shaded against its OWN widest gap — Four Aces swings by 1075
+// coins and Full House by 30, so one shared scale renders every Full House
+// cell white. The scale spans all 44 variations, not just the ticked ones, so
+// a shade never shifts when the selection changes.
+function rowScale(hand, bcol) {
+  const base = baseVal(bcol, hand);
+  if (base == null) return null;
+  let m = 0;
+  for (const c of D.cols) {
+    const v = c.pays[hand];
+    if (v != null) m = Math.max(m, Math.abs(v - base));
+  }
+  return m || null;
+}
+function heat(v, base, scale) {
+  if (!heatOn || v == null || base == null || !scale) return null;
+  const d = v - base;
+  if (Math.abs(d) < 1e-9) return null;
+  return mix(d > 0 ? D.green : D.red, Math.pow(Math.min(1, Math.abs(d) / scale), D.gamma));
+}
+
+function pick(mode) {
+  sel = new Set(
+    mode === 'all'      ? D.cols.map(c => c.key)
+  : mode === 'none'     ? []
+  : mode === 'top'      ? D.cols.filter(c => c.top).map(c => c.key)
+  : /* standard */        D.cols.filter(c => c.type === 'Standard' && c.top).map(c => c.key));
+  render();
+}
+
+function buildPicker() {
+  const byGame = [];
+  for (const c of D.cols) {
+    let g = byGame.find(x => x.key === c.gameKey);
+    if (!g) byGame.push(g = { key: c.gameKey, name: c.game, type: c.type, cols: [] });
+    g.cols.push(c);
+  }
+  $('#games').innerHTML = byGame.map(g => `
+    <div class="game"><h3>${esc(g.name)}
+      <span class="tag t-${g.type.split(' ')[0]}">${esc(g.type)}</span></h3>
+      ${g.cols.map(c => `<label><input type="checkbox" data-k="${c.key}">
+        <span>${esc(c.label)}</span>
+        <span class="pct">${c.ret ? c.ret.toFixed(2) + '%' : ''}</span></label>`).join('')}
+    </div>`).join('');
+  $('#games').addEventListener('change', e => {
+    const k = e.target.dataset.k; if (!k) return;
+    e.target.checked ? sel.add(k) : sel.delete(k);
+    render();
+  });
+  $('#base').innerHTML = D.cols.map(c =>
+    `<option value="${c.key}">${esc(c.game)} — ${esc(c.label)}</option>`).join('');
+  $('#base').value = baseKey;
+  $('#base').addEventListener('change', e => { baseKey = e.target.value; render(); });
+  $('#heatToggle').addEventListener('click', e => {
+    heatOn = !heatOn;
+    e.target.classList.toggle('on', heatOn);
+    e.target.textContent = heatOn ? 'Heat map on' : 'Heat map off';
+    render();
+  });
+  document.querySelectorAll('[data-pick]').forEach(b =>
+    b.addEventListener('click', () => pick(b.dataset.pick)));
+  // Options panel collapses so the table gets the whole screen on a phone
+  const setPanel = on => {
+    $('#panel').classList.toggle('hidden', !on);
+    $('#optBtn').classList.toggle('on', on);
+    $('#optBtn').textContent = on ? 'Hide options' : 'Options';
+  };
+  $('#optBtn').addEventListener('click', () => setPanel($('#panel').classList.contains('hidden')));
+  $('#closeBtn').addEventListener('click', () => setPanel(false));
+  if (window.innerWidth < 640) setPanel(false);   // start out of the way on a phone
+  $('#sw-lo').style.background = mix(D.red, 1);
+  $('#sw-hi').style.background = mix(D.green, 1);
+  $('#notes').innerHTML = D.notes.map(n => `<li>${esc(n)}</li>`).join('');
+}
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+
+function render() {
+  document.querySelectorAll('#games input').forEach(i => { i.checked = sel.has(i.dataset.k); });
+  const cols = D.cols.filter(c => sel.has(c.key));
+  const bcol = colOf(baseKey);
+  $('#sub').textContent =
+    `${cols.length} of ${D.cols.length} variations · ${D.hands.length} hands · max-bet (5-coin) payouts · generated ${D.generated}`;
+
+  if (!cols.length) { $('#table').innerHTML = '<div class="empty">No variations ticked.</div>'; return; }
+  // a row earns its place only if some ticked column actually pays it
+  const rows = D.hands.filter(h => cols.some(c => c.pays[h] != null));
+
+  let t = '<table><thead>';
+  t += '<tr class="r1"><th class="hand">Hand</th>' +
+       cols.map(c => `<th>${esc(c.game)}</th>`).join('') + '</tr>';
+  t += '<tr class="r2"><th class="hand">Pay table</th>' +
+       cols.map(c => `<th>${esc(c.label)}</th>`).join('') + '</tr>';
+  t += '<tr class="r3"><th class="hand">Optimal return</th>' +
+       cols.map(c => `<th>${c.ret ? c.ret.toFixed(2) + '%' : '—'}</th>`).join('') + '</tr>';
+  t += '</thead><tbody>';
+  for (const h of rows) {
+    const hb = baseVal(bcol, h), hs = rowScale(h, bcol);
+    t += `<tr><td class="hand">${esc(h)}</td>`;
+    for (const c of cols) {
+      const v = c.pays[h];
+      if (v == null) { t += '<td class="na">—</td>'; continue; }
+      const bg = heat(v, hb, hs);
+      const isBase = c.key === baseKey;
+      t += `<td class="v${isBase ? ' base' : ''}"${bg ? ` style="background:${bg}"` : ''}>` +
+           v.toLocaleString() + '</td>';
+    }
+    t += '</tr>';
+  }
+  $('#table').innerHTML = t + '</tbody></table>';
+}
+
+buildPicker();
+pick('standard');
+</script></body></html>

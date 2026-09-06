@@ -119,6 +119,32 @@ Add the game, its hands/payouts, and its variations with return % to
 7. Reload the page — game, bankroll, and history must persist.
 8. Check the browser console for errors throughout.
 
+## Step 9 — Strategy guide for the new pay table  (dev only: `strategy/`)
+
+The guide/trainer/simulator need a per-pay-table strategy file in
+`strategy-data/<key>.json`. Full details in `strategy/README.md`; short form:
+
+1. `strategy/strategy-gen.js` → add a `GAMES` entry. Non-wild: `minPair`,
+   `pays`, `quadPay`, `quadGroup`. Wild: use a builder like `deucesGame()` /
+   `jokerGame()` (or write one: `deck`, `isWild`, `cat`, `catNames`,
+   `catPays`, `minPair`, `noNat2`, `fiveGroup`).
+2. If the game needs a new `STRAT_CFG` entry in `index.html` (new game key,
+   not just a new pay table), mirror the generator config there. Non-wild:
+   `{ minPair, quadGroup }`. Wild: `{ wild, wildName, noNat2, minPair,
+   fiveGroup, pat }` — `pat` maps the app evaluator's category to the
+   generator's `catNames`.
+3. Tag the pay table: `{ label: '…', rows: …, strat: '<key>' }`.
+4. Add `<key>` to `APP_GAME` and `APP_PAYS` in `strategy/lib-verify.js`, then
+   gate it: `node strategy/verify-rules.js <key>` (exhaustive payouts) and
+   `node strategy/verify-classify.js <key>` (pattern ids) must both report 0
+   mismatches.
+5. `bash strategy/run-batch.sh <key>` does generate → export → verify in one
+   go (≈2 min per table; several keys run 4 at a time). Check
+   `strategy/logs/summary.txt` shows `mismatch=0` — claimed and actual
+   returns must agree on every level. (Manual equivalent: `cd strategy &&
+   node strategy-gen.js <key>`, `node strategy/export-slim.js <key>`,
+   `node strategy/verify-strategy.js <key>`.)
+
 ## Gotchas
 
 - `evaluate()` sorts/dedups internally; never mutate the `cards` argument.
