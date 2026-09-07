@@ -32,7 +32,18 @@ const GAME_KEYS = JSON.parse(src.match(/const GAME_KEYS\s*=\s*\[([\s\S]*?)\];/)[
   .replace(/\/\/[^\n]*/g, '').replace(/'/g, '"').replace(/,\s*$/, '').trim()
   .replace(/^/, '[').replace(/$/, ']'));
 
-const WILD = { joker: 'Joker Wild', joker2: 'Joker Wild', deuces: 'Deuces Wild', bdeuces: 'Deuces Wild' };
+// Wild classification is read from the app's own STRAT_CFG rather than a map
+// kept here, so a newly added wild game cannot silently show up as "Standard"
+// in the comparison sheet because someone forgot to update two places.
+const cfgBlock = src.match(/const STRAT_CFG\s*=\s*{[\s\S]*?\n};/)[0];
+const wildNameOf = key => {
+  const m = new RegExp(key + ":\\s*\\{[^}]*wildName:\\s*'(\\w+)'").exec(cfgBlock);
+  return m ? m[1] : null;
+};
+const typeOf = key => {
+  const w = wildNameOf(key);
+  return w === 'deuce' ? 'Deuces Wild' : w === 'joker' ? 'Joker Wild' : 'Standard';
+};
 
 const games = [];
 for (const key of GAME_KEYS) {
@@ -58,7 +69,7 @@ for (const key of GAME_KEYS) {
         pays: Object.fromEntries(rows.filter(r => r.name !== 'Nothing').map(r => [r.name, r.pays[4]])),
       };
     });
-  games.push({ key, name, type: WILD[key] || 'Standard', deck: /joker: true/.test(blk) ? 53 : 52, tables });
+  games.push({ key, name, type: typeOf(key), deck: /joker: true/.test(blk) ? 53 : 52, tables });
 }
 
 // Union of hand names, ordered roughly by descending payout. Ties fall back to
