@@ -3813,6 +3813,7 @@ function showAnalysis(customHand, customDeck, opts = {}) {
     'text-shadow:0 0 8px rgba(240,192,64,0.5)','flex-shrink:0',
   ].join(';');
   title.textContent = isCustom ? game.name + ' — Hand Analysis' : 'Optimal Hold Analysis';
+  title.appendChild(betaTag());
 
   // The hand as a row of compact card chips (keeps the header short)
   const handLine = document.createElement('div');
@@ -4241,6 +4242,7 @@ function showSubPlays(){
     'text-shadow:0 0 8px rgba(240,192,64,0.5)',
   ].join(';');
   title.textContent = curGame().name + ' — Non-Optimal Plays';
+  title.appendChild(betaTag());
   panel.appendChild(title);
 
   // A 5-card strip: heldMask marks HELD labels, glowIdxs get the gold glow
@@ -4373,6 +4375,7 @@ function showStrategy(highlightId){
     'letter-spacing:2px','text-transform:uppercase','flex-shrink:0',
   ].join(';');
   title.textContent = 'Strategy — ' + curGame().name;
+  title.appendChild(betaTag());
 
   const sub = document.createElement('div');
   sub.style.cssText = 'text-align:center;font-size:11px;color:#8899bb;flex-shrink:0;';
@@ -5340,6 +5343,19 @@ function showSettings() {
   simBtn.addEventListener('click', () => showSimulator());
   panel.appendChild(simBtn);
 
+  // ── Training: drill the strategy card itself, no credits and no bet ──
+  const trainBtn = document.createElement('button');
+  trainBtn.textContent = 'Training Mode';
+  trainBtn.style.cssText = [
+    'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
+    'letter-spacing:1px','text-transform:uppercase','padding:9px 12px',
+    'background:linear-gradient(180deg,#1a6a5a,#0d4438)',
+    'border:2px solid #4accb0','border-radius:8px',
+    'color:#c8fff0','cursor:pointer','touch-action:manipulation',
+  ].join(';');
+  trainBtn.addEventListener('click', () => showTraining());
+  panel.appendChild(trainBtn);
+
   // ── Payout Comparison: the generated side-by-side sheet of every pay table ──
   // Opens in a new tab (a separate static page, not part of the game shell)
   const cmpBtn = document.createElement('button');
@@ -5373,6 +5389,715 @@ function showSettings() {
 //  holds) and checks whether the book play is the analyzer's top hold.
 //  Both assume max coins (5), like the strategy guide.
 // ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
+//  TRAINING MODE
+// ════════════════════════════════════════════════════════════
+// No credits and no bet: the only score is whether the hold matched the card.
+let trainWorker = null;
+function showTraining(){
+  sfx.button();
+  // Always opens on the game being played; switching here is local to training
+  // and never disturbs the hand on the main screen.
+  let gKey = currentGame, ptIdx = payTableIdx;
+  let cfg = STRAT_CFG[gKey], gameRows = GAMES[gKey].payTables[ptIdx].rows;
+  let level = stratLevel, strat = null, lines = [], rankMap = {};
+
+  let buckets = [], counts = [], dealt = 0, factoryDone = false, runId = 0;
+  // Kept outside the dialog: Full analysis closes and reopens this screen, and
+  // a slider that silently jumped back to the middle each time would quietly
+  // undo the setting the player had chosen.
+  let mix = trainMixLoad();
+  let rec = { per: {}, misses: [] };
+  let reviewing = false, reviewQueue = [];
+  let qHand = null, qDeck = null, held = 0, answered = false, lastWrong = false;
+  let evBusy = 0;                 // pricings still running
+
+  function esc2(t){ return String(t).replace(/[&<>]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[c])); }
+  function fmtInt(n){ return Math.round(n).toLocaleString(); }
+  function cardOf(ci){
+    return ci >= 52 ? { rank:'JOKER', suit:'★', joker:true }
+                    : { rank: RANKS[ci % 13], suit: SUITS[(ci / 13) | 0] };
+  }
+  function cardIndex(c){ return c.joker ? 52 : SUITS.indexOf(c.suit) * 13 + RANKS.indexOf(c.rank); }
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = [
+    'position:fixed','inset:0','z-index:9999','background:rgba(0,5,25,0.92)',
+    'display:flex','align-items:center','justify-content:center','font-family:Arial,Helvetica,sans-serif',
+  ].join(';');
+  const panel = document.createElement('div');
+  panel.style.cssText = [
+    'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)','border:2px solid #2a4a9a',
+    'border-radius:14px','box-shadow:0 0 30px rgba(20,60,180,0.6)','padding:14px 16px',
+    'width:min(620px,96vw)','max-height:92vh','display:flex','flex-direction:column','gap:8px',
+    'overflow-y:auto','-webkit-overflow-scrolling:touch',
+  ].join(';');
+  const mkDiv = css => { const d = document.createElement('div'); d.style.cssText = css; return d; };
+  const title   = mkDiv('text-align:center;font-size:15px;font-weight:bold;color:#f0c040;letter-spacing:2px;text-transform:uppercase;flex-shrink:0;');
+  const sub     = mkDiv('text-align:center;font-size:11px;color:#8899bb;flex-shrink:0;');
+  const score   = mkDiv('text-align:center;font-size:12px;color:#c0c8d8;flex-shrink:0;');
+  const cardRow = mkDiv('display:flex;justify-content:center;gap:8px;flex-wrap:wrap;flex-shrink:0;margin:6px 0;');
+  // min-heights here and on the verdict and tally keep the panel a fixed size:
+  // answering a question must not move the buttons out from under the cursor
+  const hint    = mkDiv('text-align:center;font-size:11px;color:#8899bb;flex-shrink:0;min-height:15px;');
+  // Reserved height: the box appears the moment you answer, and a panel that
+  // grows under the cursor makes the Next button jump out from under it.
+  const verdict = mkDiv('flex-shrink:0;min-height:96px;');
+  const btnRow  = mkDiv('display:flex;justify-content:center;gap:10px;flex-wrap:wrap;flex-shrink:0;margin-top:4px;');
+  const gameRow = mkDiv('display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex-shrink:0;');
+  const optRow  = mkDiv('display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex-shrink:0;');
+  const mixRow  = mkDiv('display:flex;align-items:center;gap:8px;flex-shrink:0;font-size:11px;color:#8899bb;');
+  const tally   = mkDiv('flex-shrink:0;min-height:104px;');
+  const toolRow = mkDiv('display:flex;justify-content:center;gap:10px;flex-wrap:wrap;flex-shrink:0;');
+
+  const mkBtn = (text, bg, border, color) => {
+    const b = document.createElement('button');
+    b.textContent = text;
+    b.style.cssText = [
+      'font-family:Arial,Helvetica,sans-serif','font-size:12px','font-weight:bold','letter-spacing:1px',
+      'text-transform:uppercase','padding:7px 18px','background:' + bg,'border:2px solid ' + border,
+      'border-radius:8px','color:' + color,'cursor:pointer','touch-action:manipulation',
+    ].join(';');
+    return b;
+  };
+  const mainBtn  = mkBtn('Check', 'linear-gradient(180deg,#2a8a4a,#1a6a34)', '#4acc6a', '#fff');
+  const skipBtn  = mkBtn('Skip', '#1a2a60', '#3a5aaa', '#c0c8d8');
+  const fullBtn  = mkBtn('Full analysis', '#1a2a60', '#3a5aaa', '#c0c8d8');
+  const closeBtn = mkBtn('Close', 'linear-gradient(180deg,#2a4aaa,#1a2a7a)', '#5a7acc', '#fff');
+  const forgetBtn = mkBtn('Forget this one', '#3a1520', '#a03a4a', '#f09595');
+  forgetBtn.style.fontSize = '11px';
+  forgetBtn.style.padding = '5px 12px';
+  const reviewBtn = mkBtn('Replay misses', '#1a2a60', '#3a5aaa', '#c0c8d8');
+  const resetBtn  = mkBtn('Reset', '#1a2a60', '#3a5aaa', '#c0c8d8');
+  btnRow.appendChild(mainBtn); btnRow.appendChild(skipBtn);
+  btnRow.appendChild(fullBtn); btnRow.appendChild(forgetBtn); btnRow.appendChild(closeBtn);
+  toolRow.appendChild(reviewBtn); toolRow.appendChild(resetBtn);
+
+  const mixSlider = document.createElement('input');
+  mixSlider.type = 'range'; mixSlider.min = '0'; mixSlider.max = '100'; mixSlider.step = '1';
+  mixSlider.value = String(Math.round(mix * 100));
+  mixSlider.style.cssText = 'flex:1;min-width:110px;accent-color:#f0c040;';
+  mixSlider.addEventListener('input', () => { mix = +mixSlider.value / 100; trainMixSave(mix); });
+  const mixLab = document.createElement('span');
+  mixLab.style.cssText = 'font-size:11px;font-weight:bold;color:#c0c8d8;letter-spacing:1px;width:46px;';
+  mixLab.textContent = 'Mix';
+  const loLab = document.createElement('span'); loLab.textContent = 'realistic';
+  const hiLab = document.createElement('span'); hiLab.textContent = 'rare';
+  mixRow.appendChild(mixLab); mixRow.appendChild(loLab); mixRow.appendChild(mixSlider); mixRow.appendChild(hiLab);
+
+  panel.appendChild(title); panel.appendChild(sub); panel.appendChild(score);
+  panel.appendChild(cardRow); panel.appendChild(hint); panel.appendChild(verdict);
+  panel.appendChild(btnRow); panel.appendChild(gameRow); panel.appendChild(optRow); panel.appendChild(mixRow);
+  panel.appendChild(tally); panel.appendChild(toolRow);
+  overlay.appendChild(panel); document.body.appendChild(overlay);
+
+  // 1-5 toggle the matching card, Enter checks then advances, F opens the full
+  // analysis, Esc closes. Everything else stays mouse-only on purpose — these
+  // are the four things you do on every single hand.
+  function onKey(e){
+    if(!overlay.parentNode) return;
+    if(e.metaKey || e.ctrlKey || e.altKey) return;
+    const k = e.key;
+    if(k >= '1' && k <= '5'){
+      const i = +k - 1;
+      if(!answered && qHand && i < qHand.length){ sfx.button(); held ^= (1 << i); paintCards(); }
+      e.preventDefault(); return;
+    }
+    if(k === 'Enter'){ sfx.button(); if(answered) nextQuestion(); else check(); e.preventDefault(); return; }
+    if(k === 'Escape'){ close(); e.preventDefault(); return; }
+    if(k === 'f' || k === 'F'){
+      if(answered && qHand){ fullBtn.click(); e.preventDefault(); }   // hidden, not removed
+      return;
+    }
+  }
+  document.addEventListener('keydown', onKey);
+
+  function close(){
+    if(trainWorker) trainWorker.postMessage({ cmd: 'stop' });
+    document.removeEventListener('keydown', onKey);
+    runId++;
+    if(overlay.parentNode) overlay.parentNode.removeChild(overlay);
+  }
+  closeBtn.addEventListener('click', () => { sfx.button(); close(); });
+  overlay.addEventListener('click', e => { if(e.target === overlay) close(); });
+
+  function paintGameRow(){
+    gameRow.innerHTML = '';
+    const lab = document.createElement('span');
+    lab.style.cssText = 'font-size:11px;font-weight:bold;color:#c0c8d8;letter-spacing:1px;width:46px;';
+    lab.textContent = 'Game';
+    gameRow.appendChild(lab);
+    const b = document.createElement('button');
+    b.textContent = GAMES[gKey].name + ' — ' + GAMES[gKey].payTables[ptIdx].label;
+    b.style.cssText = [
+      'font-family:Arial,Helvetica,sans-serif','font-size:11px','font-weight:bold','letter-spacing:1px',
+      'text-transform:uppercase','padding:5px 12px','border-radius:6px','border:2px solid #3a5aaa',
+      'background:#1a2a60','color:#c0c8d8','cursor:pointer','touch-action:manipulation',
+    ].join(';');
+    b.addEventListener('click', () => { sfx.button(); pickTrainGame(); });
+    gameRow.appendChild(b);
+  }
+  // Two-step: game, then its pay tables. Choosing one rebinds everything and
+  // reloads that table's own record — progress is per game AND per pay table.
+  function pickTrainGame(){
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,5,25,0.9);display:flex;' +
+                       'align-items:center;justify-content:center;font-family:Arial,Helvetica,sans-serif;';
+    const pn = document.createElement('div');
+    pn.style.cssText = 'background:linear-gradient(180deg,#0d2255,#091840);border:2px solid #2a4a9a;' +
+                       'border-radius:14px;padding:14px 16px;width:min(440px,94vw);max-height:88vh;' +
+                       'overflow-y:auto;display:flex;flex-direction:column;gap:6px;';
+    const shut = () => ov.remove();
+    const head = t => {
+      const h = document.createElement('div');
+      h.style.cssText = 'text-align:center;font-size:14px;font-weight:bold;color:#f0c040;letter-spacing:2px;text-transform:uppercase;';
+      h.textContent = t; return h;
+    };
+    const opt = (txt, on, fn) => {
+      const b = document.createElement('button');
+      b.textContent = txt;
+      b.style.cssText = [
+        'font-family:Arial,Helvetica,sans-serif','font-size:12px','font-weight:bold','text-align:left',
+        'padding:8px 12px','border-radius:8px','cursor:pointer','touch-action:manipulation',
+        on ? 'background:linear-gradient(180deg,#c89a20,#a07a10);border:2px solid #f0c040;color:#000'
+           : 'background:#1a2a60;border:2px solid #3a5aaa;color:#e0e8f8',
+      ].join(';');
+      b.addEventListener('click', () => { sfx.button(); fn(); });
+      return b;
+    };
+    const tables = g => {
+      pn.innerHTML = '';
+      pn.appendChild(head(GAMES[g].name));
+      GAMES[g].payTables.forEach((pt, i) => pn.appendChild(opt(pt.label, g === gKey && i === ptIdx, () => {
+        shut();
+        gKey = g; ptIdx = i;
+        cfg = STRAT_CFG[gKey]; gameRows = GAMES[gKey].payTables[ptIdx].rows;
+        qHand = null; reviewing = false; strat = null;
+        sub.textContent = 'Loading strategy…';
+        paintGameRow();
+        loadStrategy(stratKeyFor(gKey, ptIdx)).then(st => {
+          if(!st){ sub.textContent = 'No strategy table for this pay table.'; return; }
+          strat = st;
+          if(level !== 'full' && !strat.simplified[level]) level = 'full';
+          rec = trainLoad(gKey, ptIdx, level);
+          paintLevels(); startFactory(); paintAll();
+        });
+      })));
+      pn.appendChild(opt('‹ Back', false, list));
+    };
+    const list = () => {
+      pn.innerHTML = '';
+      pn.appendChild(head('Train on which game'));
+      GAME_KEYS.forEach(g => pn.appendChild(opt(GAMES[g].name, g === gKey, () => tables(g))));
+      pn.appendChild(opt('Cancel', false, shut));
+    };
+    list();
+    ov.addEventListener('click', e => { if(e.target === ov) shut(); });
+    ov.appendChild(pn); document.body.appendChild(ov);
+  }
+
+  function paintLevels(){
+    optRow.innerHTML = '';
+    const lab = document.createElement('span');
+    lab.style.cssText = 'font-size:11px;font-weight:bold;color:#c0c8d8;letter-spacing:1px;width:46px;';
+    lab.textContent = 'Level';
+    optRow.appendChild(lab);
+    STRAT_LEVELS.filter(([v]) => v === 'full' || (strat && strat.simplified[v])).forEach(([v, label]) => {
+      const b = document.createElement('button');
+      b.textContent = label;
+      const on = v === level;
+      b.style.cssText = [
+        'font-family:Arial,Helvetica,sans-serif','font-size:11px','font-weight:bold','letter-spacing:1px',
+        'text-transform:uppercase','padding:5px 10px','border-radius:6px','cursor:pointer','touch-action:manipulation',
+        on ? 'background:linear-gradient(180deg,#c89a20,#a07a10);border:2px solid #f0c040;color:#000'
+           : 'background:#1a2a60;border:2px solid #3a5aaa;color:#c0c8d8',
+      ].join(';');
+      b.addEventListener('click', () => {
+        if(v === level) return;
+        sfx.button(); level = v;
+        rec = trainLoad(gKey, ptIdx, level);
+        reviewing = false; qHand = null;
+        startFactory(); paintLevels(); paintAll();
+      });
+      optRow.appendChild(b);
+    });
+  }
+
+  function startFactory(){
+    lines = stratLines(strat, level);
+    rankMap = stratRankMap(strat, level);
+    buckets = lines.map(() => []);
+    counts = lines.map(() => 0);
+    dealt = 0; factoryDone = false;
+    const my = ++runId;
+    if(!trainWorker){
+      const blob = new Blob([trainWorkerSource()], { type: 'text/javascript' });
+      trainWorker = new Worker(URL.createObjectURL(blob));
+    }
+    trainWorker.onmessage = e => {
+      const m = e.data;
+      if(m.run !== my || my !== runId) return;
+      for(const b of m.batch) if(buckets[b.L]) buckets[b.L].push({ c: b.c, g: b.g });
+      counts = m.counts; dealt = m.dealt; factoryDone = m.done;
+      if(!qHand) nextQuestion(); else paintTally();
+    };
+    trainWorker.postMessage({ cmd: 'train', run: my, cfgSrc: cfgSource(cfg),
+                              joker: !!GAMES[gKey].joker, rank: rankMap,
+                              nLines: lines.length, want: 40 });
+  }
+
+  const idOf = L => (lines[L] && lines[L].ids && lines[L].ids[0]) || String(L);
+  const statOf = L => rec.per[idOf(L)] || { n: 0, ok: 0 };
+
+  function pickLine(){
+    const w = [], live = [];
+    for(let L = 0; L < lines.length; L++){
+      if(!buckets[L] || !buckets[L].length) continue;
+      const f = dealt ? Math.max(counts[L] / dealt, 1e-9) : 1e-9;
+      const st = statOf(L);
+      // frequency^(1-mix): 0 keeps the natural odds, 1 flattens them completely.
+      // A poor record on a line pulls it up further.
+      const missRate = st.n >= 3 ? 1 - st.ok / st.n : 0.25;
+      live.push(L); w.push(Math.pow(f, 1 - mix) * (1 + 2 * missRate));
+    }
+    if(!live.length) return -1;
+    let tot = 0; for(const x of w) tot += x;
+    let r = Math.random() * tot;
+    for(let i = 0; i < live.length; i++){ r -= w[i]; if(r <= 0) return live[i]; }
+    return live[live.length - 1];
+  }
+  function pickExample(L){
+    const b = buckets[L];
+    // sorted by how near the runner-up decision is, then drawn from the front:
+    // a question with no plausible wrong answer teaches nothing
+    b.sort((x, y) => x.g - y.g);
+    return b[Math.floor(Math.pow(Math.random(), 2) * b.length)];
+  }
+  function setHandFrom(cards){
+    qHand = cards.map(cardOf);
+    const ND = GAMES[gKey].joker ? 53 : 52;
+    qDeck = [];
+    for(let i = 0; i < ND; i++) if(cards.indexOf(i) < 0) qDeck.push(cardOf(i));
+    for(let i = qDeck.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = qDeck[i]; qDeck[i] = qDeck[j]; qDeck[j] = t;
+    }
+  }
+  function nextQuestion(){
+    answered = false; held = 0; lastWrong = false; verdict.innerHTML = '';
+    if(reviewing && reviewQueue.length){
+      setHandFrom(reviewQueue[0].c); paintAll(); return;
+    }
+    reviewing = reviewing && reviewQueue.length > 0;
+    const L = pickLine();
+    if(L < 0){ paintAll(); return; }
+    setHandFrom(pickExample(L).c);
+    paintAll();
+  }
+
+  function paintCards(){
+    cardRow.innerHTML = '';
+    if(!qHand) return;
+    qHand.forEach((c, i) => {
+      const on = !!(held & (1 << i));
+      const b = document.createElement('button');
+      const red = c.suit === '♥' || c.suit === '♦';
+      b.textContent = c.rank + c.suit;
+      b.style.cssText = [
+        'font-family:Arial,Helvetica,sans-serif','font-size:19px','font-weight:bold',
+        'padding:10px 12px','border-radius:6px','cursor:pointer','touch-action:manipulation',
+        'min-width:54px','background:' + (answered && !on ? '#33405e' : '#fff'),
+        'color:' + (answered && !on ? '#8899bb' : red ? '#c0392b' : '#1a1a1a'),
+        on ? 'border:2px solid #f0c040;outline:2px solid #f0c040' : 'border:2px solid #33405e',
+      ].join(';');
+      b.addEventListener('click', () => {
+        if(answered) return;
+        sfx.button(); held ^= (1 << i); paintCards();
+      });
+      cardRow.appendChild(b);
+    });
+  }
+  function paintScore(){
+    let n = 0, ok = 0;
+    for(const k in rec.per){ n += rec.per[k].n; ok += rec.per[k].ok; }
+    score.innerHTML = '<span style="color:#7ee08a">' + ok + ' correct</span>&nbsp;&nbsp; ' +
+      '<span style="color:#f09595">' + (n - ok) + ' missed</span>&nbsp;&nbsp; ' +
+      '<span style="color:#c0c8d8">' + (n ? Math.round(ok / n * 100) : 0) + '%</span>';
+  }
+  function paintTally(){
+    const prog = factoryDone ? '' :
+      '<div style="font-size:10px;color:#8899bb;text-align:center;margin-top:4px">' +
+      'building the training deck — ' + fmtInt(dealt) + ' hands dealt</div>';
+    const rs = [];
+    for(let L = 0; L < lines.length; L++){
+      const st = statOf(L);
+      if(st.n) rs.push({ L: L, n: st.n, ok: st.ok, r: st.ok / st.n });
+    }
+    rs.sort((a, b) => a.r - b.r || b.n - a.n);
+    const worst = rs.slice(0, 5);
+    if(!worst.length){ tally.innerHTML = prog; return; }
+    let h = '<table style="width:100%;font-size:11px;color:#c0c8d8;border-collapse:collapse;margin-top:6px">' +
+      '<tr style="color:#8899bb"><td>Weakest lines</td><td style="text-align:right">seen</td>' +
+      '<td style="text-align:right">right</td><td style="text-align:right">rate</td></tr>';
+    for(const x of worst){
+      const col = x.r < 0.5 ? '#f09595' : x.r < 0.85 ? '#f0c040' : '#7ee08a';
+      h += '<tr><td style="padding:2px 0"><span style="color:#8899bb">' + (x.L + 1) + '.</span> ' +
+           esc2(lines[x.L].label).slice(0, 42) + '</td>' +
+           '<td style="text-align:right">' + x.n + '</td><td style="text-align:right">' + x.ok + '</td>' +
+           '<td style="text-align:right;color:' + col + '">' + Math.round(x.r * 100) + '%</td></tr>';
+    }
+    tally.innerHTML = h + '</table>' + prog;
+  }
+  function paintAll(){
+    title.textContent = 'Training — ' + GAMES[gKey].name;
+    title.appendChild(betaTag());
+    sub.textContent = GAMES[gKey].payTables[ptIdx].label + '  ·  ' + stratLevelName(level) +
+                      (reviewing ? '  ·  replaying ' + reviewQueue.length + ' missed' : '');
+    hint.textContent = answered ? '' :
+      (qHand ? 'Tap the cards you would hold  ·  keys 1-5 hold, Enter checks' : 'Building the training deck…');
+    mainBtn.textContent = answered ? 'Next' : 'Check';
+    skipBtn.style.visibility = answered ? 'hidden' : 'visible';
+    fullBtn.style.visibility = answered ? 'visible' : 'hidden';
+    // offered the moment a miss is recorded, and on every reviewed hand
+    forgetBtn.style.visibility = (qHand && (reviewing || (answered && lastWrong))) ? 'visible' : 'hidden';
+    reviewBtn.textContent = reviewing ? 'Stop replay'
+      : 'Replay misses' + (rec.misses.length ? ' ' + rec.misses.length : '');
+    paintGameRow(); paintCards(); paintScore(); paintTally();
+  }
+
+  function check(){
+    if(!qHand || answered) return;
+    const book = bookPlay(qHand, strat, cfg, level);
+    if(!book) return;
+    answered = true;
+    const right = book.masks.indexOf(held) >= 0;
+    lastWrong = !right;
+    const id = idOf(book.rank);
+    const st = rec.per[id] || { n: 0, ok: 0 };
+    st.n++; if(right) st.ok++;
+    rec.per[id] = st;
+    if(reviewing && reviewQueue.length){
+      // a reviewed hand leaves the queue only once it is finally played right
+      if(right){
+        const done = reviewQueue.shift();
+        rec.misses = rec.misses.filter(x => String(x.c) !== String(done.c));
+      } else reviewQueue.push(reviewQueue.shift());
+    } else if(!right){
+      rec.misses.unshift({ c: qHand.map(cardIndex), u: held, b: book.mask, id: id });
+      if(rec.misses.length > 300) rec.misses.length = 300;
+    }
+    trainSave(gKey, ptIdx, level, rec);
+    paintAll();
+    showVerdict(right, book);
+  }
+
+  // which strategy line a given hold falls on, or -1 if the card never lists it
+  function lineOfMask(mask){
+    const h = [];
+    for(let i = 0; i < 5; i++) if(mask & (1 << i)) h.push(qHand[i]);
+    const r = rankMap[classifyHold(h, cfg)];
+    return r === undefined ? -1 : r;
+  }
+  // the next line down this hand could have been played on — the tempting
+  // wrong answer that was actually available
+  function nextLineDown(bookRank){
+    let best = 1e9;
+    const masks = [];
+    for(let m = 0; m < 32; m++){
+      const r = lineOfMask(m);
+      if(r > bookRank && r < best){ best = r; masks.length = 0; }
+      if(r === best) masks.push(m);
+    }
+    return best >= 1e9 ? null : { rank: best, masks: masks };
+  }
+
+  function showVerdict(right, book){
+    const nameOf = mask => qHand.filter((c, i) => mask & (1 << i)).map(c => c.rank + c.suit).join(' ') || 'nothing';
+    const lineTxt = r => 'line ' + (r + 1) + ', ' + esc2(lines[r] ? lines[r].label : '?');
+    const mine = lineOfMask(held);
+    const body = right
+      ? 'Line ' + (book.rank + 1) + ' — <span style="color:#7ee08a">' + esc2(book.label) + '</span>'
+      : 'Line ' + (book.rank + 1) + ' says <span style="color:#7ee08a">' + esc2(nameOf(book.mask)) +
+        '</span> — ' + esc2(book.label) + '<br>' +
+        'You held <span style="color:#f0c040">' + esc2(nameOf(held)) + '</span>' +
+        (mine >= 0 ? ', which is ' + lineTxt(mine) : ', which the card does not list');
+    const col = right ? '#7ee08a' : '#f09595';
+    const bg  = right ? '#153a20' : '#3a1520';
+    const brd = right ? '#3a8a4a' : '#a03a4a';
+    verdict.innerHTML =
+      '<div style="background:' + bg + ';border:1px solid ' + brd + ';border-radius:8px;padding:9px 12px">' +
+      '<div style="font-size:13px;font-weight:bold;color:' + col + ';margin-bottom:3px">' +
+      (right ? 'Correct — matches the card' : 'Not the book play') + '</div>' +
+      '<div class="tv-body" style="font-size:12px;color:#c0c8d8;line-height:1.6">' + body +
+      // the exact cost needs a full 32-hold EV pass (~2s); say so rather than
+      // letting the line appear out of nowhere a beat later
+      '<br><span style="color:#5a6a8a">working out what it cost…</span></div></div>';
+    const myHand = qHand, myHeld = held;
+    // Moving on before the cost lands is fine — the late result is dropped by
+    // the guard below. But two pricings can then be in flight at once, so the
+    // factory only starts dealing again when the last of them is done.
+    if(trainWorker && !factoryDone && evBusy === 0) trainWorker.postMessage({ cmd: 'pause' });
+    evBusy++;
+    const resume = () => {
+      if(--evBusy <= 0){
+        evBusy = 0;
+        if(trainWorker && !factoryDone) trainWorker.postMessage({ cmd: 'resume' });
+      }
+    };
+    analyzeHandAsync(qHand, qDeck, gKey, gameRows, 5).then(res => {
+      resume();
+      if(!answered || qHand !== myHand) return;
+      const evOf = m => { const r = res.find(x => x.mask === m); return r ? r.ev : null; };
+      const bestEV = res[0].ev, myEV = evOf(myHeld);
+      // A line can carry several holds of unequal value — "2 unsuited high
+      // cards" covers AQ, AK and QK. All count as correct, so the card's worth
+      // is the AVERAGE of them (which is how its return is scored), while a
+      // genuine exception means the best hold is on some OTHER line entirely.
+      // Comparing against one arbitrarily-chosen tied mask reports exceptions
+      // that are not there.
+      const tied = book.masks.map(evOf).filter(v => v !== null);
+      const bookAvg = tied.length ? tied.reduce((a2, b2) => a2 + b2, 0) / tied.length : null;
+      const bookMax = tied.length ? Math.max.apply(null, tied) : null;
+      let extra = '';
+      if(!right && myEV !== null && bookAvg !== null)
+        extra += '<br><span style="color:#8899bb">Cost: ' + (bookAvg - myEV).toFixed(3) + ' coins.</span>';
+      // On a correct answer, name what was passed over and what it would have
+      // cost — confirmation that the right play was reasoned, not lucky.
+      if(right && bookMax !== null){
+        const nd = nextLineDown(book.rank);
+        if(nd){
+          const evs = nd.masks.map(evOf).filter(v => v !== null);
+          const alt = evs.length ? Math.max.apply(null, evs) : null;
+          const best2 = nd.masks[evs.indexOf(alt)];
+          if(alt !== null)
+            extra += '<br><span style="color:#8899bb">Next line down was ' +
+              lineTxt(nd.rank) + ' (' + esc2(nameOf(best2)) + ') — ' +
+              (bookMax - alt).toFixed(3) + ' worse.</span>';
+        }
+      }
+      if(bookMax !== null && bestEV - bookMax > 1e-9)
+        extra += '<br><span style="color:#f0c040">Known exception:</span> ' +
+          '<span style="color:#8899bb">the analyzer prefers ' + esc2(nameOf(res[0].mask)) +
+          ', worth ' + (bestEV - bookMax).toFixed(3) + ' more. ' + stratLevelName(level) +
+          ' gives this up to stay short.</span>';
+      // right answer, but the line held a stronger member the card cannot name
+      else if(right && tied.length > 1 && myEV !== null && bookMax - myEV > 1e-9)
+        extra += '<br><span style="color:#8899bb">The card does not choose between these: ' +
+          esc2(nameOf(res[0].mask)) + ' is the strongest of them here, by ' +
+          (bookMax - myEV).toFixed(3) + '.</span>';
+      const el = verdict.querySelector('.tv-body');
+      if(el) el.innerHTML = body + extra;
+    }, resume);
+  }
+
+  mainBtn.addEventListener('click', () => { sfx.button(); if(answered) nextQuestion(); else check(); });
+  skipBtn.addEventListener('click', () => { sfx.button(); nextQuestion(); });
+  fullBtn.addEventListener('click', () => {
+    sfx.button();
+    const h = qHand.slice(), d = qDeck.slice();
+    close();
+    showAnalysis(h, d, { gameKey: gKey, onBack: () => showTraining() });
+  });
+  // A hand you fumbled by mistake should not be drilled forever. Drops it from
+  // the saved misses and from the review queue, and unwinds the mark against
+  // its line so the weighting is not skewed by the slip either.
+  forgetBtn.addEventListener('click', () => {
+    if(!qHand) return;
+    sfx.button();
+    const key = qHand.map(cardIndex).join(',');
+    rec.misses = rec.misses.filter(x => x.c.join(',') !== key);
+    reviewQueue = reviewQueue.filter(x => x.c.join(',') !== key);
+    if(answered && lastWrong){
+      const book = bookPlay(qHand, strat, cfg, level);
+      const st = book && rec.per[idOf(book.rank)];
+      if(st && st.n > 0) st.n--;
+    }
+    trainSave(gKey, ptIdx, level, rec);
+    reviewing = reviewing && reviewQueue.length > 0;
+    nextQuestion();
+  });
+
+  reviewBtn.addEventListener('click', () => {
+    sfx.button();
+    if(reviewing) reviewing = false;
+    else {
+      if(!rec.misses.length) return;
+      reviewQueue = rec.misses.slice(); reviewing = true;
+    }
+    qHand = null; nextQuestion();
+  });
+  resetBtn.addEventListener('click', () => {
+    sfx.button();
+    rec = { per: {}, misses: [] };
+    reviewing = false; reviewQueue = [];
+    trainSave(gKey, ptIdx, level, rec);
+    paintAll();
+  });
+
+  title.textContent = 'Training — ' + GAMES[gKey].name;
+  sub.textContent = 'Loading strategy…';
+  loadStrategy(stratKeyFor(gKey, ptIdx)).then(st => {
+    if(!st){ sub.textContent = 'No strategy table for this pay table.'; return; }
+    strat = st;
+    if(level !== 'full' && !strat.simplified[level]) level = 'full';
+    rec = trainLoad(gKey, ptIdx, level);
+    paintLevels(); startFactory(); paintAll();
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  TRAINING — deal factory
+// ════════════════════════════════════════════════════════════
+// Finding hands that exercise a chosen strategy line by dealing until one
+// turns up is hopeless for exactly the lines worth drilling: a 1-in-10,000
+// rule needs 10,000 deals per question. Three things fix that.
+//
+//   BUCKET-FILL   Do not hunt one line. Deal a stream and file every hand
+//                 into its own line's bucket, so all of them fill at once.
+//   MUTATE        When a bucket is thin, stop dealing blind: take an example
+//                 already in it and swap ONE card. That walks the neighbourhood
+//                 of the pattern instead of the whole deck, and lands on hands
+//                 a single card away from a different decision — which is
+//                 precisely the hand worth being asked.
+//   GAP           The same 32-mask scan that finds the book line also yields
+//                 the runner-up, free. Stored per example so questions can
+//                 favour the ones where a plausible wrong answer is available.
+//
+// Frequencies are counted from RANDOM deals only — mutations are deliberately
+// biased, so letting them vote would corrupt the difficulty weighting.
+// Progress is keyed by the line's FIRST PATTERN ID rather than its position,
+// because positions shift whenever the strategy tables are regenerated and a
+// player's record should survive that.
+function trainKey(gKey, ptIdx, lvl){ return 'vp-train-' + gKey + ':' + ptIdx + ':' + lvl; }
+// The question mix is a preference, not progress: one setting for all games,
+// remembered across sessions.
+function trainMixLoad(){
+  try {
+    const v = parseFloat(localStorage.getItem('vp-train-mix'));
+    if(v >= 0 && v <= 1) return v;
+  } catch(err){ /* unavailable — fall through to the default */ }
+  return 0.55;
+}
+function trainMixSave(v){
+  try { localStorage.setItem('vp-train-mix', String(v)); } catch(err){ /* nothing to do */ }
+}
+function trainLoad(gKey, ptIdx, lvl){
+  try {
+    const raw = localStorage.getItem(trainKey(gKey, ptIdx, lvl));
+    const o = raw ? JSON.parse(raw) : null;
+    if(o && o.per && o.misses) return o;
+  } catch(err){ /* corrupt or unavailable — start clean */ }
+  return { per: {}, misses: [] };
+}
+function trainSave(gKey, ptIdx, lvl, rec){
+  try { localStorage.setItem(trainKey(gKey, ptIdx, lvl), JSON.stringify(rec)); }
+  catch(err){ /* quota or private mode — training still works, it just forgets */ }
+}
+
+function trainWorkerSource(){
+  return workerCommonSource() + `
+let running = false, paused = false;
+self.onmessage = e => {
+  const m = e.data;
+  if(m.cmd === 'stop'){ running = false; return; }
+  // The EV pass behind a verdict shares the same cores. Dealing flat out
+  // alongside it stretched a 1.7s answer to 3.7s, so the factory stands down
+  // while the player is reading and picks up again on the next question.
+  if(m.cmd === 'pause'){ paused = true; return; }
+  if(m.cmd === 'resume'){ paused = false; return; }
+  if(m.cmd !== 'train') return;
+  running = true;
+  paused = false;
+  const cfg  = new Function('return (' + m.cfgSrc + ')')();
+  const rank = m.rank, nL = m.nLines, want = m.want || 60;
+  const deck = []; for(const s of SUITS) for(const r of RANKS) deck.push({ rank: r, suit: s });
+  if(m.joker) deck.push({ rank: 'JOKER', suit: '\u2605', joker: true });
+  const ND = deck.length;
+  const bag = new Int32Array(ND); for(let i = 0; i < ND; i++) bag[i] = i;
+  const hand = new Array(5), heldBuf = [];
+  const counts = new Float64Array(nL), have = new Int32Array(nL);
+  const seeds = []; for(let i = 0; i < nL; i++) seeds.push([]);
+  let dealt = 0, batch = [];
+
+  // lowest and second-lowest line this hand can reach
+  const lines2 = () => {
+    let b1 = 1e9, b2 = 1e9;
+    for(let mask = 0; mask < 32; mask++){
+      heldBuf.length = 0;
+      for(let i = 0; i < 5; i++) if(mask & (1 << i)) heldBuf.push(hand[i]);
+      const r = rank[classifyHold(heldBuf, cfg)];
+      if(r === undefined) continue;
+      if(r < b1){ b2 = b1; b1 = r; }
+      else if(r > b1 && r < b2) b2 = r;
+    }
+    return [b1, b2];
+  };
+  const dealRandom = () => {
+    for(let i = 0; i < 5; i++){
+      const j = i + Math.floor(Math.random() * (ND - i));
+      const t = bag[i]; bag[i] = bag[j]; bag[j] = t;
+    }
+    return [bag[0], bag[1], bag[2], bag[3], bag[4]];
+  };
+  const mutate = seed => {
+    const c = seed.slice(), p = Math.floor(Math.random() * 5);
+    let n; do { n = Math.floor(Math.random() * ND); } while(c.indexOf(n) >= 0);
+    c[p] = n; return c;
+  };
+  // the emptiest bucket that has something to mutate from
+  const starving = () => {
+    let bestL = -1, bestN = 1e9;
+    for(let L = 0; L < nL; L++)
+      if(have[L] < want && seeds[L].length && have[L] < bestN){ bestN = have[L]; bestL = L; }
+    return bestL;
+  };
+  // A line that never turns up after this many deals is one the ordering can
+  // never actually reach, not one that is merely rare — stop waiting for it.
+  const UNREACHABLE = 400000;
+  // Hard ceiling on the whole job. Examples are reused rather than consumed,
+  // so a bucket never drains and there is nothing to gain from dealing for
+  // ever — while the CPU it costs is paid on every answer the player waits for.
+  const BUDGET = 1500000;
+  const allFull = () => {
+    if(dealt > BUDGET) return true;
+    for(let L = 0; L < nL; L++){
+      if(have[L] >= want) continue;
+      if(have[L] === 0 && dealt > UNREACHABLE) continue;
+      return false;
+    }
+    return true;
+  };
+
+  const step = () => {
+    if(paused && running){ setTimeout(step, 120); return; }
+    const t0 = Date.now();
+    let i = 0, starve = starving();
+    while(running && !paused && Date.now() - t0 < 40){
+      const useSeed = starve >= 0 && Math.random() < 0.6;
+      const c = useSeed ? mutate(seeds[starve][Math.floor(Math.random() * seeds[starve].length)])
+                        : dealRandom();
+      for(let k = 0; k < 5; k++) hand[k] = deck[c[k]];
+      const lr = lines2(), L = lr[0];
+      if(L < 1e9){
+        if(!useSeed){ counts[L]++; dealt++; }
+        if(seeds[L].length < 8) seeds[L].push(c);
+        if(have[L] < want){
+          have[L]++;
+          batch.push({ L: L, g: lr[1] >= 1e9 ? 99 : lr[1] - L, c: c });
+        }
+      }
+      if((++i & 255) === 0) starve = starving();
+    }
+    const done = !running || allFull();
+    self.postMessage({ run: m.run, train: true, done: done, dealt: dealt, paused: paused,
+                       counts: Array.from(counts), have: Array.from(have), batch: batch });
+    batch = [];
+    if(!done) setTimeout(step, 0);
+  };
+  step();
+};`;
+}
+
 function simWorkerSource(){
   return workerCommonSource() + `
 let running = false;
@@ -5385,6 +6110,7 @@ self.onmessage = e => {
   const pays    = m.pays;                  // coins paid per hand category (5-coin bet)
   const rankSel = m.rankSel, rankFull = m.rankFull;
   const target  = m.target;                // 0 = run until stopped
+  const BETC    = m.bet || 5;              // coins wagered per hand
   const deck = []; for(const s of SUITS) for(const r of RANKS) deck.push({ rank: r, suit: s });
   if(m.joker) deck.push({ rank: 'JOKER', suit: '★', joker: true });
   const ND = deck.length;
@@ -5440,20 +6166,102 @@ self.onmessage = e => {
     pending = [];
     if(!done) setTimeout(step, 0);
   };
+
+  // ── Multiple short runs ──────────────────────────────────────────────
+  // Each run is a fresh session: net credits start at zero and the run ends
+  // after its hand count, or early if the SELECTED strategy's losses reach the
+  // bankroll. Full plays the same dealt hands throughout, so the two curves
+  // always cover the same span and stay comparable. Paths are thinned to pts
+  // points on the way out — the graph cannot draw more than that, and 2,000
+  // runs of raw per-hand data would be tens of megabytes.
+  if(m.cmd === 'multi'){
+    const wanted = m.runs, per = m.hands, bank = m.bankroll || 0, winStop = m.winStop || 0;
+    const stepN = Math.max(1, Math.ceil(per / (m.pts || 512)));
+    // categories paying better than 50-to-1 — counted per run so a session can
+    // be read against the jackpots that actually drove it
+    const bigIdx = m.bigIdx || [], bigPos = {};
+    for(let i = 0; i < bigIdx.length; i++) bigPos[bigIdx[i]] = i;
+    let ri = 0;
+    const stepMulti = () => {
+      const t0 = Date.now(), batch = [];
+      while(running && ri < wanted && Date.now() - t0 < 60){
+        let ns = 0, nf = 0, mnS = 0, mxS = 0, mnF = 0, mxF = 0, h = 0, end = 0;
+        const pS = [], pF = [], bg = new Array(bigIdx.length).fill(0);
+        while(h < per){
+          for(let i = 0; i < 10; i++){ const j = i + Math.floor(Math.random() * (ND - i)); const t = deck[i]; deck[i] = deck[j]; deck[j] = t; }
+          for(let i = 0; i < 5; i++) hand[i] = deck[i];
+          let bestS = Infinity, bestF = Infinity, mS = 0, mF = 0, tS = 0, tF = 0;
+          for(let mask = 0; mask < 32; mask++){
+            heldBuf.length = 0;
+            for(let i = 0; i < 5; i++) if(mask & (1 << i)) heldBuf.push(hand[i]);
+            const id = classifyHold(heldBuf, cfg);
+            const rs = rankSel[id];
+            if(rs !== undefined){
+              if(rs < bestS){ bestS = rs; mS = mask; tS = 1; }
+              else if(rs === bestS && Math.random() * ++tS < 1) mS = mask;
+            }
+            const rf = rankFull[id];
+            if(rf !== undefined){
+              if(rf < bestF){ bestF = rf; mF = mask; tF = 1; }
+              else if(rf === bestF && Math.random() * ++tF < 1) mF = mask;
+            }
+          }
+          const cS = play(mS), cF = play(mF);
+          cntSel[cS]++; cntFull[cF]++;
+          if(bigPos[cS] !== undefined) bg[bigPos[cS]]++;
+          ns += pays[cS] - BETC; nf += pays[cF] - BETC;
+          h++;
+          if(ns < mnS) mnS = ns; if(ns > mxS) mxS = ns;
+          if(nf < mnF) mnF = nf; if(nf > mxF) mxF = nf;
+          if(h % stepN === 0){ pS.push(ns); pF.push(nf); }
+          // 1 = lost the bankroll, 2 = hit the walk-away figure
+          if(bank && ns <= -bank){ end = 1; break; }
+          if(winStop && ns >= winStop){ end = 2; break; }
+        }
+        if(h % stepN !== 0){ pS.push(ns); pF.push(nf); }   // always land on the last hand
+        batch.push({ h: h, fS: ns, mnS: mnS, mxS: mxS, fF: nf, mnF: mnF, mxF: mxF, end: end, bg: bg, pS: pS, pF: pF });
+        ri++;
+      }
+      const done = !running || ri >= wanted;
+      self.postMessage({ run: m.run, multi: true, done: done, ri: ri, wanted: wanted, stepN: stepN,
+                         batch: batch, cntSel: Array.from(cntSel), cntFull: Array.from(cntFull) });
+      if(!done) setTimeout(stepMulti, 0);
+    };
+    stepMulti();
+    return;
+  }
   step();
 };`;
 }
 
 let simWorker = null;
 
+// Strategy output is still being tuned, so every window that shows it says so.
+// Appended to the title: small, muted, and never over a control.
+function betaTag(){
+  const s = document.createElement('span');
+  s.textContent = 'BETA';
+  s.style.cssText = 'font-size:9px;font-weight:normal;letter-spacing:1px;color:#6a86c0;' +
+                    'margin-left:8px;vertical-align:2px;text-transform:none;';
+  return s;
+}
+
 function showSimulator(){
   sfx.button();
-  const gKey   = currentGame;
-  const rows   = curPayRows();
-  const key    = stratKeyFor();
-  const cfg    = STRAT_CFG[gKey];
-  const BET    = 5;
-  const pays   = rows.map(r => r.pays[BET - 1]);
+  // Game and pay table are simulator-LOCAL: switching them here studies another
+  // machine without disturbing the hand in progress on the main screen.
+  const BET = 5;
+  let gKey = currentGame, simPay = payIdxOf(currentGame);
+  let rows, key, cfg, pays, bigIdx;
+  function bindGame(){
+    rows = GAMES[gKey].payTables[simPay].rows;
+    key  = stratKeyFor(gKey, simPay);
+    cfg  = STRAT_CFG[gKey];
+    pays = rows.map(r => r.pays[BET - 1]);
+    // hands paying better than 50-to-1 per coin — the jackpots worth counting
+    bigIdx = pays.map((p, i) => i).filter(i => pays[i] / BET > 50 && rows[i].name !== 'Nothing');
+  }
+  bindGame();
 
   // ── Overlay / panel ────────────────────────────────────────
   const overlay = document.createElement('div');
@@ -5469,15 +6277,23 @@ function showSimulator(){
     'border:2px solid #2a4a9a','border-radius:14px',
     'box-shadow:0 0 30px rgba(20,60,180,0.6)',
     'padding:14px 16px','width:min(760px,96vw)',
-    'max-height:92vh','display:flex','flex-direction:column','gap:8px','overflow:hidden',
+    // The panel itself scrolls, so Start and Close stay reachable on a short
+    // landscape phone where the option rows alone are taller than the screen.
+    'max-height:92vh','display:flex','flex-direction:column','gap:8px',
+    'overflow-y:auto','-webkit-overflow-scrolling:touch',
   ].join(';');
 
   const title = document.createElement('div');
   title.style.cssText = 'text-align:center;font-size:15px;font-weight:bold;color:#f0c040;letter-spacing:2px;text-transform:uppercase;flex-shrink:0;';
-  title.textContent = 'Strategy Simulator — ' + curGame().name;
+  title.textContent = 'Strategy Simulator';
   const sub = document.createElement('div');
   sub.style.cssText = 'text-align:center;font-size:11px;color:#8899bb;flex-shrink:0;';
-  sub.textContent = curGame().payTables[payTableIdx].label + '  ·  max coins (5)';
+  function paintHeader(){
+    title.textContent = 'Strategy Simulator — ' + GAMES[gKey].name;
+    title.appendChild(betaTag());
+    sub.textContent = GAMES[gKey].payTables[simPay].label + '  ·  max coins (5)';
+  }
+  paintHeader();
 
   // choice-row builder (same look as the Strategy Guide level buttons)
   const mkRow = (label, options, getVal, setVal, live = false) => {
@@ -5517,19 +6333,42 @@ function showSimulator(){
   };
 
   // ── Run state ──────────────────────────────────────────────
-  let mode     = 'fast';          // 'fast' | 'verify'
+  let mode     = 'fast';          // 'fast' | 'verify' | 'multi'
   let graphY   = 'payback';       // y axis: 'payback' (% of coins in) | 'credits' (net won/lost)
   let simLevel = stratLevel;      // level under test (local to the simulator)
   let target   = 100000;
   let running  = false;
   let strat    = null;
 
+  // ── Multiple-run state ─────────────────────────────────────────────
+  // MAX_RUNS is a memory budget, not an arbitrary limit: each run keeps two
+  // credit paths thinned to PATH_PTS points as Int32Arrays, so 2,000 runs is
+  // 2000 × 2 × 512 × 4 ≈ 8 MB. Run TIME is the real ceiling long before that.
+  const MAX_RUNS = 2000, PATH_PTS = 512;
+  let runCount  = 250;
+  let bankroll  = 0;              // 0 = no bankroll, run always plays out
+  let winStop   = 0;              // 0 = never walk away on a win
+  let collapsed = false;          // options folded to one line once a run lands
+  let tgtHigh   = 500, tgtLow = -500;
+  let multi     = null;           // {runs:[], stepN, hands, done} once started
+  let multiView = -1;             // -1 = summary, else index of the run shown
+  // Browsing order: null walks the runs as they were played; otherwise a
+  // ranked shortlist (best-first or worst-first) that the arrows step through.
+  let browseList = null, browsePos = 0, browseLabel = '';
+  const SHORTLIST = 50;
+
   const FAST_TARGETS   = [[10000,'10,000'], [100000,'100,000'], [1000000,'1,000,000'], [0,'Unlimited']];
   const VERIFY_TARGETS = [[25,'25'], [100,'100'], [500,'500'], [0,'Unlimited']];
+  const MULTI_TARGETS  = [[250,'250'], [500,'500'], [750,'750'], [1000,'1,000']];
+  const RUN_COUNTS     = [[100,'100'], [250,'250'], [500,'500'], [1000,'1,000']];
   let customTarget = null;   // remembered so the Custom button keeps its label
 
-  const modeRow  = mkRow('Mode', [['fast','Fast Play'], ['verify','Verify vs Analyzer']],
-                         () => mode, v => { mode = v; target = v === 'fast' ? 100000 : 100; rebuildTargetRow(); resetResults(); });
+  const modeRow  = mkRow('Mode', [['fast','Fast Play'], ['verify','Verify vs Analyzer'], ['multi','Multiple Runs']],
+                         () => mode, v => {
+                           mode = v;
+                           target = v === 'fast' ? 100000 : v === 'multi' ? 1000 : 100;
+                           rebuildTargetRow(); syncRows(); resetResults();
+                         });
   const levelRow = mkRow('Level', STRAT_LEVELS, () => simLevel, v => { simLevel = v; resetResults(); });
   let targetRow  = null;
   const targetSlot = document.createElement('div');
@@ -5537,37 +6376,271 @@ function showSimulator(){
   const CUSTOM = -1;   // sentinel: the button opens the number pad
   function rebuildTargetRow(){
     targetSlot.innerHTML = '';
-    const presets = mode === 'fast' ? FAST_TARGETS : VERIFY_TARGETS;
+    const presets = mode === 'fast' ? FAST_TARGETS : mode === 'multi' ? MULTI_TARGETS : VERIFY_TARGETS;
     const custLabel = customTarget ? customTarget.toLocaleString() + ' ✎' : 'Custom…';
-    targetRow = mkRow('Hands', presets.concat([[CUSTOM, custLabel]]),
+    targetRow = mkRow(mode === 'multi' ? 'Hands/run' : 'Hands', presets.concat([[CUSTOM, custLabel]]),
       // the Custom button reads as selected whenever target is the custom value
       () => (customTarget && target === customTarget) ? CUSTOM : target,
       v => {
-        if(v !== CUSTOM){ target = v; return; }
-        const max = mode === 'fast' ? 100000000 : 100000;
+        if(v !== CUSTOM){ target = v; estimate(); return; }
+        const max = mode === 'fast' ? 100000000 : mode === 'multi' ? 10000 : 100000;
         showNumPad({ title: 'Number of Hands', initial: customTarget || target || 50000,
                      min: 1, max, hint: `1 to ${max.toLocaleString()}` }).then(nn => {
           if(nn === null) return;
           customTarget = nn; target = nn;
-          rebuildTargetRow();
+          rebuildTargetRow(); estimate();
         });
       });
     targetSlot.appendChild(targetRow);
   }
   rebuildTargetRow();
 
+  // ── Multiple-run rows (hidden unless that mode is picked) ──
+  let customRuns = null;
+  const runSlot = document.createElement('div');
+  runSlot.style.cssText = 'flex-shrink:0;';
+  function rebuildRunRow(){
+    runSlot.innerHTML = '';
+    const lbl = customRuns ? customRuns.toLocaleString() + ' ✎' : 'Custom…';
+    const row = mkRow('Runs', RUN_COUNTS.concat([[CUSTOM, lbl]]),
+      () => (customRuns && runCount === customRuns) ? CUSTOM : runCount,
+      v => {
+        if(v !== CUSTOM){ runCount = v; estimate(); return; }
+        showNumPad({ title: 'Number of Runs', initial: customRuns || runCount,
+                     min: 1, max: MAX_RUNS, hint: '1 to ' + MAX_RUNS.toLocaleString() }).then(nn => {
+          if(nn === null) return;
+          customRuns = nn; runCount = nn; rebuildRunRow(); estimate();
+        });
+      });
+    runSlot.appendChild(row);
+  }
+  rebuildRunRow();
+
+  let customBank = null;
+  const bankSlot = document.createElement('div');
+  bankSlot.style.cssText = 'flex-shrink:0;';
+  function rebuildBankRow(){
+    bankSlot.innerHTML = '';
+    const lbl = customBank ? customBank.toLocaleString() + ' ✎' : 'Custom…';
+    // Credits, not dollars, and every hand stakes 5 of them — so 200 buys only
+    // 40 hands. These are session-sized: 800 is 160 hands, 2,000 is 400.
+    const row = mkRow('Bankroll', [[0,'None'], [800,'800'], [1200,'1,200'], [2000,'2,000'], [CUSTOM, lbl]],
+      () => (customBank && bankroll === customBank) ? CUSTOM : bankroll,
+      v => {
+        if(v !== CUSTOM){ bankroll = v; estimate(); return; }
+        showNumPad({ title: 'Bankroll (credits)', initial: customBank || 1200,
+                     min: 5, max: 1000000, hint: 'a run stops if it loses this much' }).then(nn => {
+          if(nn === null) return;
+          customBank = nn; bankroll = nn; rebuildBankRow(); estimate();
+        });
+      });
+    bankSlot.appendChild(row);
+  }
+  rebuildBankRow();
+
+  // High/low targets: editable before the run and again afterwards, since the
+  // counts they drive are recomputed from stored per-run figures, not measured
+  // during play.
+  const tgtRow = document.createElement('div');
+  tgtRow.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex-shrink:0;';
+  function paintTargets(){
+    tgtRow.innerHTML = '';
+    const lab = document.createElement('span');
+    lab.style.cssText = 'font-size:11px;font-weight:bold;color:#c0c8d8;letter-spacing:1px;width:58px;';
+    lab.textContent = 'Targets';
+    tgtRow.appendChild(lab);
+    const mk = (txt, val, color, set, lo) => {
+      const cap = document.createElement('span');
+      cap.style.cssText = 'font-size:11px;color:#8899bb;';
+      cap.textContent = txt;
+      tgtRow.appendChild(cap);
+      const b = document.createElement('button');
+      b.textContent = (val > 0 ? '+' : val < 0 ? '−' : '') + Math.abs(val).toLocaleString();
+      b.style.cssText = [
+        'font-family:Arial,Helvetica,sans-serif','font-size:11px','font-weight:bold','padding:5px 12px',
+        'border-radius:6px','border:2px solid #3a5aaa','background:#091840','cursor:pointer',
+        'touch-action:manipulation','color:' + color,
+      ].join(';');
+      b.addEventListener('click', () => {
+        sfx.button();
+        showNumPad({ title: lo ? 'Low target (credits lost)' : 'High target (credits won)',
+                     initial: Math.abs(val), min: 0, max: 10000000,
+                     hint: lo ? 'counted as a loss of this much' : 'counted as a win of this much' }).then(nn => {
+          if(nn === null) return;
+          set(lo ? -nn : nn); paintTargets();
+          if(multi) renderMulti();          // counts refresh without replaying
+        });
+      });
+      tgtRow.appendChild(b);
+    };
+    mk('high', tgtHigh, '#7ee08a', v => { tgtHigh = v; }, false);
+    mk('low',  tgtLow,  '#f09595', v => { tgtLow  = v; }, true);
+  }
+  paintTargets();
+
+  // ── Stop if won (mirror of the bankroll, on the winning side) ──
+  let customWin = null;
+  const winSlot = document.createElement('div');
+  winSlot.style.cssText = 'flex-shrink:0;';
+  function rebuildWinRow(){
+    winSlot.innerHTML = '';
+    const lbl = customWin ? customWin.toLocaleString() + ' ✎' : 'Custom…';
+    const row = mkRow('Stop if won', [[0,'None'], [800,'800'], [1200,'1,200'], [2000,'2,000'], [CUSTOM, lbl]],
+      () => (customWin && winStop === customWin) ? CUSTOM : winStop,
+      v => {
+        if(v !== CUSTOM){ winStop = v; estimate(); return; }
+        showNumPad({ title: 'Walk away at (credits won)', initial: customWin || 1200,
+                     min: 5, max: 1000000, hint: 'a run stops once it is up this much' }).then(nn => {
+          if(nn === null) return;
+          customWin = nn; winStop = nn; rebuildWinRow(); estimate();
+        });
+      });
+    winSlot.appendChild(row);
+  }
+  rebuildWinRow();
+
+  // ── Game / pay table, local to the simulator ──────────────
+  const gameSlot = document.createElement('div');
+  gameSlot.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex-shrink:0;';
+  function paintGameRow(){
+    gameSlot.innerHTML = '';
+    const lab = document.createElement('span');
+    lab.style.cssText = 'font-size:11px;font-weight:bold;color:#c0c8d8;letter-spacing:1px;width:58px;';
+    lab.textContent = 'Game';
+    gameSlot.appendChild(lab);
+    const b = document.createElement('button');
+    b.textContent = GAMES[gKey].name + ' — ' + GAMES[gKey].payTables[simPay].label;
+    b.style.cssText = [
+      'font-family:Arial,Helvetica,sans-serif','font-size:11px','font-weight:bold','letter-spacing:1px',
+      'text-transform:uppercase','padding:5px 12px','border-radius:6px','border:2px solid #3a5aaa',
+      'background:#1a2a60','color:#c0c8d8','cursor:pointer','touch-action:manipulation',
+    ].join(';');
+    b.addEventListener('click', () => { if(running) return; sfx.button(); pickSimGame(); });
+    gameSlot.appendChild(b);
+  }
+  paintGameRow();
+
+  // Two-step picker: games, then that game's pay tables. Choosing one rebinds
+  // the simulator and clears any results, which belong to the old machine.
+  function pickSimGame(){
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,5,25,0.9);display:flex;' +
+                       'align-items:center;justify-content:center;font-family:Arial,Helvetica,sans-serif;';
+    const pn = document.createElement('div');
+    pn.style.cssText = 'background:linear-gradient(180deg,#0d2255,#091840);border:2px solid #2a4a9a;' +
+                       'border-radius:14px;padding:14px 16px;width:min(460px,94vw);max-height:88vh;' +
+                       'overflow-y:auto;display:flex;flex-direction:column;gap:6px;';
+    const close = () => ov.remove();
+    const head = (t) => {
+      const h = document.createElement('div');
+      h.style.cssText = 'text-align:center;font-size:14px;font-weight:bold;color:#f0c040;letter-spacing:2px;text-transform:uppercase;';
+      h.textContent = t; return h;
+    };
+    const opt = (txt, on, fn) => {
+      const b = document.createElement('button');
+      b.textContent = txt;
+      b.style.cssText = [
+        'font-family:Arial,Helvetica,sans-serif','font-size:12px','font-weight:bold','text-align:left',
+        'padding:8px 12px','border-radius:8px','cursor:pointer','touch-action:manipulation',
+        on ? 'background:linear-gradient(180deg,#c89a20,#a07a10);border:2px solid #f0c040;color:#000'
+           : 'background:#1a2a60;border:2px solid #3a5aaa;color:#e0e8f8',
+      ].join(';');
+      b.addEventListener('click', () => { sfx.button(); fn(); });
+      return b;
+    };
+    const tables = g => {
+      pn.innerHTML = '';
+      pn.appendChild(head(GAMES[g].name));
+      GAMES[g].payTables.forEach((pt, i) => pn.appendChild(opt(pt.label, g === gKey && i === simPay, () => {
+        gKey = g; simPay = i;
+        bindGame(); paintHeader(); paintGameRow();
+        strat = null; resetResults();
+        loadStrategy(key).then(st => { strat = st; if(levelRow.refresh) levelRow.refresh(); estimate(); });
+        close();
+      })));
+      pn.appendChild(opt('‹ Back', false, list));
+    };
+    const list = () => {
+      pn.innerHTML = '';
+      pn.appendChild(head('Simulate which game'));
+      GAME_KEYS.forEach(g => pn.appendChild(opt(GAMES[g].name, g === gKey, () => tables(g))));
+      pn.appendChild(opt('Cancel', false, close));
+    };
+    list();
+    ov.addEventListener('click', e => { if(e.target === ov) close(); });
+    ov.appendChild(pn); document.body.appendChild(ov);
+  }
+
+  const estLine = document.createElement('div');
+  estLine.style.cssText = 'font-size:11px;color:#8899bb;text-align:center;flex-shrink:0;';
+  function estimate(){
+    if(mode !== 'multi'){ estLine.textContent = ''; return; }
+    const total = runCount * target;
+    const secs = Math.round(total / 20000);
+    estLine.textContent = runCount.toLocaleString() + ' runs × ' + target.toLocaleString() +
+      ' hands = ' + total.toLocaleString() + ' hands' +
+      (secs >= 1 ? '  ·  roughly ' + (secs < 60 ? secs + 's' : Math.round(secs / 60) + ' min') : '') +
+      (bankroll ? '  ·  bankroll ' + bankroll.toLocaleString() : '') +
+      (winStop ? '  ·  stop at +' + winStop.toLocaleString() : '');
+  }
+  // Once results are on screen the controls have done their job, so they fold
+  // into a single line and hand the space to the graph. CHANGE brings them back.
+  const foldLine = document.createElement('div');
+  foldLine.style.cssText = 'display:none;align-items:center;justify-content:center;gap:10px;' +
+                           'flex-wrap:wrap;flex-shrink:0;font-size:11px;color:#c0c8d8;';
+  function paintFold(){
+    foldLine.innerHTML = '';
+    const txt = document.createElement('span');
+    const bits = [GAMES[gKey].payTables[simPay].label, stratLevelName(simLevel),
+                  fmtN(runCount) + ' × ' + fmtN(target) + ' hands'];
+    if(bankroll) bits.push('bankroll ' + fmtN(bankroll));
+    if(winStop)  bits.push('stop at +' + fmtN(winStop));
+    txt.textContent = GAMES[gKey].name + '  ·  ' + bits.join('  ·  ');
+    foldLine.appendChild(txt);
+    const b = document.createElement('button');
+    b.textContent = 'CHANGE';
+    b.style.cssText = [
+      'font-family:Arial,Helvetica,sans-serif','font-size:11px','font-weight:bold','letter-spacing:1px',
+      'padding:4px 12px','border-radius:6px','border:2px solid #3a5aaa','background:#1a2a60',
+      'color:#c0c8d8','cursor:pointer','touch-action:manipulation',
+    ].join(';');
+    b.addEventListener('click', () => { sfx.button(); collapsed = false; syncRows(); });
+    foldLine.appendChild(b);
+  }
+  function syncRows(){
+    const multiOn = mode === 'multi' && !collapsed;
+    const anyOn = !collapsed;
+    modeRow.style.display   = anyOn ? 'flex' : 'none';
+    levelRow.style.display  = anyOn ? 'flex' : 'none';
+    gameSlot.style.display  = anyOn ? 'flex' : 'none';
+    targetSlot.style.display = anyOn ? '' : 'none';
+    runSlot.style.display   = multiOn ? '' : 'none';
+    bankSlot.style.display  = multiOn ? '' : 'none';
+    winSlot.style.display   = multiOn ? '' : 'none';
+    tgtRow.style.display    = multiOn ? 'flex' : 'none';
+    estLine.style.display   = (mode === 'multi' && anyOn) ? '' : 'none';
+    foldLine.style.display  = collapsed ? 'flex' : 'none';
+    if(collapsed) paintFold();
+    estimate();
+  }
+  syncRows();                     // Fast Play opens first — hide the multi rows
+
   // ── Results area (scrolls) ─────────────────────────────────
   const body = document.createElement('div');
-  body.style.cssText = 'overflow-y:auto;flex:1;min-height:120px;display:flex;flex-direction:column;gap:8px;';
+  // no scroll of its own — the panel scrolls as one column
+  body.style.cssText = 'display:flex;flex-direction:column;gap:8px;flex-shrink:0;';
   const stats = document.createElement('div');
   stats.style.cssText = 'font-size:12px;color:#c0c8d8;line-height:1.6;padding:2px 4px;flex-shrink:0;white-space:pre-wrap;';
   const graphRow = mkRow('Graph', [['payback', 'Payback %'], ['credits', 'Credits']],
                          () => graphY, v => { graphY = v; redrawGraph(); }, true);
   graphRow.style.cssText += 'padding:2px 4px;';
   const canvas = document.createElement('canvas');
-  const cw = Math.min(720, Math.round(window.innerWidth * 0.90));
+  // Floors matter: opened while the page is laid out at zero width (a hidden
+  // tab, a reload mid-render) this would otherwise make a 0×0 canvas that
+  // silently draws nothing.
+  const cw = Math.max(320, Math.min(720, Math.round((window.innerWidth || 720) * 0.90)));
   canvas.width  = cw;
-  canvas.height = Math.round(Math.min(cw * 0.42, window.innerHeight * 0.34));
+  canvas.height = Math.max(160, Math.round(Math.min(cw * 0.42, (window.innerHeight || 700) * 0.34)));
   canvas.style.cssText = 'width:100%;height:auto;display:block;border-radius:6px;flex-shrink:0;';
   const detail = document.createElement('div');
   detail.style.cssText = 'flex-shrink:0;';
@@ -5603,7 +6676,14 @@ function showSimulator(){
   panel.appendChild(sub);
   panel.appendChild(modeRow);
   panel.appendChild(levelRow);
+  panel.appendChild(gameSlot);
   panel.appendChild(targetSlot);
+  panel.appendChild(runSlot);
+  panel.appendChild(bankSlot);
+  panel.appendChild(winSlot);
+  panel.appendChild(tgtRow);
+  panel.appendChild(estLine);
+  panel.appendChild(foldLine);
   panel.appendChild(body);
   panel.appendChild(btnRow);
   overlay.appendChild(panel);
@@ -5622,14 +6702,239 @@ function showSimulator(){
   let lastMsg = null, t0 = 0;
   function redrawGraph(){
     if(mode === 'fast') drawSimGraph(canvas, samples, samples.length ? refs() : {});
+    else if(mode === 'multi') renderMulti();
   }
   function resetResults(){
-    samples = []; lastMsg = null; verify = null;
+    samples = []; lastMsg = null; verify = null; multi = null; multiView = -1;
+    browseList = null; collapsed = false; syncRows();
     stats.textContent = '';
     detail.innerHTML = '';
-    canvas.style.display = mode === 'fast' ? 'block' : 'none';
+    canvas.style.display = mode === 'verify' ? 'none' : 'block';
     graphRow.style.display = mode === 'fast' ? 'flex' : 'none';
     if(mode === 'fast') drawSimGraph(canvas, samples, {});
+    if(mode === 'multi') drawSimGraph(canvas, [], {});
+  }
+
+  // ── Multiple runs ──────────────────────────────────────────
+  function startMulti(){
+    const rankSel  = stratRankMap(strat, simLevel);
+    const rankFull = stratRankMap(strat, 'full');
+    if(!simWorker){
+      const blob = new Blob([simWorkerSource()], { type: 'text/javascript' });
+      simWorker = new Worker(URL.createObjectURL(blob));
+    }
+    multi = { runs: [], stepN: 1, hands: target, bank: bankroll, win: winStop, done: false,
+              wanted: runCount, bigIdx: bigIdx.slice(), rows: rows, pays: pays };
+    multiView = -1; browseList = null; t0 = Date.now();
+    // the options have done their job the moment the batch is running — hand
+    // the space to the results while they are still filling in
+    collapsed = true; syncRows();
+    const myRun = runId;
+    simWorker.onmessage = e => {
+      if(!running || e.data.run !== myRun || myRun !== runId) return;
+      const m = e.data;
+      multi.stepN = m.stepN;
+      // Int32Array keeps 2,000 runs of two paths inside a few megabytes
+      for(const r of m.batch)
+        multi.runs.push({ h: r.h, fS: r.fS, mnS: r.mnS, mxS: r.mxS, fF: r.fF, mnF: r.mnF, mxF: r.mxF,
+                          end: r.end, bg: r.bg, pS: Int32Array.from(r.pS), pF: Int32Array.from(r.pF) });
+      multi.done = m.done;
+      multi.cntSel = m.cntSel; multi.cntFull = m.cntFull;
+      renderMulti();
+      if(m.done) stop();
+    };
+    simWorker.postMessage({ cmd: 'multi', run: myRun, gameKey: gKey, pays, rankSel, rankFull,
+                            runs: runCount, hands: target, bankroll, winStop, bigIdx,
+                            pts: PATH_PTS, bet: BET,
+                            cfgSrc: cfgSource(cfg), joker: !!GAMES[gKey].joker });
+  }
+
+  const sum = a => a.reduce((x, y) => x + y, 0);
+  function renderMulti(){
+    if(!multi){ stats.textContent = ''; return; }
+    const R = multi.runs, r = refs();
+    if(!R.length){ stats.textContent = 'Dealing the first run…'; return; }
+    if(multiView >= 0 && multiView < R.length) return renderOneRun(R, r);
+
+    const fin = R.map(x => x.fS).sort((a, b) => a - b);
+    const avg = sum(fin) / fin.length;
+    const med = fin.length % 2 ? fin[(fin.length - 1) / 2] : (fin[fin.length / 2 - 1] + fin[fin.length / 2]) / 2;
+    const endHi = R.filter(x => x.fS >= tgtHigh).length, evrHi = R.filter(x => x.mxS >= tgtHigh).length;
+    const endLo = R.filter(x => x.fS <= tgtLow).length,  evrLo = R.filter(x => x.mnS <= tgtLow).length;
+    const busted = R.filter(x => x.end === 1).length, cashed = R.filter(x => x.end === 2).length;
+    const up = R.filter(x => x.fS > 0).length, down = R.filter(x => x.fS < 0).length;
+    const evenN = R.length - up - down;
+    const hands = sum(R.map(x => x.h)), net = sum(R.map(x => x.fS));
+    const avgF = sum(R.map(x => x.fF)) / R.length;
+
+    stats.textContent =
+      `${fmtN(R.length)}${multi.done ? '' : ' of ' + fmtN(multi.wanted)} runs × ${fmtN(multi.hands)} hands` +
+      `   ·   ${fmtN(hands)} hands   ·   ${r.selName} ${fmtPct(r.expSel)} expected\n` +
+      `Net across all runs: ${fmtCred(net)} credits on ${fmtN(BET * hands)} wagered` +
+      (multi.bank ? `   ·   bankroll ${fmtN(multi.bank)}` : '');
+
+    drawHistogram(canvas, fin, tgtHigh, tgtLow, avg);
+
+    const tile = (lab, val, col) =>
+      `<div style="background:#13275c;border:1px solid #2a4a9a;border-radius:8px;padding:7px 10px">` +
+      `<div style="font-size:11px;color:#8899bb">${lab}</div>` +
+      `<div style="font-size:17px;font-weight:bold;color:${col}">${val}</div></div>`;
+    const cc = v => v > 0 ? '#7ee08a' : v < 0 ? '#f09595' : '#c0c8d8';
+    const pc = n => `<span style="font-size:12px;font-weight:normal;color:#8899bb"> ${(n / R.length * 100).toFixed(1)}%</span>`;
+    detail.innerHTML =
+      `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:7px">` +
+        tile('Average', fmtCred(avg), cc(avg)) +
+        tile('Median', fmtCred(med), cc(med)) +
+        tile('Best run', fmtCred(fin[fin.length - 1]), cc(fin[fin.length - 1])) +
+        tile('Worst run', fmtCred(fin[0]), cc(fin[0])) +
+      `</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:7px">` +
+        tile('Ended ≥ ' + fmtCred(tgtHigh), endHi + pc(endHi), '#7ee08a') +
+        tile('Ever reached', evrHi + pc(evrHi), '#7ee08a') +
+        tile('Ended ≤ ' + fmtCred(tgtLow), endLo + pc(endLo), '#f09595') +
+        tile('Ever reached', evrLo + pc(evrLo), '#f09595') +
+      `</div><div style="display:grid;grid-template-columns:repeat(${2 + (multi.bank ? 1 : 0) + (multi.win ? 1 : 0)},1fr);gap:7px">` +
+        tile('Ended ahead', up + pc(up), '#7ee08a') +
+        tile('Ended behind', down + pc(down) + (evenN ? ` <span style="font-size:11px;font-weight:normal;color:#8899bb">· ${evenN} even</span>` : ''), '#f09595') +
+        (multi.bank ? tile('Busted', busted + pc(busted), busted ? '#f09595' : '#8899bb') : '') +
+        (multi.win ? tile('Walked away', cashed + pc(cashed), cashed ? '#7ee08a' : '#8899bb') : '') +
+      `</div>` + bigLine(R) +
+      (r.showFull
+        ? `<div style="font-size:11px;color:#8899bb;margin-top:7px;text-align:center">` +
+          `Full strategy over the same deals averaged ${fmtCred(avgF)} per run, ` +
+          `against ${fmtCred(avg)} for ${r.selName}</div>`
+        : '');
+    detail.appendChild(navRow(R));
+  }
+
+  // Round trips through zero, read off the stored credit path. Both must
+  // actually CROSS zero — a run that digs from −100 to −900 never held a
+  // winning position, so it is a bad run, not a downfall.
+  //
+  // The two are ranked on different things, because losses grind while wins
+  // arrive as jackpots. A COMEBACK is ranked by the size of the climb: the low
+  // it started from is usually trivial, and the height reached is the story.
+  // A DOWNFALL is ranked by the PEAK that was given up, not by the total
+  // travel — ranking a downfall by travel just surfaces runs that drifted from
+  // +10 to −1,095, which squandered nothing. Cached per run; paths never change.
+  function swings(x){
+    if(x._sw) return x._sw;
+    const p = x.pS;
+    let lo = 0, hi = 0, cb = 0, cbLo = 0, cbHi = 0, dfHi = 0, dfLo = 0;
+    for(let i = 0; i < p.length; i++){
+      const v = p[i];
+      if(v < lo) lo = v;
+      if(v > hi) hi = v;
+      if(lo < 0 && v > 0 && v - lo > cb){ cb = v - lo; cbLo = lo; cbHi = v; }
+      // the highest peak this run ever gave back, and how far it then fell
+      if(hi > 0 && v < 0){
+        if(hi > dfHi){ dfHi = hi; dfLo = v; }
+        else if(hi === dfHi && v < dfLo) dfLo = v;
+      }
+    }
+    return (x._sw = { cb: cb, cbLo: cbLo, cbHi: cbHi, df: dfHi, dfHi: dfHi, dfLo: dfLo });
+  }
+
+  // Hands paying better than 50-to-1 — the ones that actually move a session.
+  // Rendered from the per-run tallies so the summary and a single run agree.
+  function bigLine(R, small){
+    if(!multi.bigIdx.length) return '';
+    const tot = multi.bigIdx.map((_, i) => sum(R.map(x => (x.bg && x.bg[i]) || 0)));
+    if(!tot.some(v => v)) return `<div style="font-size:${small ? 10 : 11}px;color:#8899bb;margin-top:7px;` +
+      `text-align:center">No hand paid more than 50 to 1</div>`;
+    const parts = multi.bigIdx.map((ci, i) => tot[i]
+      ? `<span style="color:#f0c040">${multi.rows[ci].name}</span> ×${fmtN(tot[i])} ` +
+        `<span style="color:#8899bb">(${fmtN(multi.pays[ci])} each)</span>` : null).filter(Boolean);
+    return `<div style="font-size:${small ? 10 : 11}px;color:#c0c8d8;margin-top:7px;text-align:center">` +
+      `Paying over 50 to 1:  ${parts.join('   ·   ')}</div>`;
+  }
+
+  function navRow(R){
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;justify-content:center;align-items:center;gap:8px;' +
+                        'margin-top:9px;flex-wrap:wrap;';
+    const mk = (txt, fn, wide) => {
+      const b = document.createElement('button');
+      b.innerHTML = txt;
+      b.style.cssText = [
+        'font-family:Arial,Helvetica,sans-serif','font-size:12px','font-weight:bold','letter-spacing:1px',
+        'padding:6px ' + (wide ? '16px' : '12px'),'border-radius:8px','border:2px solid #3a5aaa',
+        'background:#1a2a60','color:#c0c8d8','cursor:pointer','touch-action:manipulation',
+      ].join(';');
+      b.addEventListener('click', () => { sfx.button(); fn(); });
+      wrap.appendChild(b);
+      return b;
+    };
+    const enter = (list, label) => {
+      browseList = list; browsePos = 0; browseLabel = label;
+      multiView = list[0]; renderMulti();
+    };
+    const cap = list => list.slice(0, Math.min(SHORTLIST, list.length));
+    const best = () => cap(R.map((x, i) => i).sort((a, b) => R[b].fS - R[a].fS));
+    // With a bankroll almost every bad run ends at exactly −bankroll, so the
+    // final figure cannot rank them. Order the busted ones by how FAST the
+    // money went instead, and put the survivors after them.
+    const worst = () => cap(R.map((x, i) => i).sort((a, b) => {
+      if(multi.bank){
+        const ba = R[a].end === 1, bb = R[b].end === 1;
+        if(ba !== bb) return ba ? -1 : 1;
+        if(ba) return R[a].h - R[b].h;
+      }
+      return R[a].fS - R[b].fS;
+    }));
+    const bySwing = down => cap(R.map((x, i) => i)
+      .filter(i => (down ? swings(R[i]).df : swings(R[i]).cb) > 0)
+      .sort((a, b) => down ? swings(R[b]).df - swings(R[a]).df
+                           : swings(R[b]).cb - swings(R[a]).cb));
+    if(multiView < 0){
+      const n = Math.min(SHORTLIST, R.length);
+      mk('BROWSE RUNS ›', () => enter(R.map((x, i) => i), ''), true);
+      mk('BEST ' + n,  () => enter(best(),  'Best'),  true);
+      mk('WORST ' + n, () => enter(worst(), 'Worst'), true);
+      const cbs = bySwing(false), dfs = bySwing(true);
+      if(cbs.length) mk('COMEBACKS ' + cbs.length, () => enter(cbs, 'Comeback'), true);
+      if(dfs.length) mk('DOWNFALLS ' + dfs.length, () => enter(dfs, 'Downfall'), true);
+    } else {
+      const list = browseList || R.map((x, i) => i);
+      mk('‹ SUMMARY', () => { multiView = -1; browseList = null; renderMulti(); }, true);
+      mk('&#9650;', () => { browsePos = (browsePos - 1 + list.length) % list.length;
+                            multiView = list[browsePos]; renderMulti(); });
+      mk('&#9660;', () => { browsePos = (browsePos + 1) % list.length;
+                            multiView = list[browsePos]; renderMulti(); });
+    }
+    return wrap;
+  }
+
+  function renderOneRun(R, r){
+    const x = R[multiView];
+    // rebuild the sample shape drawSimGraph already understands, so a single
+    // run is drawn by exactly the code that draws a Fast Play run
+    const pts = [];
+    for(let i = 0; i < x.pS.length; i++)
+      pts.push({ n: Math.min((i + 1) * multi.stepN, x.h), cs: x.pS[i], cf: x.pF[i], rs: 0, rf: 0 });
+    const why = x.end === 1 ? `   ·   BUSTED — lost the ${fmtN(multi.bank)} bankroll`
+              : x.end === 2 ? `   ·   WALKED AWAY — up ${fmtN(multi.win)}` : '';
+    // ranked browsing says where you are in the shortlist AND which run it is
+    const where = browseLabel
+      ? `${browseLabel} #${fmtN(browsePos + 1)} of ${fmtN((browseList || []).length)}` +
+        `   ·   run ${fmtN(multiView + 1)}`
+      : `Run ${fmtN(multiView + 1)} of ${fmtN(R.length)}`;
+    // a swing list is ranked on something the ordinary figures do not show, so
+    // name the swing that put this run where it is in the list
+    const sw = swings(x);
+    const swTxt = browseLabel === 'Comeback'
+        ? `   ·   climbed ${fmtN(sw.cb)} from ${fmtCred(sw.cbLo)} to ${fmtCred(sw.cbHi)}`
+      : browseLabel === 'Downfall'
+        ? `   ·   was up ${fmtN(sw.dfHi)}, fell to ${fmtCred(sw.dfLo)}`
+      : '';
+    stats.textContent =
+      `${where}   ·   ${fmtN(x.h)} hands` + why + swTxt + `\n` +
+      `Final: ${fmtCred(x.fS)} credits on ${fmtN(BET * x.h)} wagered   ·   ` +
+      `${fmtPct((BET * x.h + x.fS) / (BET * x.h))} payback\n` +
+      `Peak ${fmtCred(x.mxS)}   ·   trough ${fmtCred(x.mnS)}   ·   Full ended ${fmtCred(x.fF)}`;
+    drawSimGraph(canvas, pts, Object.assign({}, r, { yMode: 'credits',
+      bustAt: multi.bank ? -multi.bank : null, winAt: multi.win || null }));
+    detail.innerHTML = bigLine([x], true);
+    detail.appendChild(navRow(R));
   }
   function refs(){
     return {
@@ -5795,7 +7100,9 @@ function showSimulator(){
     running = true;
     styleStart();
     resetResults();
-    if(mode === 'fast') startFast(); else runVerify();
+    if(mode === 'fast') startFast();
+    else if(mode === 'multi') startMulti();
+    else runVerify();
   });
   const close = () => {
     stop();
@@ -5832,6 +7139,89 @@ function showSimulator(){
 
 // Running-return graph for the simulator: the chosen level (orange), the
 // full list (blue) and their expected returns (dashed), optimal in gold.
+// Distribution of the per-run results. The average is pulled around by a
+// single royal, so the median line matters more than it looks; both are drawn.
+function drawHistogram(canvas, finals, hi, lo, avg){
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const pad = { top: 24, right: 14, bottom: 28, left: 46 };
+  ctx.fillStyle = '#040d22'; ctx.fillRect(0, 0, W, H);
+  const n = finals.length;
+  if(n < 2) return;
+  const cH = H - pad.top - pad.bottom;
+
+  // A royal puts a handful of runs thousands of coins clear of everything else,
+  // which squeezes every ordinary result into one or two bars. Anything past
+  // the 97th percentile is pooled into a single "≥ X" bar set apart at the
+  // right edge, so the shape of the other 97% is actually visible.
+  const q = f => finals[Math.min(n - 1, Math.max(0, Math.round(f * (n - 1))))];
+  // Round the cut DOWN in magnitude. Rounding up can land past the largest
+  // result, leaving nothing to pool and the squashing unfixed.
+  const niceDown = v => {
+    if(!v) return 0;
+    const a = Math.abs(v), m10 = Math.pow(10, Math.floor(Math.log10(a)));
+    let c = 1;
+    for(const x of [1, 1.5, 2, 2.5, 3, 4, 5, 6, 7.5, 10]) if(x * m10 <= a) c = x;
+    return Math.sign(v) * c * m10;
+  };
+  const hiCut = niceDown(q(0.95)), loCut = niceDown(q(0.05));
+  const over  = finals.filter(v => v > hiCut).length;
+  const under = finals.filter(v => v < loCut).length;
+  // only worth pooling when the tail really does run away from the pack
+  const useOver  = hiCut > 0 && over > 0 && finals[n - 1] > hiCut * 1.25;
+  const useUnder = loCut < 0 && under > 0 && finals[0] < loCut * 1.25;
+  const SLOT = 34;                                   // width reserved per pooled bar
+  const x0 = pad.left + (useUnder ? SLOT + 8 : 0);
+  const x1 = W - pad.right - (useOver ? SLOT + 8 : 0);
+  const mn = useUnder ? loCut : Math.min(finals[0], lo, 0);
+  const mx = useOver ? hiCut : Math.max(finals[n - 1], hi, 0);
+  const span = (mx - mn) || 10;
+  const NB = Math.max(8, Math.min(40, Math.round(Math.sqrt(n) * 1.6)));
+  const bw = span / NB, bins = new Array(NB).fill(0);
+  for(const v of finals){
+    if((useOver && v > hiCut) || (useUnder && v < loCut)) continue;
+    bins[Math.min(NB - 1, Math.max(0, Math.floor((v - mn) / bw)))]++;
+  }
+  const peak = Math.max(1, Math.max(...bins), over, under);
+  const X = v => x0 + (v - mn) / span * (x1 - x0);
+  const Y = c => pad.top + (1 - c / peak) * cH;
+  ctx.font = '11px Arial'; ctx.textBaseline = 'middle'; ctx.textAlign = 'right';
+  ctx.fillStyle = '#8899bb';
+  ctx.fillText(String(peak), pad.left - 5, Y(peak));
+  ctx.fillText('0', pad.left - 5, Y(0));
+  for(let i = 0; i < NB; i++){
+    if(!bins[i]) continue;
+    const a = X(mn + i * bw), b = X(mn + (i + 1) * bw), mid = mn + (i + 0.5) * bw;
+    ctx.fillStyle = mid <= lo ? '#d85a30' : mid >= hi ? '#639922' : '#378add';
+    ctx.fillRect(a + 0.5, Y(bins[i]), Math.max(1, b - a - 1), pad.top + cH - Y(bins[i]));
+  }
+  ctx.textAlign = 'center';
+  const pooled = (cx, count, color, label) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(cx - SLOT / 2, Y(count), SLOT, pad.top + cH - Y(count));
+    ctx.fillStyle = '#8899bb';
+    ctx.fillText(label, cx, H - pad.bottom + 12);
+    ctx.fillText(String(count), cx, Y(count) - 8);
+  };
+  const sgn = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(Math.round(v)).toLocaleString();
+  if(useOver)  pooled(x1 + 4 + SLOT / 2, over, '#639922', '≥ ' + sgn(hiCut));
+  if(useUnder) pooled(pad.left + SLOT / 2, under, '#d85a30', '≤ ' + sgn(loCut));
+
+  const rule = (v, color, txt, dash, top) => {
+    if(v < mn || v > mx) return;
+    ctx.strokeStyle = color; ctx.lineWidth = 1.4; ctx.setLineDash(dash ? [5, 3] : []);
+    ctx.beginPath(); ctx.moveTo(X(v), pad.top); ctx.lineTo(X(v), pad.top + cH); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = color;
+    const x = Math.max(x0 + 20, Math.min(x1 - 20, X(v)));
+    ctx.fillText(txt, x, top ? pad.top - 5 : H - pad.bottom + 12);
+  };
+  rule(0, '#96b4f0', 'break even', false, false);
+  rule(lo, '#f09595', sgn(lo), true, false);
+  rule(hi, '#7ee08a', sgn(hi), true, false);
+  rule(avg, '#f0c040', 'avg ' + sgn(avg), true, true);
+}
+
 function drawSimGraph(canvas, samples, r){
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
@@ -5867,6 +7257,8 @@ function drawSimGraph(canvas, samples, r){
   const ys = [r.expSel, r.optimal].concat(r.showFull ? [r.expFull] : [])
     .filter(v => typeof v === 'number').map(expAt);
   if(CRED) ys.push(0);
+  if(CRED && typeof r.bustAt === 'number') ys.push(r.bustAt);
+  if(CRED && typeof r.winAt === 'number') ys.push(r.winAt);
   for(let i = skip; i < samples.length; i++){ ys.push(val(samples[i])); if(r.showFull) ys.push(valF(samples[i])); }
   let lo = Math.min(...ys), hi = Math.max(...ys);
   const mid = (lo + hi) / 2, half = Math.max((hi - lo) / 2 * 1.3, CRED ? 5 : 0.003);
@@ -5897,6 +7289,26 @@ function drawSimGraph(canvas, samples, r){
   if(CRED && lo < 0 && hi > 0){
     ctx.strokeStyle = 'rgba(150,180,240,0.8)';
     ctx.beginPath(); ctx.moveTo(pad.left, Y(0)); ctx.lineTo(W - pad.right, Y(0)); ctx.stroke();
+    ctx.strokeStyle = 'rgba(80,110,180,0.35)';
+  }
+  // the walk-away figure — the line a run cashes out on
+  if(CRED && typeof r.winAt === 'number' && r.winAt >= lo && r.winAt <= hi){
+    ctx.strokeStyle = '#7ee08a'; ctx.lineWidth = 1.4; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(pad.left, Y(r.winAt)); ctx.lineTo(W - pad.right, Y(r.winAt)); ctx.stroke();
+    ctx.setLineDash([]); ctx.lineWidth = 1;
+    ctx.fillStyle = '#7ee08a'; ctx.textAlign = 'left'; ctx.font = 'bold 10px Arial';
+    ctx.fillText('WALK AWAY', pad.left + 4, Y(r.winAt) + 11);
+    ctx.font = '11px Arial'; ctx.textAlign = 'right';
+    ctx.strokeStyle = 'rgba(80,110,180,0.35)';
+  }
+  // the bankroll floor — the line a run dies on
+  if(CRED && typeof r.bustAt === 'number' && r.bustAt >= lo && r.bustAt <= hi){
+    ctx.strokeStyle = '#f09595'; ctx.lineWidth = 1.4; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(pad.left, Y(r.bustAt)); ctx.lineTo(W - pad.right, Y(r.bustAt)); ctx.stroke();
+    ctx.setLineDash([]); ctx.lineWidth = 1;
+    ctx.fillStyle = '#f09595'; ctx.textAlign = 'left'; ctx.font = 'bold 10px Arial';
+    ctx.fillText('BANKROLL', pad.left + 4, Y(r.bustAt) - 7);
+    ctx.font = '11px Arial'; ctx.textAlign = 'right';
     ctx.strokeStyle = 'rgba(80,110,180,0.35)';
   }
   ctx.textAlign = 'center';
