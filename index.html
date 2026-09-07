@@ -2391,10 +2391,23 @@ function showGameSelect(){
     const ptIdx = payIdxOf(key);
     b.style.flex = '1';
     b.style.minWidth = '0';
+    // Name over the perfect-play return of the pay table this game is set to,
+    // in the same small type the pay-table picker uses for it. Credits sit on
+    // the right, as before.
     b.innerHTML =
-      `<span>${g.name}${active ? ' ✓' : ''}</span>` +
+      `<span style="display:flex;flex-direction:column;gap:2px;min-width:0">` +
+        `<span>${g.name}${active ? ' ✓' : ''}</span>` +
+        `<span class="game-ret" style="font-size:11px;font-weight:normal;` +
+        `opacity:0.85;color:${active ? '#3a2a00' : '#8fb8e8'}"> </span>` +
+      `</span>` +
       `<span style="font-size:12px;font-weight:normal;opacity:0.85">` +
       `${formatMoney(gs.credits * denomVal)}</span>`;
+    // filled in once the pay table's strategy file lands; blank if it has none
+    const retSpan = b.querySelector('.game-ret');
+    const gsk = stratKeyFor(key, ptIdx);
+    if(gsk) loadStrategy(gsk).then(st => {
+      if(st) retSpan.textContent = (st.optimalReturn * 100).toFixed(2) + '%';
+    });
     b.addEventListener('click', () => { close(); switchGame(key); });
 
     // Pay table for THIS game, chosen without leaving the list

@@ -36,6 +36,13 @@ for g in GAMES:
 # whole grid is useless — Four Aces swings by 1075 coins while Full House
 # swings by 30, so on a shared scale every Full House cell rounds to white.
 GREEN, RED, GAMMA = (188, 226, 191), (245, 195, 195), 0.5
+# A row's scale spans all the variations, so an outlier from an unrelated game
+# can swamp it: five of a kind is scaled by Joker's Wild paying 4,000, which
+# renders a real 5-coin difference between two Deuces tables at 0.04 intensity
+# — pure white. Every non-zero difference therefore starts at FLOOR and the
+# curve fills the rest, so "these differ" is always visible while the depth
+# still says by how much.
+FLOOR = 0.22
 
 def row_scale(hand, bcol):
     """Biggest gap from the baseline anywhere on this row.
@@ -58,7 +65,7 @@ def heat_rgb(d, scale):
         return None
     # sqrt curve: without it the many small gaps sit near white and read as "no
     # difference" when they are really a fifth of the row's spread
-    i = min(1.0, abs(d) / scale) ** GAMMA
+    i = FLOOR + (1 - FLOOR) * min(1.0, abs(d) / scale) ** GAMMA
     tgt = GREEN if d > 0 else RED
     return tuple(round(255 + (c - 255) * i) for c in tgt)
 
@@ -77,6 +84,15 @@ def heat_rgb(d, scale):
 # family is named here.
 EXTRA_FAMILIES = [['Five of a Kind', 'Five Aces', 'Five 3s–5s', 'Five 6s–Ks']]
 
+# The pair minimums are NOT aliases of one another, so they are kept out of the
+# flat families above. They are nested thresholds: a tens-or-better line pays
+# every hand a jacks-or-better line pays and a pair of tens besides, while
+# kings-or-better pays strictly fewer. Coverage therefore runs one way only —
+# broadest first below — so Tens or Better is credited with paying jacks while
+# Kings or Better is not, and the sheet can show that Triple Bonus really does
+# pay nothing for a pair of jacks.
+MINIMUMS = ['Tens or Better', 'Jacks or Better', 'Kings or Better']
+
 def _families():
     by_eq = {}
     for hand in HANDS:
@@ -88,6 +104,7 @@ def _families():
         by_eq[extra[0]] = merged
     fam = {}
     for members in by_eq.values():
+        members -= set(MINIMUMS)
         for h in members:
             fam[h] = sorted(members)
     return fam
@@ -95,8 +112,17 @@ def _families():
 FAMILY = _families()
 
 def covers(pays, hand):
-    """Does this game pay the hand, or a sibling row standing in for it?"""
+    """Does this game pay these cards, under this row's name or another?"""
+    if hand in MINIMUMS:
+        # only a line at least as broad as this one pays it
+        return any(pays.get(h) is not None for h in MINIMUMS[:MINIMUMS.index(hand) + 1])
     return any(pays.get(h) is not None for h in FAMILY.get(hand, [hand]))
+
+def base_line(bpays, hand):
+    """The baseline's own line for these cards, when it files them elsewhere."""
+    if hand in MINIMUMS:
+        return next((h for h in MINIMUMS if bpays.get(h) is not None), hand)
+    return BASELINE.get(hand) or hand
 
 def cell_delta(pays, bpays, hand):
     """How far this cell sits from the baseline, or None to leave it neutral.
@@ -112,16 +138,29 @@ def cell_delta(pays, bpays, hand):
     """
     v = pays.get(hand)
     if v is None:
-        if covers(pays, hand):
+        # Pair minimums are compared as LINES, not as cards. A Tens or Better
+        # game does pay a pair of jacks, but it has no jacks-or-better line,
+        # and that is a real difference between the two pay tables — so the
+        # blank shades, paired with the green on the tens row that explains it.
+        if hand not in MINIMUMS and covers(pays, hand):
             return None            # a sibling row stands in for it — naming only
         b = bpays.get(hand)
         return None if b is None else -b
-    equiv = BASELINE.get(hand) or hand
-    b = bpays.get(equiv)
+    b = bpays.get(hand)
     if b is None:
-        if covers(bpays, equiv):
-            return None
-        b = 0
+        # No line of its own, so: does the baseline pay these cards at all? If
+        # not this is a hand the baseline simply does not have, and the column
+        # is paying something extra. If it does, compare with whichever line it
+        # files them under — that is what makes a bonus game's quad tiers
+        # comparable with Jacks or Better's single "Four of a Kind". Asking
+        # about the cards first is what stops a Jacks or Better baseline from
+        # quietly equating its own line with a Tens or Better one.
+        if not covers(bpays, hand):
+            b = 0
+        else:
+            b = bpays.get(base_line(bpays, hand))
+            if b is None:
+                return None   # covered, but by no single line worth comparing
     return v - b
 
 BASE_COL = next(c for c in COLS if c['gameKey'] == DATA['baselineGame'] and c['top'])
@@ -152,21 +191,31 @@ NOTES = [
     'ratios identical.',
     '"—" means the game does not offer that hand at all, which is not the same as paying zero.',
     ORDER_SLOT,
-    'Heat map compares each payout with the baseline game\'s equivalent hand: green pays better, '
-    'red pays worse. Each ROW is scaled to its own widest gap, so a 5-coin difference on Full House '
-    'is as readable as a 1,075-coin one on Four Aces. That scale always spans all ' + str(len(COLS)) + ' variations, '
-    'not just the ones on screen, so a shade never changes when you change the selection. Every '
-    'quad tier is judged against the baseline\'s single "Four of a Kind" line, which is the point '
-    'of a bonus game.',
+    'Heat map compares each payout with the baseline game\'s own line for that hand: green pays '
+    'better, red pays worse. Where the baseline has no such line, the comparison falls back to the '
+    'line it files those cards under — that is how a bonus game\'s twelve quad tiers get judged '
+    'against Jacks or Better\'s single "Four of a Kind", which is the point of a bonus game. The '
+    'baseline\'s own column is therefore always blank.',
+    'Each ROW is scaled to its own widest gap, so a 5-coin difference on Full House is as readable '
+    'as a 1,075-coin one on Four Aces. That scale always spans all ' + str(len(COLS)) + ' variations, not just the '
+    'ones on screen, so a shade never changes when you change the selection. Because one outlier '
+    'can stretch a row — five of a kind is scaled by Joker\'s Wild paying 4,000 for it — every '
+    'real difference starts at a visible tint rather than fading to white, with the depth above '
+    'that still saying how big the gap is.',
     'A hand a game does not pay at all is shaded too: red where the baseline pays it and this game '
     'does not (no pair pays anything in Deuces), green where this game pays something the baseline '
     'never does (five of a kind). Two blanks are not a difference, so a row the baseline does not '
     'pay either stays white across the board.',
     'A blank left by naming rather than by the pay table is neutral. Hands are grouped into '
-    'families — the royals, the pair minimums, the twelve quad tiers, the five-of-a-kinds — and a '
-    'game paying any member counts as paying the hand. Every wild game pays a royal, it just calls '
-    'it "Natural Royal"; Tens or Better pays a pair of jacks under its own name; Bonus Poker has no '
-    '"Four of a Kind" line yet pays four of a kind under three tiers.',
+    'families — the royals, the twelve quad tiers, the five-of-a-kinds — and a game paying any '
+    'member counts as paying the hand. Every wild game pays a royal, it just calls it "Natural '
+    'Royal"; Bonus Poker has no "Four of a Kind" line yet pays four of a kind under three tiers.',
+    'The pair minimums are the exception, and are compared as LINES rather than as cards. Every '
+    'game has exactly one of them, so against a Jacks or Better baseline a Tens or Better game '
+    'reads red on the jacks row and green on the tens row: it has swapped one line for a wider '
+    'one. Where both games do pay the same cards the amount is still compared honestly — Triple '
+    'Bonus pays a pair of kings for the same 5 as Jacks or Better does, so its kings row is '
+    'neutral rather than a green for a line the baseline merely files elsewhere.',
     'Optimal return is the exact expected value under perfect play, computed over every possible '
     'deal — not a simulation. All ' + str(len(COLS)) + ' tables match their published Wizard of Odds figures.',
     'Generated by tools/build-payout-sheets.py from tools/paytables.json, which is itself read out '
@@ -181,7 +230,8 @@ def build_html(dest):
         'cols': [{k: c[k] for k in ('key', 'game', 'gameKey', 'type', 'label', 'ret', 'pays', 'top')}
                  for c in COLS],
         'defaultBaseline': BASE_COL['key'],
-        'green': GREEN, 'red': RED, 'gamma': GAMMA, 'family': FAMILY,
+        'green': GREEN, 'red': RED, 'gamma': GAMMA, 'floor': FLOOR,
+        'family': FAMILY, 'minimums': MINIMUMS,
         'notes': notes(ORDER_HTML),
     }
     doc = HTML_TEMPLATE.replace('/*__DATA__*/null', json.dumps(payload, ensure_ascii=False))
@@ -329,8 +379,19 @@ const mix = (rgb, i) => `rgb(${rgb.map(c => Math.round(255 + (c - 255) * i)).joi
 // wild game pays a royal, it just calls it "Natural Royal"; Bonus Poker has no
 // "Four of a Kind" line but pays four of a kind under three tiers). A game
 // paying any member of the hand's family counts as paying the hand.
-const covers = (col, hand) =>
-  (D.family[hand] || [hand]).some(h => col.pays[h] != null);
+// The pair minimums are nested thresholds, not aliases, so coverage there runs
+// one way: a tens-or-better line pays every hand a jacks-or-better line pays,
+// kings-or-better pays strictly fewer. Only a line at least as broad counts.
+const covers = (col, hand) => {
+  const i = D.minimums.indexOf(hand);
+  if (i >= 0) return D.minimums.slice(0, i + 1).some(h => col.pays[h] != null);
+  return (D.family[hand] || [hand]).some(h => col.pays[h] != null);
+};
+// the baseline's own line for these cards, when it files them elsewhere
+const baseLine = (bcol, hand) =>
+  D.minimums.includes(hand)
+    ? (D.minimums.find(h => bcol.pays[h] != null) || hand)
+    : (D.baseline[hand] || hand);
 // How far a cell sits from the baseline, or null to leave it neutral. A hand
 // WITH a payout is judged against the baseline's equivalent line, so every
 // quad tier compares with the baseline's single "Four of a Kind". A BLANK is
@@ -340,15 +401,27 @@ const covers = (col, hand) =>
 function cellDelta(col, bcol, hand) {
   const v = col.pays[hand];
   if (v == null) {
-    if (covers(col, hand)) return null;
+    // Pair minimums are compared as LINES, not as cards. A Tens or Better game
+    // does pay a pair of jacks, but it has no jacks-or-better line, and that
+    // is a real difference between the two pay tables — so the blank shades,
+    // paired with the green on the tens row that explains it.
+    if (!D.minimums.includes(hand) && covers(col, hand)) return null;
     const b = bcol.pays[hand];
     return b == null ? null : -b;
   }
-  const eq = D.baseline[hand] || hand;
-  let b = bcol.pays[eq];
+  let b = bcol.pays[hand];
   if (b == null) {
-    if (covers(bcol, eq)) return null;
-    b = 0;
+    // No line of its own, so: does the baseline pay these cards at all? If not
+    // this is a hand it simply does not have and the column pays something
+    // extra. If it does, compare with whichever line it files them under —
+    // what makes a bonus game's quad tiers comparable with Jacks or Better's
+    // single "Four of a Kind". Asking about the cards first is what stops a
+    // Jacks or Better baseline quietly equating its line with a Tens one.
+    if (!covers(bcol, hand)) b = 0;
+    else {
+      b = bcol.pays[baseLine(bcol, hand)];
+      if (b == null) return null;
+    }
   }
   return v - b;
 }
@@ -367,7 +440,8 @@ function rowScale(hand, bcol) {
 function heat(d, scale) {
   if (!heatOn || d == null || !scale) return null;
   if (Math.abs(d) < 1e-9) return null;
-  return mix(d > 0 ? D.green : D.red, Math.pow(Math.min(1, Math.abs(d) / scale), D.gamma));
+  return mix(d > 0 ? D.green : D.red,
+    D.floor + (1 - D.floor) * Math.pow(Math.min(1, Math.abs(d) / scale), D.gamma));
 }
 
 function pick(mode) {
@@ -398,9 +472,6 @@ function buildPicker() {
     e.target.checked ? sel.add(k) : sel.delete(k);
     render();
   });
-  $('#base').innerHTML = D.cols.map(c =>
-    `<option value="${c.key}">${esc(c.game)} — ${esc(c.label)}</option>`).join('');
-  $('#base').value = baseKey;
   $('#base').addEventListener('change', e => { baseKey = e.target.value; render(); });
   $('#heatToggle').addEventListener('click', e => {
     heatOn = !heatOn;
@@ -441,6 +512,14 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>'
 function render() {
   document.querySelectorAll('#games input').forEach(i => { i.checked = sel.has(i.dataset.k); });
   const cols = D.cols.filter(c => sel.has(c.key));
+  // The baseline dropdown offers only what is on screen: shading against a
+  // hidden column leaves no way to see what a shade is measured from. Untick
+  // the current baseline and the leftmost remaining column takes over.
+  if (cols.length && !sel.has(baseKey)) baseKey = cols[0].key;
+  const bsel = $('#base');
+  bsel.innerHTML = cols.map(c =>
+    `<option value="${c.key}">${esc(c.game)} — ${esc(c.label)}</option>`).join('');
+  bsel.value = baseKey;
   const bcol = colOf(baseKey);
   $('#sub').textContent =
     `${cols.length} of ${D.cols.length} variations · ${D.hands.length} hands · ` +
