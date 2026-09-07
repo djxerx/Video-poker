@@ -44,20 +44,16 @@ def row_scale(hand, bcol):
     keeps the same shade whatever is selected and a genuinely small gap still
     looks small.
     """
-    base = baseline_for(bcol, hand)
-    if base is None:
-        return None
     m = 0
     for c in COLS:
-        v = heat_val(c['pays'], hand)
-        if v is not None:
-            m = max(m, abs(v - base))
+        d = cell_delta(c['pays'], bcol['pays'], hand)
+        if d is not None:
+            m = max(m, abs(d))
     return m or None
 
-def heat_rgb(value, base, scale):
-    if value is None or base is None or not scale:
+def heat_rgb(d, scale):
+    if d is None or not scale:
         return None
-    d = value - base
     if abs(d) < 1e-9:
         return None
     # sqrt curve: without it the many small gaps sit near white and read as "no
@@ -66,35 +62,67 @@ def heat_rgb(value, base, scale):
     tgt = GREEN if d > 0 else RED
     return tuple(round(255 + (c - 255) * i) for c in tgt)
 
-# Some rows are absent from a game only because that game files the hand under
-# another name — every wild game pays a royal, it just calls it "Natural
-# Royal". Colouring those as a missing payout would be a lie. A real gap (no
-# pair pays anything in Deuces) still colours.
-SYNONYMS = [['Natural Royal', 'Royal Flush'],
-            ['Jacks or Better', 'Tens or Better', 'Kings or Better']]
+# Rows are often absent from a game not because it pays nothing for those
+# cards, but because it files them under another name or splits them across
+# tiers. Every wild game pays a royal — it just calls it "Natural Royal" — and
+# Bonus Poker has no "Four of a Kind" line yet certainly pays four of a kind,
+# under three separate tiers. Colouring those blanks as a missing payout would
+# be a lie, so hands are grouped into families and a game that pays ANY member
+# counts as paying the hand. A real gap (no pair pays anything in Deuces Wild)
+# has no paying family member and still colours.
+#
+# Most families fall straight out of the baseline map, which already sends
+# every quad tier and every royal to one Jacks or Better line. The
+# five-of-a-kinds have no Jacks or Better equivalent to be mapped to, so that
+# family is named here.
+EXTRA_FAMILIES = [['Five of a Kind', 'Five Aces', 'Five 3s–5s', 'Five 6s–Ks']]
+
+def _families():
+    by_eq = {}
+    for hand in HANDS:
+        by_eq.setdefault(BASELINE.get(hand) or hand, set()).add(hand)
+    for extra in EXTRA_FAMILIES:
+        merged = set()
+        for h in extra:
+            merged |= by_eq.pop(BASELINE.get(h) or h, set())
+        by_eq[extra[0]] = merged
+    fam = {}
+    for members in by_eq.values():
+        for h in members:
+            fam[h] = sorted(members)
+    return fam
+
+FAMILY = _families()
 
 def covers(pays, hand):
     """Does this game pay the hand, or a sibling row standing in for it?"""
-    if pays.get(hand) is not None:
-        return True
-    return any(hand in g and any(pays.get(h) is not None for h in g) for g in SYNONYMS)
+    return any(pays.get(h) is not None for h in FAMILY.get(hand, [hand]))
 
-def heat_val(pays, hand):
-    """Payout for shading: 0 when the game genuinely pays nothing for the hand,
-    None when a sibling row covers it and the cell should stay neutral."""
+def cell_delta(pays, bpays, hand):
+    """How far this cell sits from the baseline, or None to leave it neutral.
+
+    A hand with a payout is judged against the baseline's EQUIVALENT line, so
+    every quad tier compares with the baseline's single "Four of a Kind" —
+    that comparison is the whole point of a bonus game.
+
+    A blank cell is only a gap when the baseline lists that same hand by name.
+    Two blanks are not a difference: with a Jacks or Better baseline nothing
+    pays "Four Deuces", so that whole row must stay white rather than judging
+    every blank against the baseline's quad line.
+    """
     v = pays.get(hand)
-    if v is not None:
-        return v
-    return None if covers(pays, hand) else 0
-
-def baseline_for(col, hand):
-    """What the baseline pays for the hand this one is judged against."""
-    pays = col['pays']
-    equiv = BASELINE.get(hand)
-    if equiv:
-        b = pays.get(equiv)
-        return b if b is not None else (None if covers(pays, equiv) else 0)
-    return None if covers(pays, hand) else 0
+    if v is None:
+        if covers(pays, hand):
+            return None            # a sibling row stands in for it — naming only
+        b = bpays.get(hand)
+        return None if b is None else -b
+    equiv = BASELINE.get(hand) or hand
+    b = bpays.get(equiv)
+    if b is None:
+        if covers(bpays, equiv):
+            return None
+        b = 0
+    return v - b
 
 BASE_COL = next(c for c in COLS if c['gameKey'] == DATA['baselineGame'] and c['top'])
 
@@ -115,9 +143,13 @@ NOTES = [
     'of a bonus game.',
     'A hand a game does not pay at all is shaded too: red where the baseline pays it and this game '
     'does not (no pair pays anything in Deuces), green where this game pays something the baseline '
-    'never does (five of a kind). A row absent only because the game files the hand under another '
-    'name is left neutral — every wild game pays a royal, it just calls it "Natural Royal", and '
-    'Tens or Better pays a pair of jacks under its own name.',
+    'never does (five of a kind). Two blanks are not a difference, so a row the baseline does not '
+    'pay either stays white across the board.',
+    'A blank left by naming rather than by the pay table is neutral. Hands are grouped into '
+    'families — the royals, the pair minimums, the twelve quad tiers, the five-of-a-kinds — and a '
+    'game paying any member counts as paying the hand. Every wild game pays a royal, it just calls '
+    'it "Natural Royal"; Tens or Better pays a pair of jacks under its own name; Bonus Poker has no '
+    '"Four of a Kind" line yet pays four of a kind under three tiers.',
     'Optimal return is the exact expected value under perfect play, computed over every possible '
     'deal — not a simulation. All ' + str(len(COLS)) + ' tables match their published Wizard of Odds figures.',
     'Generated by tools/build-payout-sheets.py from tools/paytables.json, which is itself read out '
@@ -132,7 +164,7 @@ def build_html(dest):
         'cols': [{k: c[k] for k in ('key', 'game', 'gameKey', 'type', 'label', 'ret', 'pays', 'top')}
                  for c in COLS],
         'defaultBaseline': BASE_COL['key'],
-        'green': GREEN, 'red': RED, 'gamma': GAMMA, 'synonyms': SYNONYMS,
+        'green': GREEN, 'red': RED, 'gamma': GAMMA, 'family': FAMILY,
         'notes': NOTES,
     }
     doc = HTML_TEMPLATE.replace('/*__DATA__*/null', json.dumps(payload, ensure_ascii=False))
@@ -275,45 +307,48 @@ const shown = v => perCoin ? v / COINS : v;
 const colOf = k => D.cols.find(c => c.key === k);
 const mix = (rgb, i) => `rgb(${rgb.map(c => Math.round(255 + (c - 255) * i)).join(',')})`;
 
-// A hand missing from a game is usually a real gap worth showing — but
-// sometimes it is only filed under another name (every wild game pays a royal,
-// it just calls it "Natural Royal"). Treat a real gap as a payout of zero so it
-// shades; leave a renamed one neutral.
+// A hand missing from a game is usually a real gap worth showing — but often
+// the game only files it under another name or splits it across tiers (every
+// wild game pays a royal, it just calls it "Natural Royal"; Bonus Poker has no
+// "Four of a Kind" line but pays four of a kind under three tiers). A game
+// paying any member of the hand's family counts as paying the hand.
 const covers = (col, hand) =>
-  col.pays[hand] != null ||
-  D.synonyms.some(g => g.includes(hand) && g.some(h => col.pays[h] != null));
-const heatVal = (col, hand) => {
+  (D.family[hand] || [hand]).some(h => col.pays[h] != null);
+// How far a cell sits from the baseline, or null to leave it neutral. A hand
+// WITH a payout is judged against the baseline's equivalent line, so every
+// quad tier compares with the baseline's single "Four of a Kind". A BLANK is
+// only a gap when the baseline lists that same hand by name — two blanks are
+// not a difference, so with a Jacks or Better baseline the "Four Deuces" row
+// stays white instead of judging every blank against its quad line.
+function cellDelta(col, bcol, hand) {
   const v = col.pays[hand];
-  if (v != null) return v;
-  return covers(col, hand) ? null : 0;
-};
-// what the baseline pays for whatever hand this row is judged against
-const baseVal = (bcol, hand) => {
-  const eq = D.baseline[hand];
-  if (eq) {
-    const b = bcol.pays[eq];
-    if (b != null) return b;
-    return covers(bcol, eq) ? null : 0;
+  if (v == null) {
+    if (covers(col, hand)) return null;
+    const b = bcol.pays[hand];
+    return b == null ? null : -b;
   }
-  return covers(bcol, hand) ? null : 0;
-};
+  const eq = D.baseline[hand] || hand;
+  let b = bcol.pays[eq];
+  if (b == null) {
+    if (covers(bcol, eq)) return null;
+    b = 0;
+  }
+  return v - b;
+}
 // Each row is shaded against its OWN widest gap — Four Aces swings by 1075
 // coins and Full House by 30, so one shared scale renders every Full House
 // cell white. The scale spans every variation, not just the ticked ones, so
 // a shade never shifts when the selection changes.
 function rowScale(hand, bcol) {
-  const base = baseVal(bcol, hand);
-  if (base == null) return null;
   let m = 0;
   for (const c of D.cols) {
-    const v = heatVal(c, hand);
-    if (v != null) m = Math.max(m, Math.abs(v - base));
+    const d = cellDelta(c, bcol, hand);
+    if (d != null) m = Math.max(m, Math.abs(d));
   }
   return m || null;
 }
-function heat(v, base, scale) {
-  if (!heatOn || v == null || base == null || !scale) return null;
-  const d = v - base;
+function heat(d, scale) {
+  if (!heatOn || d == null || !scale) return null;
   if (Math.abs(d) < 1e-9) return null;
   return mix(d > 0 ? D.green : D.red, Math.pow(Math.min(1, Math.abs(d) / scale), D.gamma));
 }
@@ -407,11 +442,11 @@ function render() {
        cols.map(c => `<th>${c.ret ? c.ret.toFixed(2) + '%' : '—'}</th>`).join('') + '</tr>';
   t += '</thead><tbody>';
   for (const h of rows) {
-    const hb = baseVal(bcol, h), hs = rowScale(h, bcol);
+    const hs = rowScale(h, bcol);
     t += `<tr><td class="hand">${esc(h)}</td>`;
     for (const c of cols) {
       const v = c.pays[h];
-      const bg = heat(heatVal(c, h), hb, hs);
+      const bg = heat(cellDelta(c, bcol, h), hs);
       const sty = bg ? ` style="background:${bg}"` : '';
       if (v == null) { t += `<td class="na"${sty}>—</td>`; continue; }
       const isBase = c.key === baseKey;
@@ -497,12 +532,11 @@ def build_xlsx(dest):
         c = ws.cell(r, 1, hand)
         c.font = Font(F, size=10, bold=True)
         c.border = Border(right=thin, bottom=thin)
-        base = baseline_for(bcol, hand)
         scale = row_scale(hand, bcol)
         for col in COLS:
             cc = ws.cell(r, col_of[col['key']])
             v = col['pays'].get(hand)
-            rgb = heat_rgb(heat_val(col['pays'], hand), base, scale)
+            rgb = heat_rgb(cell_delta(col['pays'], bcol['pays'], hand), scale)
             if v is None:
                 cc.value = '—'
                 cc.font = Font(F, size=10, color='BFBFBF')
