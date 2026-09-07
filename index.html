@@ -540,6 +540,15 @@
     }
     .card.err-flash { animation: cardErrFlash 0.5s ease 1; }
 
+    /* Out of credits: breathe the same red glow on the coin medallion, which
+       is what opens Add Credits in classic mode. Slow in, slow out — a pulse
+       that asks for attention without nagging. */
+    @keyframes coinOutOfCredits {
+      0%, 100% { box-shadow: 2px 3px 5px rgba(0,0,0,0.6), inset 0 0 6px rgba(255,255,255,0.6); }
+      50%      { box-shadow: 0 0 24px 9px rgba(255,50,50,0.9), inset 0 0 6px rgba(255,255,255,0.6); }
+    }
+    body.classic #cs-coin.out-of-credits { animation: coinOutOfCredits 2s ease-in-out infinite; }
+
     /* ─── Game select button ────────────────────────────────── */
     .btn-game {
       background: linear-gradient(180deg, #8a5a00, #5a3a00);
@@ -662,12 +671,18 @@
     }
 
     /* ── Classic status line: WIN … BET+coin … CREDIT ── */
+    /* Three columns with equal flexible outsides, so BET stays dead centre —
+       and therefore centred over the coin medallion docked in the button row
+       below — no matter how wide WIN and CREDIT grow */
     body.classic #classic-status {
-      display: flex;
-      justify-content: space-between;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
       align-items: flex-end;
       padding: 0 8px;
     }
+    body.classic #cs-win      { justify-self: start; }
+    body.classic #cs-bet-wrap { justify-self: center; }
+    body.classic #cs-credit   { justify-self: end; }
     .cs-text {
       font-family: Impact, 'Arial Black', sans-serif;
       font-size: 30px;
@@ -1152,10 +1167,13 @@ function jtpRows(nrTop, fiveK, wr, sf, fourK, fh, fl, st){
   ];
 }
 
-function deucesRows(fiveK, sf, fourK, fh, fl){
+// Loose Deuces is the same ten categories, but four deuces pays 500 rather
+// than 200 — so the builder takes it as an argument and standard Deuces Wild
+// keeps its default.
+function deucesRows(fiveK, sf, fourK, fh, fl, fourDeuces = 200){
   return [
     { name:'Natural Royal',   short:'Natural\nRoyal',   col:'N.Royal', pays:[250,500,750,1000,4000] },
-    { name:'Four Deuces',     short:'Four\nDeuces',     col:'4 Deuce', pays: mult(200)   },
+    { name:'Four Deuces',     short:'Four\nDeuces',     col:'4 Deuce', pays: mult(fourDeuces) },
     { name:'Wild Royal',      short:'Wild\nRoyal',      col:'W.Royal', pays: mult(25)    },
     { name:'Five of a Kind',  short:'Five\nof a Kind',  col:'5Kind',   pays: mult(fiveK) },
     { name:'Straight Flush',  short:'Str.\nFlush',      col:'Str.Fl',  pays: mult(sf)    },
@@ -1177,6 +1195,8 @@ const GAMES = {
       { label:'8/6',          rows: jobRows(8,6), strat:'jacks86' },
       { label:'9/5',          rows: jobRows(9,5), strat:'jacks95' },
       { label:'8/5',          rows: jobRows(8,5), strat:'jacks85' },
+      { label:'7/5',          rows: jobRows(7,5), strat:'jacks75' },
+      { label:'6/5',          rows: jobRows(6,5), strat:'jacks65' },
     ],
     evaluate: cards => evaluate(cards),
     winCards: (cat, h) => winCardsStandard(cat, false, h),
@@ -1324,6 +1344,22 @@ const GAMES = {
     evaluate: cards => evalDeuces(cards),
     winCards: (cat, h) => winCardsDeuces(cat, h),
   },
+  loose: {
+    name: 'Loose Deuces',
+    titleHTML: '<span class="t-red">Loose</span> <span class="t-yellow">Deuces</span>',
+    payTables: [
+      { label:'17/10 Full Pay', rows: deucesRows(17,10,4,3,2,500), strat:'loose1710' },
+      { label:'15/10',          rows: deucesRows(15,10,4,3,2,500), strat:'loose1510' },
+      { label:'12/11',          rows: deucesRows(12,11,4,3,2,500), strat:'loose1211' },
+      { label:'12/10',          rows: deucesRows(12,10,4,3,2,500), strat:'loose1210' },
+      { label:'15/7',           rows: deucesRows(15, 7,4,3,2,500), strat:'loose157'  },
+      { label:'15/6',           rows: deucesRows(15, 6,4,3,2,500), strat:'loose156'  },
+      { label:'12/8',           rows: deucesRows(12, 8,4,3,2,500), strat:'loose128'  },
+      { label:'15/5',           rows: deucesRows(15, 5,4,3,2,500), strat:'loose155'  },
+    ],
+    evaluate: cards => evalDeuces(cards),
+    winCards: (cat, h) => winCardsDeuces(cat, h),
+  },
   bdeuces: {
     name: 'Bonus Deuces Wild',
     titleHTML: '<span class="t-red">Bonus</span> <span class="t-yellow">Deuces</span> <span class="t-red">Wild</span>',
@@ -1340,7 +1376,7 @@ const GAMES = {
 const GAME_KEYS = [
   'jacks','tens','allamerican','bonus','bpdeluxe','dbonus','ddbonus',
   'tbonus','tdbonus','sdbonus','sddbonus',
-  'joker','joker2','deuces','bdeuces',
+  'joker','joker2','deuces','loose','bdeuces',
 ];
 // Remember each game's built-in tables; user custom tables get appended
 // after these at load time (see rebuildPayTables)
@@ -1371,11 +1407,11 @@ let flipDuration = 560;         // ms — total card flip animation (0 = instant
 let dealDelay    = 350;         // ms — stagger between each card being dealt
 let theme        = 'classic';   // 'modern' | 'classic' (Game King look) — classic for first-time players
 let soundOn      = true;
-let trainerOn    = false;       // thump + retry on non-optimal hold
-let highlightErrOn = false;     // red-flash the optimal hold on a non-optimal play
+let trainerOn    = true;        // thump + retry on non-optimal hold
+let highlightErrOn = true;      // red-flash the optimal hold on a non-optimal play
 let graphShowOpt = true;        // show the optimal-play line on the graph
 let graphCombineAdds = false;   // graph: show all added cash as if added at the start (display only)
-let holdJudge    = 'analyzer';  // trainer/highlight verdict: 'analyzer' (top-EV hold) | 'strategy' (book line)
+let holdJudge    = 'strategy';  // trainer/highlight verdict: 'analyzer' (top-EV hold) | 'strategy' (book line)
 let stratLevel   = 'full';      // strategy list in use: 'full' | '0.9995' | '0.999' | '0.996' | '0.993'
 let analyzeStripOn = true;      // Analyze screen: strategy strip shown (remembers last choice)
 
@@ -2063,6 +2099,241 @@ function switchGame(key){
   setMessage(curGame().name + ' — Press Deal', false);
 }
 
+// ════════════════════════════════════════════════════════════
+//  PAY TABLE PICKER — the shorthand button beside Game
+//  Pay tables are per game and remembered in gameState[key].payTableIdx,
+//  so returning to a game restores the table it was last played on.
+// ════════════════════════════════════════════════════════════
+
+// "9/6 Full Pay" → "9/6" · "Not So Ugly 25/16/10" → "25/16/10" ·
+// "7/5 (SF 100)" → "7/5" · a custom table ("★ Mine") has no ratio → "★"
+function payTableShort(label){
+  const m = /(\d+(?:\/\d+)+)/.exec(label);
+  if(m) return m[1];
+  return label.startsWith('★') ? '★' : label.slice(0, 6);
+}
+
+// A game's active pay table. The live global is authoritative for the game
+// being played; every other game reads its remembered index out of gameState.
+function payIdxOf(key){
+  return key === currentGame
+    ? payTableIdx
+    : Math.min(gameState[key].payTableIdx, GAMES[key].payTables.length - 1);
+}
+function setPayIdxOf(key, i){
+  if(key === currentGame){
+    payTableIdx = i;
+    invalidateAnalysis();
+    buildPayTable();
+  } else {
+    gameState[key].payTableIdx = i;   // saveState() only syncs the current game
+  }
+  saveState();
+}
+
+// Full payout list for one table, at 1 coin and at max bet
+function showPayTableDetail(gameKey, idx, onBack){
+  sfx.button();
+  const game = GAMES[gameKey];
+  const tbl  = game.payTables[idx];
+  if(!tbl) return;
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = [
+    'position:fixed','inset:0','z-index:10003','background:rgba(0,5,25,0.92)',
+    'display:flex','align-items:center','justify-content:center',
+    'font-family:Arial,Helvetica,sans-serif',
+  ].join(';');
+  const panel = document.createElement('div');
+  panel.style.cssText = [
+    'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)',
+    'border:2px solid #2a4a9a','border-radius:14px','box-shadow:0 0 30px rgba(20,60,180,0.6)',
+    'padding:16px','width:min(460px,94vw)','max-height:92vh',
+    'display:flex','flex-direction:column','gap:10px',
+  ].join(';');
+
+  const title = document.createElement('div');
+  title.style.cssText = 'text-align:center;font-size:15px;font-weight:bold;color:#f0c040;letter-spacing:2px;text-transform:uppercase;flex-shrink:0;';
+  title.textContent = game.name;
+  const sub = document.createElement('div');
+  sub.style.cssText = 'text-align:center;font-size:12px;color:#8899bb;flex-shrink:0;';
+  sub.textContent = tbl.label;
+
+  const scroll = document.createElement('div');
+  scroll.style.cssText = 'overflow-y:auto;flex:1;';
+  const t = document.createElement('table');
+  t.style.cssText = 'border-collapse:collapse;width:100%;';
+  const th = (txt, al) => `<th style="padding:5px 6px;text-align:${al};border-bottom:2px solid #2a4a9a;` +
+                          `font-size:11px;color:#8899bb;letter-spacing:1px;text-transform:uppercase">${txt}</th>`;
+  t.innerHTML = '<tr>' + th('Hand','left') + th('1 Coin','right') + th('Max Bet (5)','right') + '</tr>';
+  tbl.rows.forEach((r, i) => {
+    if(r.name === 'Nothing') return;
+    const tr = t.insertRow();
+    tr.style.cssText = i % 2 ? 'background:rgba(255,255,255,0.03);' : '';
+    tr.innerHTML =
+      `<td style="padding:4px 6px;font-size:13px;color:#e0e8f8">${r.name}</td>` +
+      `<td style="padding:4px 6px;text-align:right;font-size:13px;color:#c0c8d8">${r.pays[0].toLocaleString()}</td>` +
+      `<td style="padding:4px 6px;text-align:right;font-size:13px;font-weight:bold;color:#f0c040">${r.pays[4].toLocaleString()}</td>`;
+  });
+  scroll.appendChild(t);
+
+  const note = document.createElement('div');
+  note.style.cssText = 'font-size:11px;color:#8899bb;text-align:center;flex-shrink:0;';
+  note.textContent = 'Max bet pays the royal jackpot — always bet 5 coins.';
+
+  const backBtn = document.createElement('button');
+  backBtn.textContent = onBack ? 'Back' : 'Close';
+  backBtn.style.cssText = [
+    'align-self:center','font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
+    'letter-spacing:2px','text-transform:uppercase','padding:8px 28px',
+    'background:linear-gradient(180deg,#2a4aaa,#1a2a7a)','border:2px solid #5a7acc',
+    'border-radius:8px','color:#fff','cursor:pointer','touch-action:manipulation','flex-shrink:0',
+  ].join(';');
+  const close = () => { if(overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+  backBtn.addEventListener('click', () => { sfx.button(); close(); if(onBack) onBack(); });
+  overlay.addEventListener('click', e => { if(e.target === overlay){ close(); if(onBack) onBack(); } });
+
+  panel.appendChild(title); panel.appendChild(sub); panel.appendChild(scroll);
+  panel.appendChild(note);  panel.appendChild(backBtn);
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+}
+
+// Pay table chooser for any game — reached from the game list, so it must
+// work for a game that is not the one currently loaded.
+function showPayTablePicker(gKey = currentGame, onBack){
+  sfx.button();
+  const game = GAMES[gKey];
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = [
+    'position:fixed','inset:0','z-index:10002','background:rgba(0,5,25,0.9)',
+    'display:flex','align-items:center','justify-content:center',
+    'font-family:Arial,Helvetica,sans-serif',
+  ].join(';');
+  const panel = document.createElement('div');
+  panel.style.cssText = [
+    'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)',
+    'border:2px solid #2a4a9a','border-radius:14px','box-shadow:0 0 30px rgba(20,60,180,0.6)',
+    'padding:18px','width:min(480px,94vw)','max-height:92vh',
+    'display:flex','flex-direction:column','gap:10px',
+  ].join(';');
+
+  const title = document.createElement('div');
+  title.style.cssText = 'text-align:center;font-size:16px;font-weight:bold;color:#f0c040;letter-spacing:2px;text-transform:uppercase;flex-shrink:0;';
+  title.textContent = 'Pay Table';
+  const sub = document.createElement('div');
+  sub.style.cssText = 'text-align:center;font-size:12px;color:#8899bb;flex-shrink:0;';
+  sub.textContent = game.name;
+
+  const list = document.createElement('div');
+  list.style.cssText = 'overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:7px;';
+
+  const close = () => { if(overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+  const done  = () => { close(); if(onBack) onBack(); };
+
+  function build(){
+    list.innerHTML = '';
+    game.payTables.forEach((pt, i) => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:7px;align-items:stretch;';
+
+      const pick = document.createElement('button');
+      const on = i === payIdxOf(gKey);
+      pick.style.cssText = [
+        'flex:1','text-align:left','font-family:Arial,Helvetica,sans-serif','font-size:14px',
+        'font-weight:bold','padding:9px 12px','border-radius:8px','cursor:pointer',
+        'touch-action:manipulation','display:flex','flex-direction:column','gap:2px',
+        on ? 'background:linear-gradient(180deg,#c89a20,#a07a10);border:2px solid #f0c040;color:#000'
+           : 'background:linear-gradient(180deg,#1a2a60,#101a45);border:2px solid #3a5aaa;color:#e0e8f8',
+      ].join(';');
+      const ret = document.createElement('span');
+      ret.style.cssText = `font-size:11px;font-weight:normal;opacity:0.85;color:${on ? '#3a2a00' : '#8fb8e8'};`;
+      ret.textContent = ' ';
+      pick.innerHTML = `<span>${pt.label}${on ? '  ✓' : ''}</span>`;
+      pick.appendChild(ret);
+      // the exact optimal return, once its strategy file is in hand
+      const sk = stratKeyFor(gKey, i);
+      if(sk) loadStrategy(sk).then(s => {
+        if(s) ret.textContent = (s.optimalReturn * 100).toFixed(2) + '% with perfect play';
+      });
+      pick.addEventListener('click', () => {
+        // only the game in play has a hand that could be disturbed
+        if(gKey === currentGame && phase === 'holding'){
+          setMessage('Finish the hand before changing the pay table', false);
+          sfx.thump();
+          return;
+        }
+        setPayIdxOf(gKey, i);        // remembered per game
+        sfx.button();
+        done();
+      });
+
+      const info = document.createElement('button');
+      info.textContent = 'Payouts';
+      info.title = 'See the full payout table';
+      info.style.cssText = [
+        'flex:0 0 auto','font-family:Arial,Helvetica,sans-serif','font-size:11px','font-weight:bold',
+        'letter-spacing:1px','text-transform:uppercase','padding:9px 11px','border-radius:8px',
+        'background:linear-gradient(180deg,#1a5a7a,#0e3a50)','border:2px solid #4ab0d0',
+        'color:#bfefff','cursor:pointer','touch-action:manipulation',
+      ].join(';');
+      info.addEventListener('click', () => {
+        close();
+        showPayTableDetail(gKey, i, () => showPayTablePicker(gKey, onBack));
+      });
+
+      row.appendChild(pick);
+      row.appendChild(info);
+      list.appendChild(row);
+    });
+  }
+  build();
+
+  // The custom editor works off the loaded game's rows, so it is offered only
+  // for the game in play; a hint covers the other case rather than silently
+  // editing the wrong game's table.
+  const isCur = gKey === currentGame;
+  const customBtn = document.createElement('button');
+  customBtn.textContent = 'Custom Pay Table…';
+  customBtn.style.cssText = [
+    'font-family:Arial,Helvetica,sans-serif','font-size:12px','font-weight:bold',
+    'letter-spacing:1px','text-transform:uppercase','padding:8px 14px',
+    'background:linear-gradient(180deg,#5a2a8a,#3a1a6a)','border:2px solid #aa66dd',
+    'border-radius:8px','color:#ddb8ff','cursor:pointer','touch-action:manipulation','flex-shrink:0',
+  ].join(';');
+  customBtn.addEventListener('click', () => {
+    close();
+    showCustomEditor(() => showPayTablePicker(gKey, onBack));
+  });
+  const hint = document.createElement('div');
+  hint.style.cssText = 'text-align:center;font-size:11px;color:#8899bb;flex-shrink:0;';
+  hint.textContent = 'Switch to this game to build a custom pay table.';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = 'Close';
+  closeBtn.style.cssText = [
+    'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
+    'letter-spacing:2px','text-transform:uppercase','padding:8px 28px',
+    'background:linear-gradient(180deg,#2a4aaa,#1a2a7a)','border:2px solid #5a7acc',
+    'border-radius:8px','color:#fff','cursor:pointer','touch-action:manipulation','flex-shrink:0',
+  ].join(';');
+  closeBtn.textContent = onBack ? 'Back' : 'Close';
+  closeBtn.addEventListener('click', () => { sfx.button(); done(); });
+  overlay.addEventListener('click', e => { if(e.target === overlay) done(); });
+
+  const btnRow = document.createElement('div');
+  btnRow.style.cssText = 'display:flex;justify-content:center;gap:12px;flex-shrink:0;';
+  if(isCur) btnRow.appendChild(customBtn);
+  btnRow.appendChild(closeBtn);
+
+  panel.appendChild(title); panel.appendChild(sub); panel.appendChild(list);
+  if(!isCur) panel.appendChild(hint);
+  panel.appendChild(btnRow);
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+}
+
 function showGameSelect(){
   if(phase === 'holding'){
     setMessage('Finish this hand before changing games', false);
@@ -2101,6 +2372,7 @@ function showGameSelect(){
 
   const close = () => { if(overlay.parentNode) overlay.parentNode.removeChild(overlay); };
 
+  const ptBtns = [];               // squared up to one width once laid out
   GAME_KEYS.forEach(key => {
     const g  = GAMES[key];
     const gs = gameState[key];
@@ -2116,12 +2388,38 @@ function showGameSelect(){
         : 'background:linear-gradient(180deg,#1a2a60,#101a45);border:2px solid #3a5aaa;color:#e0e8f8',
     ].join(';');
     const denomVal = DENOMINATIONS[denomIdx].value;
+    const ptIdx = payIdxOf(key);
+    b.style.flex = '1';
+    b.style.minWidth = '0';
     b.innerHTML =
       `<span>${g.name}${active ? ' ✓' : ''}</span>` +
       `<span style="font-size:12px;font-weight:normal;opacity:0.85">` +
-      `${g.payTables[gs.payTableIdx].label} · ${formatMoney(gs.credits * denomVal)}</span>`;
+      `${formatMoney(gs.credits * denomVal)}</span>`;
     b.addEventListener('click', () => { close(); switchGame(key); });
-    panel.appendChild(b);
+
+    // Pay table for THIS game, chosen without leaving the list
+    const ptBtn = document.createElement('button');
+    ptBtn.textContent = payTableShort(g.payTables[ptIdx].label);
+    ptBtn.title = 'Pay table — ' + g.payTables[ptIdx].label;
+    ptBtn.style.cssText = [
+      'flex:0 0 auto','font-family:Arial,Helvetica,sans-serif','font-size:13px',
+      'font-weight:bold','letter-spacing:0','padding:12px 12px','border-radius:8px',
+      'cursor:pointer','touch-action:manipulation','white-space:nowrap',
+      active
+        ? 'background:linear-gradient(180deg,#7a5000,#4a3000);border:2px solid #f0c040;color:#ffd780'
+        : 'background:linear-gradient(180deg,#24345a,#16223d);border:2px solid #3a5aaa;color:#bfd4f0',
+    ].join(';');
+    ptBtn.addEventListener('click', () => {
+      close();
+      showPayTablePicker(key, () => showGameSelect());   // back to this list
+    });
+
+    ptBtns.push(ptBtn);
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;align-items:stretch;';
+    row.appendChild(b);
+    row.appendChild(ptBtn);
+    panel.appendChild(row);
   });
 
   const cancel = document.createElement('button');
@@ -2136,8 +2434,18 @@ function showGameSelect(){
   overlay.addEventListener('click', e => { if(e.target===overlay) close(); });
 
   panel.appendChild(cancel);
+  // Pin every pay-table badge to the widest one ("25/16/10" sets the size), so
+  // the badges form a clean column and — because each game button is what is
+  // left of a fixed-width row — the game buttons all match too.
+  const squareUp = () => {
+    if(!ptBtns.length) return;
+    ptBtns.forEach(b => { b.style.flex = '0 0 auto'; b.style.width = ''; });
+    const w = Math.ceil(Math.max(...ptBtns.map(b => b.getBoundingClientRect().width)));
+    ptBtns.forEach(b => { b.style.flex = `0 0 ${w}px`; b.style.width = `${w}px`; });
+  };
   overlay.appendChild(panel);
   document.body.appendChild(overlay);
+  squareUp();                       // needs to be in the DOM to measure
 }
 
 // ── Denomination popup (classic mode: opened by tapping the coin oval) ──
@@ -2234,6 +2542,8 @@ function updateInfoRow(){
   document.getElementById('cs-bet-label').textContent = 'BET ' + coinBet;
   document.getElementById('cs-coin').textContent     = classicDenomLabel();
   document.getElementById('cs-credit').textContent   = 'CREDIT ' + credits;
+  // Broke: pulse the medallion, which is how you reach Add Credits in classic
+  document.getElementById('cs-coin').classList.toggle('out-of-credits', credits <= 0);
 }
 
 function formatMoney(v){
@@ -2619,8 +2929,10 @@ async function dealCore(){
     if(trainerOn && !trainerWarned && verdict && !verdict.ok){
       trainerWarned = true;
       sfx.thump();
-      setMessage(verdict.book ? 'Not the strategy play — change it, or Draw again to keep it'
-                              : 'Not the best hold — change it, or Draw again to keep it', false);
+      // kept short deliberately: in classic mode a second line of message text
+      // steals height from the cards
+      setMessage(verdict.book ? 'Not the strategy play — change it, or Draw'
+                              : 'Not the best hold — change it, or Draw', false);
       return;
     }
     trainerWarned = false;
@@ -2821,7 +3133,7 @@ const EVAL_FNS = { jacks: evaluate, tens: evalTens, allamerican: evaluate, bonus
                    bpdeluxe: evaluate, dbonus: evalBonusStyle, ddbonus: evalDDB,
                    tbonus: evalTripleBonus, tdbonus: evalDDB, sdbonus: evalSuperDB,
                    sddbonus: evalSuperDDB, joker: evalJoker, joker2: evalJokerTP,
-                   deuces: evalDeuces, bdeuces: evalBonusDeuces };
+                   deuces: evalDeuces, loose: evalDeuces, bdeuces: evalBonusDeuces };
 `;
 }
 
@@ -2988,6 +3300,8 @@ const STRAT_CFG = {
   // noNat2 = no natural 2 exists (deuces games); fiveGroup splits
   // five-of-a-kind / trips / pairs the way the pay table does.
   deuces:  { wild: c => c.rank === '2', wildName: 'deuce', noNat2: true, minPair: 13, fiveGroup: () => '',
+             pat: cards => ['NRF','4D','WRF','5K','SF','4K','FH','FL','ST','3K'][evalDeuces(cards)] || null },
+  loose:   { wild: c => c.rank === '2', wildName: 'deuce', noNat2: true, minPair: 13, fiveGroup: () => '',
              pat: cards => ['NRF','4D','WRF','5K','SF','4K','FH','FL','ST','3K'][evalDeuces(cards)] || null },
   bdeuces: { wild: c => c.rank === '2', wildName: 'deuce', noNat2: true, minPair: 13,
              fiveGroup: r => r === 12 ? 'A' : r <= 3 ? '35' : '6K',
@@ -3277,6 +3591,13 @@ function cardChipEl(c, font = 15){
 function showNumPad({ title = 'Enter a number', initial = '', min = 0, max = 9999999, hint = '' } = {}){
   return new Promise(resolve => {
     let val = (initial === null || initial === undefined) ? '' : String(initial);
+    // The prefilled value is a starting point, not something to type onto:
+    // the first digit replaces it, the way a calculator or a selected field
+    // behaves. Without this, typing 25000 over a prefilled 100000 appended
+    // and then silently hit the length cap.
+    let fresh = true;
+    // room for the largest value the caller allows (plus one for a typo)
+    const maxLen = String(max).length + 1;
 
     const overlay = document.createElement('div');
     overlay.style.cssText = [
@@ -3328,11 +3649,16 @@ function showNumPad({ title = 'Enter a number', initial = '', min = 0, max = 999
       b.addEventListener('click', () => { sfx.button(); fn(); });
       return b;
     };
-    const digit = d => { if(val.length >= 7) return; val = (val === '0') ? d : val + d; hintEl.style.color = '#8899bb'; hintEl.textContent = hint; refresh(); };
+    const digit = d => {
+      if(fresh){ val = ''; fresh = false; }
+      if(val.length >= maxLen) return;
+      val = (val === '0') ? d : val + d;
+      hintEl.style.color = '#8899bb'; hintEl.textContent = hint; refresh();
+    };
     ['1','2','3','4','5','6','7','8','9'].forEach(d => grid.appendChild(mkKey(d, () => digit(d))));
-    grid.appendChild(mkKey('C', () => { val = ''; refresh(); }, 'color:#ff8080;font-size:18px'));
+    grid.appendChild(mkKey('C', () => { val = ''; fresh = false; refresh(); }, 'color:#ff8080;font-size:18px'));
     grid.appendChild(mkKey('0', () => digit('0')));
-    grid.appendChild(mkKey('⌫', () => { val = val.slice(0, -1); refresh(); }, 'color:#ffcc66'));
+    grid.appendChild(mkKey('⌫', () => { val = val.slice(0, -1); fresh = false; refresh(); }, 'color:#ffcc66'));
 
     const actions = document.createElement('div');
     actions.style.cssText = 'display:flex;gap:8px;';
@@ -3373,7 +3699,7 @@ function showNumPad({ title = 'Enter a number', initial = '', min = 0, max = 999
     // Desktop convenience: physical keyboard works too
     const onKey = e => {
       if(/^[0-9]$/.test(e.key)) { digit(e.key); e.preventDefault(); }
-      else if(e.key === 'Backspace') { val = val.slice(0,-1); refresh(); e.preventDefault(); }
+      else if(e.key === 'Backspace') { val = val.slice(0,-1); fresh = false; refresh(); e.preventDefault(); }
       else if(e.key === 'Enter')  { submit(); e.preventDefault(); }
       else if(e.key === 'Escape') { close(null); e.preventDefault(); }
     };
@@ -3439,6 +3765,10 @@ function showAnalysis(customHand, customDeck, opts = {}) {
 
   // ── Mode state ─────────────────────────────────────────────
   let oddsMode = false;   // false = payouts, true = odds %
+  // false = money for the bet actually on the machine; true = per coin wagered,
+  // so the figures read as plain multiples (1.00 = break even) and can be
+  // compared with the pay table's per-coin column
+  let perCoin  = false;
 
   // ── Overlay ────────────────────────────────────────────────
   // z-index above the Non-Optimal Plays viewer (10000) so tapping a
@@ -3519,7 +3849,31 @@ function showAnalysis(customHand, customDeck, opts = {}) {
         'color:#0a1a3a','cursor:pointer','touch-action:manipulation',
       ].join(';');
     }
+    // normalising a percentage is meaningless, so the scale toggle only
+    // belongs on screen while payouts are showing
+    betBtn.style.display = oddsMode ? 'none' : '';
   };
+
+  // Scale toggle — money at the current bet, or per coin wagered
+  const betBtn = document.createElement('button');
+  const applyBetStyle = () => {
+    betBtn.textContent = perCoin ? 'Current Bet' : 'Per Coin';
+    betBtn.style.cssText = [
+      'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
+      'letter-spacing:2px','text-transform:uppercase','padding:8px 22px','border-radius:8px',
+      'cursor:pointer','touch-action:manipulation',
+      perCoin ? 'background:linear-gradient(180deg,#d0d8e8,#a0aac0);border:2px solid #e0e8f8;color:#0a1a3a'
+              : 'background:linear-gradient(180deg,#7a5a00,#4a3600);border:2px solid #ccaa00;color:#ffee88',
+    ].join(';');
+  };
+  applyBetStyle();
+  betBtn.addEventListener('click', () => {
+    perCoin = !perCoin;
+    sfx.button();
+    applyBetStyle();
+    if(lastRanked) render(lastRanked);
+  });
+
   applyToggleStyle();
 
   const closeBtn = document.createElement('button');
@@ -3541,12 +3895,15 @@ function showAnalysis(customHand, customDeck, opts = {}) {
   // book play, toggled from the bottom bar ──────────────────
   // Header stays fixed; the whole list at the current level scrolls beneath
   // it, opened with the book line in view.
+  // The whole strip is capped at a third of the viewport so the hold table
+  // keeps the rest; the list scrolls inside whatever is left after the header.
   const stripWrap = document.createElement('div');
-  stripWrap.style.cssText = 'flex-shrink:0;display:none;flex-direction:column;border-top:2px solid #2a4a9a;padding-top:6px;';
+  stripWrap.style.cssText = 'flex-shrink:0;display:none;flex-direction:column;border-top:2px solid #2a4a9a;' +
+                            'padding-top:6px;max-height:33vh;overflow:hidden;';
   const stripHead = document.createElement('div');
   stripHead.style.cssText = 'display:flex;justify-content:space-between;align-items:baseline;padding:0 8px 4px;flex-shrink:0;';
   const stripList = document.createElement('div');
-  stripList.style.cssText = 'overflow-y:auto;max-height:min(230px,30vh);padding:0 4px;-webkit-overflow-scrolling:touch;';
+  stripList.style.cssText = 'overflow-y:auto;flex:1;min-height:0;padding:0 4px;-webkit-overflow-scrolling:touch;';
   const stripWarn = document.createElement('div');
   stripWarn.style.cssText = 'font-size:11px;color:#ffcc66;padding:4px 8px 0;flex-shrink:0;display:none;';
   stripWrap.appendChild(stripHead);
@@ -3653,6 +4010,7 @@ function showAnalysis(customHand, customDeck, opts = {}) {
     bottomBar.appendChild(backBtn);
   }
   bottomBar.appendChild(toggleBtn);
+  bottomBar.appendChild(betBtn);
   bottomBar.appendChild(stratToggle);
   bottomBar.appendChild(closeBtn);
 
@@ -3689,6 +4047,13 @@ function showAnalysis(customHand, customDeck, opts = {}) {
         (bold ? 'font-weight:bold;color:#f0c040;' : '');
       if(val <= 0){
         td.textContent = '—';
+      } else if(perCoin){
+        // per coin wagered — a bare ratio, no currency
+        const d = val / coinBet;
+        td.textContent = d >= 100 ? d.toFixed(0)
+                       : d >= 10  ? d.toFixed(1)
+                       : d >= 1   ? d.toFixed(2)
+                       :            d.toFixed(3);
       } else {
         const d = +(val * denom).toFixed(2);
         td.textContent = d < 1 ? '$' + d.toFixed(2)
@@ -4008,7 +4373,7 @@ function showStrategy(highlightId){
   const closeBtn = document.createElement('button');
   closeBtn.textContent = 'Close';
   closeBtn.style.cssText = [
-    'align-self:center','font-family:Arial,Helvetica,sans-serif','font-size:13px',
+    'font-family:Arial,Helvetica,sans-serif','font-size:13px',
     'font-weight:bold','letter-spacing:2px','text-transform:uppercase','padding:8px 28px',
     'background:linear-gradient(180deg,#2a4aaa,#1a2a7a)','border:2px solid #5a7acc',
     'border-radius:8px','color:#fff','cursor:pointer','touch-action:manipulation','flex-shrink:0',
@@ -4017,11 +4382,29 @@ function showStrategy(highlightId){
   closeBtn.addEventListener('click', close);
   overlay.addEventListener('click', e => { if(e.target === overlay) close(); });
 
+  // Save the list being viewed as a plain text file
+  const dlBtn = document.createElement('button');
+  dlBtn.textContent = 'Download';
+  dlBtn.style.cssText = [
+    'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
+    'letter-spacing:2px','text-transform:uppercase','padding:8px 22px',
+    'background:linear-gradient(180deg,#1a6a6a,#0e4444)','border:2px solid #3acccc',
+    'border-radius:8px','color:#aaffff','cursor:pointer','touch-action:manipulation','flex-shrink:0',
+  ].join(';');
+  dlBtn.style.display = 'none';                 // shown once a strategy loads
+  let downloadFor = null;                       // set by render()
+  dlBtn.addEventListener('click', () => { sfx.button(); if(downloadFor) downloadFor(); });
+
+  const btnRow = document.createElement('div');
+  btnRow.style.cssText = 'display:flex;justify-content:center;gap:12px;flex-shrink:0;';
+  btnRow.appendChild(dlBtn);
+  btnRow.appendChild(closeBtn);
+
   panel.appendChild(title);
   panel.appendChild(sub);
   panel.appendChild(levelRow);
   panel.appendChild(body);
-  panel.appendChild(closeBtn);
+  panel.appendChild(btnRow);
   overlay.appendChild(panel);
   document.body.appendChild(overlay);
 
@@ -4043,8 +4426,37 @@ function showStrategy(highlightId){
     const render = () => {
       const list = stratLines(strat, stratLevel);
       const ret  = stratReturn(strat, stratLevel);
-      sub.textContent = `${curGame().payTables[payTableIdx].label}  ·  ${list.length} lines  ·  ` +
+      const ptLabel = curGame().payTables[payTableIdx].label;
+      sub.textContent = `${ptLabel}  ·  ${list.length} lines  ·  ` +
                         `${(ret*100).toFixed(2)}% return  (optimal ${(strat.optimalReturn*100).toFixed(2)}%)`;
+
+      // Plain-text export of exactly the list on screen
+      dlBtn.style.display = '';
+      downloadFor = () => {
+        const w = 64;
+        const lines = [
+          `${curGame().name} — ${ptLabel}`,
+          `${stratLevelName(stratLevel)} strategy — ${list.length} lines`,
+          `Return with this list: ${(ret*100).toFixed(4)}%   (optimal play: ${(strat.optimalReturn*100).toFixed(4)}%)`,
+          `Assumes max coins (5). Generated ${strat.generated}.`,
+          '='.repeat(w), '',
+          'Play the FIRST line that matches your hand.', '',
+        ];
+        list.forEach((l, i) => lines.push(`${String(i+1).padStart(3)}. ${l.label}`));
+        // strat.neverPlayed is deliberately NOT exported: it lists patterns the
+        // ordering never selects, which reads as advice but isn't — the entries
+        // are either already covered by a line above or unreachable behind one.
+        lines.push('', '-'.repeat(w),
+          'Exceptions: hands where the top-EV hold differs from this list are',
+          'shown on the Analyze screen when the strategy strip is open.', '');
+        const name = `${curGame().name} ${ptLabel} ${stratLevelName(stratLevel)}`
+          .replace(/[^\w.-]+/g, '-').replace(/^-|-$/g, '');
+        const url = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' }));
+        const a = document.createElement('a');
+        a.href = url; a.download = name + '.txt';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+      };
 
       // level buttons — the chosen level is shared with the Analyze strip
       // and (when "Judge Holds By" is Strategy) the hold trainer
@@ -4795,35 +5207,8 @@ function showSettings() {
     saveState();
   }));
 
-  // Pay table for the current game (change only between hands)
-  panel.appendChild(makeToggleRow(
-    'Pay Table — ' + curGame().name,
-    curGame().payTables.map((p, i) => ({ label: p.label, value: i })),
-    () => payTableIdx,
-    i => {
-      if(phase === 'holding'){ alert('Finish the current hand before changing the pay table.'); return; }
-      payTableIdx = i;
-      invalidateAnalysis();
-      saveState();
-      buildPayTable();
-    }
-  ));
-
-  // Custom pay table editor — reopens Settings after so the selector
-  // row above picks up the new/changed option
-  const customBtn = document.createElement('button');
-  customBtn.textContent = 'Custom Pay Table…';
-  customBtn.style.cssText = [
-    'align-self:flex-end','font-family:Arial,Helvetica,sans-serif','font-size:12px',
-    'font-weight:bold','letter-spacing:1px','text-transform:uppercase','padding:7px 14px',
-    'background:linear-gradient(180deg,#5a2a8a,#3a1a6a)','border:2px solid #aa66dd',
-    'border-radius:7px','color:#ddb8ff','cursor:pointer','touch-action:manipulation',
-    'margin-top:-12px',
-  ].join(';');
-  customBtn.addEventListener('click', () => {
-    showCustomEditor(() => { close(); showSettings(); });
-  });
-  panel.appendChild(customBtn);
+  // Pay table selection and the custom-table editor now live on the main
+  // screen, on the shorthand button beside Game (showPayTablePicker).
 
   // Look & feel: retro-modern vs authentic Game King
   panel.appendChild(makeToggleRow(
@@ -4993,6 +5378,12 @@ self.onmessage = e => {
   const hand = new Array(5), out = new Array(5), heldBuf = [];
   const cntSel = new Float64Array(pays.length), cntFull = new Float64Array(pays.length);
   let n = 0, sumSel = 0, sumFull = 0, same = 0;
+  // Graph resolution: record a point every N hands rather than once per 60ms
+  // batch, so a 10k run gets as many points as a 1M run instead of a dozen
+  // blocky segments. Unlimited runs start fine-grained and the main thread
+  // halves the series as it grows. (No backticks here — this whole worker is
+  // built from a template literal.)
+  let every = m.every || 1, pending = [];
   const play = mask => {
     let d = 5;
     for(let i = 0; i < 5; i++) out[i] = (mask & (1 << i)) ? hand[i] : deck[d++];
@@ -5026,9 +5417,14 @@ self.onmessage = e => {
       sumSel += pays[cS]; sumFull += pays[cF];
       if(mS === mF) same++;
       n++;
+      if(n % every === 0) pending.push({ n, sS: sumSel, sF: sumFull });
     }
     const done = !running || (target > 0 && n >= target);
-    self.postMessage({ run: m.run, n, sumSel, sumFull, same, cntSel: Array.from(cntSel), cntFull: Array.from(cntFull), done });
+    if(done && (!pending.length || pending[pending.length-1].n !== n))
+      pending.push({ n, sS: sumSel, sF: sumFull });          // always land on the final point
+    self.postMessage({ run: m.run, n, sumSel, sumFull, same, samples: pending,
+                       cntSel: Array.from(cntSel), cntFull: Array.from(cntFull), done });
+    pending = [];
     if(!done) setTimeout(step, 0);
   };
   step();
@@ -5111,6 +5507,7 @@ function showSimulator(){
 
   const FAST_TARGETS   = [[10000,'10,000'], [100000,'100,000'], [1000000,'1,000,000'], [0,'Unlimited']];
   const VERIFY_TARGETS = [[25,'25'], [100,'100'], [500,'500'], [0,'Unlimited']];
+  let customTarget = null;   // remembered so the Custom button keeps its label
 
   const modeRow  = mkRow('Mode', [['fast','Fast Play'], ['verify','Verify vs Analyzer']],
                          () => mode, v => { mode = v; target = v === 'fast' ? 100000 : 100; rebuildTargetRow(); resetResults(); });
@@ -5118,9 +5515,24 @@ function showSimulator(){
   let targetRow  = null;
   const targetSlot = document.createElement('div');
   targetSlot.style.cssText = 'flex-shrink:0;';
+  const CUSTOM = -1;   // sentinel: the button opens the number pad
   function rebuildTargetRow(){
     targetSlot.innerHTML = '';
-    targetRow = mkRow('Hands', mode === 'fast' ? FAST_TARGETS : VERIFY_TARGETS, () => target, v => { target = v; });
+    const presets = mode === 'fast' ? FAST_TARGETS : VERIFY_TARGETS;
+    const custLabel = customTarget ? customTarget.toLocaleString() + ' ✎' : 'Custom…';
+    targetRow = mkRow('Hands', presets.concat([[CUSTOM, custLabel]]),
+      // the Custom button reads as selected whenever target is the custom value
+      () => (customTarget && target === customTarget) ? CUSTOM : target,
+      v => {
+        if(v !== CUSTOM){ target = v; return; }
+        const max = mode === 'fast' ? 100000000 : 100000;
+        showNumPad({ title: 'Number of Hands', initial: customTarget || target || 50000,
+                     min: 1, max, hint: `1 to ${max.toLocaleString()}` }).then(nn => {
+          if(nn === null) return;
+          customTarget = nn; target = nn;
+          rebuildTargetRow();
+        });
+      });
     targetSlot.appendChild(targetRow);
   }
   rebuildTargetRow();
@@ -5238,17 +5650,24 @@ function showSimulator(){
       simWorker = new Worker(URL.createObjectURL(blob));
     }
     samples = []; t0 = Date.now();
+    // Aim for roughly one data point per horizontal pixel of the graph, so a
+    // short run draws a smooth line instead of a handful of long segments.
+    const want  = Math.max(200, canvas.width - 80);
+    const every = target ? Math.max(1, Math.round(target / want)) : 25;
     const myRun = runId;             // a late message from a stopped run is ignored
     simWorker.onmessage = e => {
       if(!running || e.data.run !== myRun || myRun !== runId) return;
       const m = e.data;
       lastMsg = m;
-      samples.push({ n: m.n, rs: m.sumSel / (BET * m.n), rf: m.sumFull / (BET * m.n) });
-      if(samples.length > 900) samples = samples.filter((_, i) => i % 2 === 0 || i === samples.length - 1);
+      for(const s of (m.samples || []))
+        samples.push({ n: s.n, rs: s.sS / (BET * s.n), rf: s.sF / (BET * s.n) });
+      // an unlimited run keeps growing: halve the series and carry on
+      while(samples.length > want * 2)
+        samples = samples.filter((_, i) => i % 2 === 0 || i === samples.length - 1);
       renderFast();
       if(m.done) stop();
     };
-    simWorker.postMessage({ cmd: 'start', run: myRun, gameKey: gKey, pays, rankSel, rankFull, target,
+    simWorker.postMessage({ cmd: 'start', run: myRun, gameKey: gKey, pays, rankSel, rankFull, target, every,
                             cfgSrc: cfgSource(cfg), joker: !!GAMES[gKey].joker });
   }
 

@@ -7,10 +7,10 @@ at 5 coins, except where noted. Returns assume optimal play at max coins.
 Returns shown are EXACT expected values, not simulations: computed by
 strategy/strategy-gen.js over every one of the 2,598,960 possible deals
 (2,869,685 for the 53-card joker games) and cross-checked against the
-published Wizard of Odds figures. All 44 tables below have a generated
+published Wizard of Odds figures. All 54 tables below have a generated
 strategy guide in the app (Settings -> Strategy Guide).
 
-15 games, 44 pay tables. A side-by-side payout comparison of every game's
+16 games, 54 pay tables. A side-by-side payout comparison of every game's
 top variant is in video-poker-payouts.xlsx.
 Last refreshed: 2026-09-06
 
@@ -25,6 +25,8 @@ JACKS OR BETTER
     8/6  ................ 98.39%
     9/5  ................ 98.45%
     8/5  ................ 97.30%
+    7/5  ................ 96.15%
+    6/5  ................ 95.00%
 
 TENS OR BETTER
   Hands: as Jacks or Better, but the minimum paying pair is TENS;
@@ -158,6 +160,26 @@ DEUCES WILD — all four 2s are wild
     Full Pay 25/15/9/5/3/2 ....... 100.76%
     Not So Ugly 25/16/10/4/4/3 ... 99.73%
     Airport 25/15/9/4/4/3 ........ 98.91%   (a.k.a. Illinois Deuces)
+
+LOOSE DEUCES — all four 2s wild; four deuces pays a 500 jackpot
+  Hands: Natural Royal 250(4000), Four Deuces 500, Wild Royal 25,
+         Five of a Kind (varies), Straight Flush (varies),
+         Four of a Kind 4, Full House 3, Flush 2, Straight 2,
+         Three of a Kind 1
+  The big four-deuces payout is what makes it "loose"; the smaller hands
+  are cut back to 4/3/2/2/1 to pay for it.
+  Variations (Five of a Kind / Straight Flush):
+    17/10 Full Pay ...... 101.60%
+    15/10 ............... 100.97%
+    12/11 ............... 100.47%
+    12/10 ............... 100.02%
+    15/7  ................ 99.78%
+    15/6  ................ 99.42%
+    12/8  ................ 99.20%
+    15/5  ................ 99.07%
+  NOTE: the Wizard's page also lists an El Cortez game at 99.62% whose four
+        deuces pays only 400. He does not class it as Loose Deuces and it is
+        not one of the tables above; it is not implemented.
 
 BONUS DEUCES WILD — all four 2s wild, bonus five-of-a-kinds
   Hands: Natural Royal 250(4000), Four Deuces + Ace 400, Four Deuces 200,
