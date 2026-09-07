@@ -126,6 +126,24 @@ def cell_delta(pays, bpays, hand):
 
 BASE_COL = next(c for c in COLS if c['gameKey'] == DATA['baselineGame'] and c['top'])
 
+# Row order differs between the two outputs, because only the HTML can re-sort
+# when the column selection changes. The xlsx is a static snapshot of all of
+# them, so it keeps one canonical order.
+ORDER_HTML = ('Rows are ordered by what the TICKED columns pay: each hand takes its sort value from '
+              'the leftmost column that pays it, so the sheet reads down like the pay table of the '
+              'game on the left. Change the selection and the order follows — with a Jacks or Better '
+              'column leftmost, five of a kind drops from the top of the sheet to just above full '
+              'house, where the game that actually pays it ranks it. Hands that tie keep their '
+              'canonical order.')
+ORDER_XLSX = ('Rows run roughly in descending payout order, using the highest each hand reaches across '
+              'all variations. Games rank hands differently, so the order is indicative, not exact for '
+              'any one game.')
+
+def notes(order_note):
+    return [n if n is not ORDER_SLOT else order_note for n in NOTES]
+
+ORDER_SLOT = object()
+
 NOTES = [
     'Payouts are the MAX-BET column (5 coins) — what the machine pays for a full 5-coin wager. '
     'The Amounts button switches to per-coin figures (everything ÷ 5), which is how pay tables are '
@@ -133,8 +151,7 @@ NOTES = [
     'compare. Shading does not change, since dividing every value and its baseline by 5 leaves the '
     'ratios identical.',
     '"—" means the game does not offer that hand at all, which is not the same as paying zero.',
-    'Rows run roughly in descending payout order, using the highest each hand reaches across all '
-    'variations. Games rank hands differently, so the order is indicative, not exact for any one game.',
+    ORDER_SLOT,
     'Heat map compares each payout with the baseline game\'s equivalent hand: green pays better, '
     'red pays worse. Each ROW is scaled to its own widest gap, so a 5-coin difference on Full House '
     'is as readable as a 1,075-coin one on Four Aces. That scale always spans all ' + str(len(COLS)) + ' variations, '
@@ -165,7 +182,7 @@ def build_html(dest):
                  for c in COLS],
         'defaultBaseline': BASE_COL['key'],
         'green': GREEN, 'red': RED, 'gamma': GAMMA, 'family': FAMILY,
-        'notes': NOTES,
+        'notes': notes(ORDER_HTML),
     }
     doc = HTML_TEMPLATE.replace('/*__DATA__*/null', json.dumps(payload, ensure_ascii=False))
     with open(dest, 'w', encoding='utf-8') as f:
@@ -432,6 +449,18 @@ function render() {
   if (!cols.length) { $('#table').innerHTML = '<div class="empty">No variations ticked.</div>'; return; }
   // a row earns its place only if some ticked column actually pays it
   const rows = D.hands.filter(h => cols.some(c => c.pays[h] != null));
+  // Order by what the ticked columns actually pay. Each hand sorts on the
+  // leftmost column that pays it, so the sheet reads down like the pay table
+  // of the game on the left instead of by the biggest number any of the 54
+  // reaches — five of a kind belongs next to full house when the leftmost
+  // game that pays it is a Deuces table paying 80, not up beside the royals
+  // because Joker's Wild pays 1,000 for it. Ties keep the canonical order.
+  const rank = new Map(D.hands.map((h, i) => [h, i]));
+  const sortVal = h => {
+    for (const c of cols) if (c.pays[h] != null) return c.pays[h];
+    return 0;
+  };
+  rows.sort((a, b) => sortVal(b) - sortVal(a) || rank.get(a) - rank.get(b));
 
   let t = '<table><thead>';
   t += '<tr class="r1"><th class="hand">Hand</th>' +
@@ -561,7 +590,7 @@ def build_xlsx(dest):
         'This sheet is a generated snapshot and contains no formulas. Re-run '
         'tools/extract-paytables.js then tools/build-payout-sheets.py to refresh it.',
     ]
-    for i, txt in enumerate(NOTES + extra):
+    for i, txt in enumerate(notes(ORDER_XLSX) + extra):
         c = ws.cell(n + 1 + i, 1, txt)
         c.font = Font(F, size=9, color='595959')
 
