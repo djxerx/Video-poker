@@ -5702,14 +5702,32 @@ function showTraining(){
       const on = !!(held & (1 << i));
       const b = document.createElement('button');
       const red = c.suit === '♥' || c.suit === '♦';
-      b.textContent = c.rank + c.suit;
+      const dim = answered && !on;
+      const ink = dim ? '#8899bb' : red ? '#c0392b' : '#1a1a1a';
+      // Fixed box, bigger type inside it: the card stays the same size on the
+      // row while the rank and suit are readable at a glance.
       b.style.cssText = [
-        'font-family:Arial,Helvetica,sans-serif','font-size:19px','font-weight:bold',
-        'padding:10px 12px','border-radius:6px','cursor:pointer','touch-action:manipulation',
-        'min-width:54px','background:' + (answered && !on ? '#33405e' : '#fff'),
-        'color:' + (answered && !on ? '#8899bb' : red ? '#c0392b' : '#1a1a1a'),
+        'font-family:Arial,Helvetica,sans-serif','font-size:25px','font-weight:bold',
+        'width:58px','height:52px','padding:0','border-radius:6px','cursor:pointer',
+        'touch-action:manipulation','position:relative','line-height:1',
+        'display:flex','align-items:center','justify-content:center',
+        'background:' + (dim ? '#33405e' : '#fff'),'color:' + ink,
         on ? 'border:2px solid #f0c040;outline:2px solid #f0c040' : 'border:2px solid #33405e',
       ].join(';');
+      // "JOKER★" cannot fit at this size; the star alone is unmistakable, and
+      // the WILD label below already says what it does.
+      b.appendChild(document.createTextNode(c.joker ? '★' : c.rank + c.suit));
+      // A wild card is the single most important thing to notice in a deuces
+      // or joker hand, and "2♦" alone does not say so. Sits under the rank in
+      // the card's own colour, faint enough not to compete with it.
+      if(cfg && cfg.wild && cfg.wild(c)){
+        const w = document.createElement('span');
+        w.textContent = 'WILD';
+        w.style.cssText = 'position:absolute;left:0;right:0;bottom:3px;font-size:8px;' +
+                          'font-weight:bold;letter-spacing:1px;text-align:center;' +
+                          'opacity:0.45;color:' + ink + ';pointer-events:none;';
+        b.appendChild(w);
+      }
       b.addEventListener('click', () => {
         if(answered) return;
         sfx.button(); held ^= (1 << i); paintCards();
