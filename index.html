@@ -5480,7 +5480,7 @@ function showSimulator(){
   sub.textContent = curGame().payTables[payTableIdx].label + '  ·  max coins (5)';
 
   // choice-row builder (same look as the Strategy Guide level buttons)
-  const mkRow = (label, options, getVal, setVal) => {
+  const mkRow = (label, options, getVal, setVal, live = false) => {
     const wrap = document.createElement('div');
     wrap.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex-shrink:0;';
     const lbl = document.createElement('span');
@@ -5502,7 +5502,12 @@ function showSimulator(){
         'letter-spacing:1px','text-transform:uppercase','padding:5px 10px','border-radius:6px',
         'border:2px solid #3a5aaa','background:#1a2a60','color:#c0c8d8','cursor:pointer','touch-action:manipulation',
       ].join(';');
-      b.addEventListener('click', () => { if(running) return; sfx.button(); setVal(value); refresh(); });
+      b.addEventListener('click', () => {
+        // most rows change what a run WOULD do, so they lock while one is in
+        // flight; a `live` row only changes how the finished samples are drawn
+        if(running && !live) return;
+        sfx.button(); setVal(value); refresh();
+      });
       els.push({ b, value });
       wrap.appendChild(b);
     });
@@ -5513,6 +5518,7 @@ function showSimulator(){
 
   // ── Run state ──────────────────────────────────────────────
   let mode     = 'fast';          // 'fast' | 'verify'
+  let graphY   = 'payback';       // y axis: 'payback' (% of coins in) | 'credits' (net won/lost)
   let simLevel = stratLevel;      // level under test (local to the simulator)
   let target   = 100000;
   let running  = false;
@@ -5555,6 +5561,9 @@ function showSimulator(){
   body.style.cssText = 'overflow-y:auto;flex:1;min-height:120px;display:flex;flex-direction:column;gap:8px;';
   const stats = document.createElement('div');
   stats.style.cssText = 'font-size:12px;color:#c0c8d8;line-height:1.6;padding:2px 4px;flex-shrink:0;white-space:pre-wrap;';
+  const graphRow = mkRow('Graph', [['payback', 'Payback %'], ['credits', 'Credits']],
+                         () => graphY, v => { graphY = v; redrawGraph(); }, true);
+  graphRow.style.cssText += 'padding:2px 4px;';
   const canvas = document.createElement('canvas');
   const cw = Math.min(720, Math.round(window.innerWidth * 0.90));
   canvas.width  = cw;
@@ -5563,6 +5572,7 @@ function showSimulator(){
   const detail = document.createElement('div');
   detail.style.cssText = 'flex-shrink:0;';
   body.appendChild(stats);
+  body.appendChild(graphRow);
   body.appendChild(canvas);
   body.appendChild(detail);
 
@@ -5601,15 +5611,24 @@ function showSimulator(){
 
   const fmtPct = v => (v * 100).toFixed(2) + '%';
   const fmtN   = n => n.toLocaleString();
+  // credits always carry their sign — "0" is a real result, "+0" reads wrong
+  const fmtCred = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(Math.round(v)).toLocaleString();
 
   // ── Fast-play results ──────────────────────────────────────
-  let samples = [];            // running returns after each worker batch: {n, rs, rf}
+  // running results after each worker batch: rs/rf are cumulative payback,
+  // cs/cf the same runs as net credits. Both are kept so the graph's y axis
+  // can be switched mid-run without replaying a single hand.
+  let samples = [];            // {n, rs, rf, cs, cf}
   let lastMsg = null, t0 = 0;
+  function redrawGraph(){
+    if(mode === 'fast') drawSimGraph(canvas, samples, samples.length ? refs() : {});
+  }
   function resetResults(){
     samples = []; lastMsg = null; verify = null;
     stats.textContent = '';
     detail.innerHTML = '';
     canvas.style.display = mode === 'fast' ? 'block' : 'none';
+    graphRow.style.display = mode === 'fast' ? 'flex' : 'none';
     if(mode === 'fast') drawSimGraph(canvas, samples, {});
   }
   function refs(){
@@ -5619,6 +5638,8 @@ function showSimulator(){
       expFull: strat.basicReturn,
       optimal: strat.optimalReturn,
       showFull: simLevel !== 'full',
+      yMode: graphY,
+      bet: BET,
     };
   }
   function renderFast(){
@@ -5626,7 +5647,10 @@ function showSimulator(){
     const m = lastMsg, r = refs();
     const rs = m.sumSel / (BET * m.n), rf = m.sumFull / (BET * m.n);
     const secs = Math.max(0.001, (Date.now() - t0) / 1000);
+    const net    = m.sumSel - BET * m.n;              // credits up or down on the run
+    const expNet = (r.expSel - 1) * BET * m.n;
     let txt = `Hands: ${fmtN(m.n)}   ·   ${fmtN(Math.round(m.n / secs))} hands/s\n` +
+              `Net: ${fmtCred(net)} credits on ${fmtN(BET * m.n)} wagered   (expected ${fmtCred(expNet)})\n` +
               `${r.selName}: ${fmtPct(rs)}   (expected ${fmtPct(r.expSel)})`;
     if(r.showFull){
       txt += `\nFull: ${fmtPct(rf)}   (expected ${fmtPct(r.expFull)})   ·   optimal ${fmtPct(r.optimal)}` +
@@ -5673,7 +5697,8 @@ function showSimulator(){
       const m = e.data;
       lastMsg = m;
       for(const s of (m.samples || []))
-        samples.push({ n: s.n, rs: s.sS / (BET * s.n), rf: s.sF / (BET * s.n) });
+        samples.push({ n: s.n, rs: s.sS / (BET * s.n), rf: s.sF / (BET * s.n),
+                       cs: s.sS - BET * s.n, cf: s.sF - BET * s.n });
       // an unlimited run keeps growing: halve the series and carry on
       while(samples.length > want * 2)
         samples = samples.filter((_, i) => i % 2 === 0 || i === samples.length - 1);
@@ -5816,32 +5841,63 @@ function drawSimGraph(canvas, samples, r){
   ctx.fillRect(0, 0, W, H);
   ctx.font = 'bold 12px Arial';
   ctx.textBaseline = 'middle';
+  const CRED = r.yMode === 'credits';
   if(samples.length < 2){
     ctx.fillStyle = '#8899bb'; ctx.textAlign = 'center';
-    ctx.fillText(samples.length ? 'Running…' : 'Return % over hands played will appear here', W / 2, H / 2);
+    ctx.fillText(samples.length ? 'Running…'
+      : CRED ? 'Credits won or lost over hands played will appear here'
+             : 'Return % over hands played will appear here', W / 2, H / 2);
     return;
   }
   const SEL = '#ff9f40', FULL = '#5ab0ff', OPT = '#f0c040';
-
-  // y-range from the settled part of the run (skip the noisy first 10%)
-  const skip = Math.floor(samples.length * 0.1);
-  const ys = [r.expSel, r.optimal].concat(r.showFull ? [r.expFull] : []).filter(v => typeof v === 'number');
-  for(let i = skip; i < samples.length; i++){ ys.push(samples[i].rs); if(r.showFull) ys.push(samples[i].rf); }
-  let lo = Math.min(...ys), hi = Math.max(...ys);
-  const mid = (lo + hi) / 2, half = Math.max((hi - lo) / 2 * 1.3, 0.003);
-  lo = mid - half; hi = mid + half;
+  const BET  = r.bet || 5;
   const nMax = samples[samples.length - 1].n;
+  const val  = s => CRED ? s.cs : s.rs;
+  const valF = s => CRED ? s.cf : s.rf;
+  // Payback is a running average, so its opening points swing wildly and would
+  // flatten everything after them — drop the first 10%. Credits start at zero
+  // and drift from there, so every point is worth drawing.
+  const skip = CRED ? 0 : Math.floor(samples.length * 0.1);
+  // Where a reference return sits on this axis. In credits the expectation is
+  // not a level: a 99.5% game loses 0.025 coins per hand for as long as you
+  // play, so the reference becomes a SLOPE from the origin and the run is read
+  // against that drift rather than against a flat line.
+  const expAt = v => CRED ? (v - 1) * BET * nMax : v;
+
+  const ys = [r.expSel, r.optimal].concat(r.showFull ? [r.expFull] : [])
+    .filter(v => typeof v === 'number').map(expAt);
+  if(CRED) ys.push(0);
+  for(let i = skip; i < samples.length; i++){ ys.push(val(samples[i])); if(r.showFull) ys.push(valF(samples[i])); }
+  let lo = Math.min(...ys), hi = Math.max(...ys);
+  const mid = (lo + hi) / 2, half = Math.max((hi - lo) / 2 * 1.3, CRED ? 5 : 0.003);
+  lo = mid - half; hi = mid + half;
   const X = n => pad.left + n / nMax * cW;
   const Y = v => pad.top + (hi - v) / (hi - lo) * cH;
   const nice = (raw, cands) => cands.find(c => c >= raw) || cands[cands.length - 1];
+  // credits are whole coins, so their step walks 1/2/5 times a decade
+  const niceStep = raw => {
+    const m = Math.pow(10, Math.floor(Math.log10(Math.max(raw, 1e-9))));
+    return nice(raw / m, [1, 2, 5, 10]) * m;
+  };
 
   // gridlines
   ctx.strokeStyle = 'rgba(80,110,180,0.35)'; ctx.lineWidth = 1;
   ctx.fillStyle = '#8899bb'; ctx.font = '11px Arial'; ctx.textAlign = 'right';
-  const yStep = nice((hi - lo) / 5, [0.0005,0.001,0.002,0.005,0.01,0.02,0.05,0.1,0.2,0.5,1]);
+  const yStep = CRED ? niceStep((hi - lo) / 5)
+                     : nice((hi - lo) / 5, [0.0005,0.001,0.002,0.005,0.01,0.02,0.05,0.1,0.2,0.5,1]);
+  const yTxt = v => CRED
+    ? (v > 0.5 ? '+' : v < -0.5 ? '−' : '') + Math.abs(Math.round(v)).toLocaleString()
+    : (v * 100).toFixed(yStep < 0.001 ? 3 : 2) + '%';
   for(let v = Math.ceil(lo / yStep) * yStep; v <= hi + 1e-12; v += yStep){
     ctx.beginPath(); ctx.moveTo(pad.left, Y(v)); ctx.lineTo(W - pad.right, Y(v)); ctx.stroke();
-    ctx.fillText((v * 100).toFixed(yStep < 0.001 ? 3 : 2) + '%', pad.left - 6, Y(v));
+    ctx.fillText(yTxt(v), pad.left - 6, Y(v));
+  }
+  // break-even carries the weight in credits that 100% does in payback, so it
+  // gets a brighter rule instead of blending into the grid
+  if(CRED && lo < 0 && hi > 0){
+    ctx.strokeStyle = 'rgba(150,180,240,0.8)';
+    ctx.beginPath(); ctx.moveTo(pad.left, Y(0)); ctx.lineTo(W - pad.right, Y(0)); ctx.stroke();
+    ctx.strokeStyle = 'rgba(80,110,180,0.35)';
   }
   ctx.textAlign = 'center';
   const mag = Math.pow(10, Math.floor(Math.log10(Math.max(1, nMax / 6))));
@@ -5857,8 +5913,10 @@ function drawSimGraph(canvas, samples, r){
   const ref = (v, color) => {
     if(typeof v !== 'number') return;
     ctx.setLineDash([6, 4]); ctx.strokeStyle = color; ctx.lineWidth = 1.2;
-    ctx.beginPath(); ctx.moveTo(pad.left, Y(v)); ctx.lineTo(W - pad.right, Y(v)); ctx.stroke();
-    ctx.setLineDash([]);
+    ctx.beginPath();
+    if(CRED){ ctx.moveTo(X(0), Y(0)); ctx.lineTo(X(nMax), Y(expAt(v))); }
+    else    { ctx.moveTo(pad.left, Y(v)); ctx.lineTo(W - pad.right, Y(v)); }
+    ctx.stroke(); ctx.setLineDash([]);
   };
   ref(r.optimal, OPT);
   if(r.showFull) ref(r.expFull, FULL);
@@ -5869,8 +5927,8 @@ function drawSimGraph(canvas, samples, r){
     samples.forEach((s, i) => { const x = X(s.n), y = Y(getter(s)); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
     ctx.stroke();
   };
-  if(r.showFull) series(s => s.rf, FULL);
-  series(s => s.rs, SEL);
+  if(r.showFull) series(valF, FULL);
+  series(val, SEL);
   ctx.restore();
 
   // legend
