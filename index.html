@@ -831,6 +831,27 @@
     /* Larger versions of the controls inside the coin popup */
     .denom-popup .denom-btn      { font-size: 15px; padding: 9px 15px; }
     .denom-popup .btn-denom-util { font-size: 13px; padding: 9px 15px; }
+
+    /* One colour for every action button on the main screen — the Analyze
+       yellow. Placed last so it wins over each button's own rule. Segmented
+       option pickers keep their gold highlight: that is what shows which
+       option is selected, so flattening them would hide the current choice. */
+    .btn-reset, .btn-graph, .btn-analyze, .btn-add-credits, .btn-deal,
+    .btn-bet-one, .btn-bet-max, .btn-game, .btn-settings, .btn-denom-util {
+      background: linear-gradient(180deg, #7a6a00, #4a4000);
+      border-color: #ccaa00;
+      color: #ffee88;
+    }
+    .btn-reset:hover:not(:disabled), .btn-graph:hover:not(:disabled),
+    .btn-analyze:hover:not(:disabled), .btn-add-credits:hover:not(:disabled),
+    .btn-deal:hover:not(:disabled), .btn-bet-one:hover:not(:disabled),
+    .btn-bet-max:hover:not(:disabled), .btn-game:hover:not(:disabled),
+    .btn-settings:hover:not(:disabled), .btn-denom-util:hover {
+      background: linear-gradient(180deg, #9a8800, #5a5000);
+      border-color: #ccaa00;
+      color: #ffee88;
+      box-shadow: 0 0 12px rgba(204,170,0,0.5);
+    }
   </style>
 </head>
 <body>
@@ -3760,9 +3781,14 @@ function showAnalysis(customHand, customDeck, opts = {}) {
   const denom = DENOMINATIONS[denomIdx].value;
   const gKey  = (isCustom && opts.gameKey) || currentGame;
   const game  = GAMES[gKey];
-  const rows  = isCustom
-    ? game.payTables[Math.min(gameState[gKey].payTableIdx, game.payTables.length - 1)].rows
-    : curPayRows();
+  // opts.payIdx pins the pay table: training can be set to one the main screen
+  // is not, and analysing that hand under the wrong table would contradict the
+  // very question being asked.
+  const aPay = isCustom
+    ? Math.min(typeof opts.payIdx === 'number' ? opts.payIdx : gameState[gKey].payTableIdx,
+               game.payTables.length - 1)
+    : payTableIdx;
+  const rows  = isCustom ? game.payTables[aPay].rows : curPayRows();
 
   let playerMask = -1;             // custom hands have no player hold
   if(!isCustom){
@@ -4349,6 +4375,89 @@ function showSubPlays(){
 //  The ordered hold list for the current pay table. highlightId scrolls to
 //  and highlights one line (used when opened from the Analyze screen).
 // ════════════════════════════════════════════════════════════
+// A line that counts straight windows needs the idea explained; "2 ways" is
+// meaningless until you know what a way is. Matches only lines that actually
+// say it — "4 to an outside straight: 0-3 high cards" needs no gloss.
+const saysWays = label => /straight/i.test(label) && /\bways?\b/i.test(label);
+const WAYS_TITLE = 'Explanation of Straight X Ways:';
+const WAYS_TEXT =
+  'There are ten possible straights in a deck (A-2-3-4-5 up through 10-J-Q-K-A). ' +
+  '"Ways" counts how many of them your held cards fit. Three cards in the middle ' +
+  'of the deck fit into 3 ways; streaks with an A give 1 way. Streaks starting ' +
+  'with 2 or ending K give 2 ways.';
+const WAYS_ROWS = [
+  ['5 6 7',  '3 ways', '(3-4-5-6-7, 4-5-6-7-8, 5-6-7-8-9)'],
+  ['10 J Q', '3 ways', ''],
+  ['2 3 4',  '2 ways', '(A-2-3-4-5, 2-3-4-5-6)'],
+  ['J Q K',  '2 ways', '(9-10-J-Q-K, 10-J-Q-K-A)'],
+  ['A 2 3',  '1 way',  '(only A-2-3-4-5)'],
+  ['Q K A',  '1 way',  '(only 10-J-Q-K-A)'],
+];
+// Three fixed columns so the table reads down as well as across: each rank is
+// right-aligned in two characters so the 10 cannot push its row out of step,
+// and the ways column is padded so every opening bracket starts together.
+function waysCols(r){
+  return [
+    r[0].split(' ').map(x => x.length < 2 ? ' ' + x : x).join(' '),
+    (r[1] + '      ').slice(0, 6),
+    r[2],
+  ];
+}
+function waysPlainText(){
+  return [WAYS_TITLE, WAYS_TEXT, ''].concat(WAYS_ROWS.map(r => {
+    const c = waysCols(r);
+    return ('  ' + c[0] + '  -> ' + c[1] + (c[2] ? '  ' + c[2] : '')).replace(/\s+$/, '');
+  }));
+}
+function showWaysHelp(){
+  const ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;z-index:10002;background:rgba(0,5,25,0.9);display:flex;' +
+                     'align-items:center;justify-content:center;font-family:Arial,Helvetica,sans-serif;';
+  const pn = document.createElement('div');
+  pn.style.cssText = 'background:linear-gradient(180deg,#0d2255,#091840);border:2px solid #2a4a9a;' +
+                     'border-radius:14px;padding:16px 18px;width:min(500px,94vw);max-height:88vh;' +
+                     'overflow-y:auto;display:flex;flex-direction:column;gap:10px;';
+  pn.innerHTML =
+    '<div style="font-size:13px;font-weight:bold;color:#f0c040;letter-spacing:1px">' + WAYS_TITLE + '</div>' +
+    '<div style="font-size:12px;color:#c0c8d8;line-height:1.6">' + WAYS_TEXT + '</div>' +
+    // white-space:pre keeps the padding, which is what does the aligning
+    '<div style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#c0c8d8;' +
+    'background:#040d22;border-radius:8px;padding:10px 12px;line-height:1.7;white-space:pre;' +
+    'overflow-x:auto">' +
+    WAYS_ROWS.map(r => {
+      const c = waysCols(r);
+      return '<span style="color:#f0c040">' + c[0] + '</span>  \u2192  ' +
+             '<span style="color:#7ee08a">' + c[1] + '</span>' +
+             (c[2] ? '  <span style="color:#8899bb">' + c[2] + '</span>' : '');
+    }).join('\n') +
+    '</div>';
+  const ok = document.createElement('button');
+  ok.textContent = 'Close';
+  ok.style.cssText = 'align-self:center;font-family:Arial,Helvetica,sans-serif;font-size:12px;' +
+                     'font-weight:bold;letter-spacing:2px;text-transform:uppercase;padding:7px 24px;' +
+                     'background:linear-gradient(180deg,#2a4aaa,#1a2a7a);border:2px solid #5a7acc;' +
+                     'border-radius:8px;color:#fff;cursor:pointer;touch-action:manipulation;';
+  ok.addEventListener('click', () => { sfx.button(); ov.remove(); });
+  pn.appendChild(ok);
+  ov.addEventListener('click', e => { if(e.target === ov) ov.remove(); });
+  ov.appendChild(pn); document.body.appendChild(ov);
+}
+// the "?" that sits at the end of such a line — same size as the line's text
+function waysHelpBtn(fontSize){
+  const b = document.createElement('button');
+  b.textContent = '?';
+  b.title = 'What does "ways" mean?';
+  b.setAttribute('aria-label', 'What does ways mean?');
+  b.style.cssText = [
+    'font-family:Arial,Helvetica,sans-serif','font-size:' + fontSize,'font-weight:bold',
+    'line-height:1','width:1.35em','height:1.35em','padding:0','margin-left:6px',
+    'border-radius:50%','border:1px solid #f0c040','background:transparent','color:#f0c040',
+    'cursor:pointer','touch-action:manipulation','vertical-align:middle','flex:0 0 auto',
+  ].join(';');
+  b.addEventListener('click', e => { e.stopPropagation(); sfx.button(); showWaysHelp(); });
+  return b;
+}
+
 function showStrategy(highlightId){
   sfx.button();
   const key = stratKeyFor();
@@ -4465,6 +4574,10 @@ function showStrategy(highlightId){
         lines.push('', '-'.repeat(w),
           'Exceptions: hands where the top-EV hold differs from this list are',
           'shown on the Analyze screen when the strategy strip is open.', '');
+        // only when a line above actually counts ways — otherwise it is a
+        // page of explanation for a term the card never uses
+        if(list.some(l => saysWays(l.label)))
+          lines.push('-'.repeat(w), '', ...waysPlainText(), '');
         const name = `${curGame().name} ${ptLabel} ${stratLevelName(stratLevel)}`
           .replace(/[^\w.-]+/g, '-').replace(/^-|-$/g, '');
         const url = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' }));
@@ -4511,6 +4624,7 @@ function showStrategy(highlightId){
         l.textContent = line.label;
         l.style.cssText = 'padding:6px 4px;font-size:14px;' +
           (isHit ? 'color:#f0c040;font-weight:bold;' : 'color:#e0e8f8;');
+        if(saysWays(line.label)) l.appendChild(waysHelpBtn('14px'));
       });
       body.appendChild(tbl);
 
@@ -5375,6 +5489,17 @@ function showSettings() {
 
   panel.appendChild(histSection);
   panel.appendChild(doneBtn);
+
+  // Same Analyze yellow as the main screen. Only the action buttons: the
+  // segmented option pickers above keep their own gold, which is how you can
+  // see which option is currently chosen.
+  [pickBtn, stratBtn, simBtn, trainBtn, cmpBtn, dlBtn, ulBtn, doneBtn].forEach(b => {
+    if(!b) return;
+    b.style.background = 'linear-gradient(180deg,#7a6a00,#4a4000)';
+    b.style.borderColor = '#ccaa00';
+    b.style.color = '#ffee88';
+  });
+
   overlay.appendChild(panel);
   document.body.appendChild(overlay);
 }
@@ -5494,8 +5619,15 @@ function showTraining(){
   // 1-5 toggle the matching card, Enter checks then advances, F opens the full
   // analysis, Esc closes. Everything else stays mouse-only on purpose — these
   // are the four things you do on every single hand.
+  // true only when nothing else has been layered over the trainer — otherwise
+  // Esc would close the trainer from under the analysis sitting on top of it
+  function onTop(){
+    const ovs = [...document.body.children].filter(el =>
+      el.nodeType === 1 && getComputedStyle(el).position === 'fixed' && +getComputedStyle(el).zIndex >= 9000);
+    return !ovs.length || ovs[ovs.length - 1] === overlay;
+  }
   function onKey(e){
-    if(!overlay.parentNode) return;
+    if(!overlay.parentNode || !onTop()) return;
     if(e.metaKey || e.ctrlKey || e.altKey) return;
     const k = e.key;
     if(k >= '1' && k <= '5'){
@@ -5725,7 +5857,7 @@ function showTraining(){
         w.textContent = 'WILD';
         w.style.cssText = 'position:absolute;left:0;right:0;bottom:3px;font-size:8px;' +
                           'font-weight:bold;letter-spacing:1px;text-align:center;' +
-                          'opacity:0.45;color:' + ink + ';pointer-events:none;';
+                          'opacity:0.8;color:' + ink + ';pointer-events:none;';
         b.appendChild(w);
       }
       b.addEventListener('click', () => {
@@ -5912,9 +6044,10 @@ function showTraining(){
   skipBtn.addEventListener('click', () => { sfx.button(); nextQuestion(); });
   fullBtn.addEventListener('click', () => {
     sfx.button();
-    const h = qHand.slice(), d = qDeck.slice();
-    close();
-    showAnalysis(h, d, { gameKey: gKey, onBack: () => showTraining() });
+    // Layer the analysis over the trainer rather than closing it. Closing threw
+    // away the whole training deck and the question you were on; coming Back
+    // now simply reveals the same hand, verdict and buckets underneath.
+    showAnalysis(qHand.slice(), qDeck.slice(), { gameKey: gKey, payIdx: ptIdx, onBack: () => {} });
   });
   // A hand you fumbled by mistake should not be drilled forever. Drops it from
   // the saved misses and from the review queue, and unwinds the mark against
@@ -5986,6 +6119,25 @@ function showTraining(){
 // Progress is keyed by the line's FIRST PATTERN ID rather than its position,
 // because positions shift whenever the strategy tables are regenerated and a
 // player's record should survive that.
+// Simulator session settings: one set for every game, remembered across runs
+// and across sessions. Targets default to 400 either side of break even.
+function simPrefsLoad(){
+  const d = { bankroll: 0, winStop: 0, tgtHigh: 400, tgtLow: -400,
+              valueMode: 'credits', creditVal: 1 };
+  try {
+    const o = JSON.parse(localStorage.getItem('vp-sim-prefs') || 'null');
+    if(o && typeof o === 'object'){
+      for(const k of Object.keys(d))
+        if(typeof o[k] === typeof d[k]) d[k] = o[k];
+      if(d.valueMode !== 'currency') d.valueMode = 'credits';
+    }
+  } catch(err){ /* unavailable or corrupt — use the defaults */ }
+  return d;
+}
+function simPrefsSave(o){
+  try { localStorage.setItem('vp-sim-prefs', JSON.stringify(o)); } catch(err){ /* nothing to do */ }
+}
+
 function trainKey(gKey, ptIdx, lvl){ return 'vp-train-' + gKey + ':' + ptIdx + ':' + lvl; }
 // The question mix is a preference, not progress: one setting for all games,
 // remembered across sessions.
@@ -6351,10 +6503,10 @@ function showSimulator(){
   };
 
   // ── Run state ──────────────────────────────────────────────
-  let mode     = 'fast';          // 'fast' | 'verify' | 'multi'
+  let mode     = 'multi';         // 'multi' | 'fast' | 'verify'
   let graphY   = 'payback';       // y axis: 'payback' (% of coins in) | 'credits' (net won/lost)
   let simLevel = stratLevel;      // level under test (local to the simulator)
-  let target   = 100000;
+  let target   = 1000;            // hands per run, the multi-mode default
   let running  = false;
   let strat    = null;
 
@@ -6364,10 +6516,35 @@ function showSimulator(){
   // 2000 × 2 × 512 × 4 ≈ 8 MB. Run TIME is the real ceiling long before that.
   const MAX_RUNS = 2000, PATH_PTS = 512;
   let runCount  = 250;
-  let bankroll  = 0;              // 0 = no bankroll, run always plays out
-  let winStop   = 0;              // 0 = never walk away on a win
   let collapsed = false;          // options folded to one line once a run lands
-  let tgtHigh   = 500, tgtLow = -500;
+  // Bankroll, walk-away and targets describe the SESSION you are modelling,
+  // not the machine, so they carry across games and pay tables and survive a
+  // reload rather than resetting every time the dialog opens.
+  const sp = simPrefsLoad();
+  let bankroll = sp.bankroll, winStop = sp.winStop;
+  let tgtHigh = sp.tgtHigh, tgtLow = sp.tgtLow;
+  // The run is always computed in CREDITS; currency is purely a display skin
+  // over the same numbers, so switching it never changes a result.
+  let valueMode = sp.valueMode, creditVal = sp.creditVal;
+  const CREDIT_VALUES = [0.25, 0.5, 1, 5, 10, 25, 50];
+  const savePrefs = () => simPrefsSave({ bankroll, winStop, tgtHigh, tgtLow, valueMode, creditVal });
+  // Declared before anything that formats a number: the option rows are built
+  // during setup and call these, so a later const would still be in its
+  // temporal dead zone by then.
+  const fmtPct = v => (v * 100).toFixed(2) + '%';
+  const fmtN   = n => n.toLocaleString();
+  // credits always carry their sign — "0" is a real result, "+0" reads wrong
+  const fmtCred = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(Math.round(v)).toLocaleString();
+  const money = v => {
+    const a = Math.abs(v);
+    return '$' + (Number.isInteger(a) ? a.toLocaleString()
+      : a.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+  };
+  const cur = () => valueMode === 'currency';
+  const fmtVal      = c => cur() ? (c > 0 ? '+' : c < 0 ? '−' : '') + money(c * creditVal) : fmtCred(c);
+  const fmtValPlain = c => cur() ? money(c * creditVal) : fmtN(Math.round(c));
+  const unitWord    = () => cur() ? '' : ' credits';
+  const wagerText   = () => cur() ? money(BET * creditVal) : BET + ' credits';
   let multi     = null;           // {runs:[], stepN, hands, done} once started
   let multiView = -1;             // -1 = summary, else index of the run shown
   // Browsing order: null walks the runs as they were played; otherwise a
@@ -6381,13 +6558,63 @@ function showSimulator(){
   const RUN_COUNTS     = [[100,'100'], [250,'250'], [500,'500'], [1000,'1,000']];
   let customTarget = null;   // remembered so the Custom button keeps its label
 
-  const modeRow  = mkRow('Mode', [['fast','Fast Play'], ['verify','Verify vs Analyzer'], ['multi','Multiple Runs']],
+  const modeRow  = mkRow('Mode', [['multi','Multiple Runs'], ['fast','Fast Play'], ['verify','Verify vs Analyzer']],
                          () => mode, v => {
                            mode = v;
                            target = v === 'fast' ? 100000 : v === 'multi' ? 1000 : 100;
                            rebuildTargetRow(); syncRows(); resetResults();
                          });
   const levelRow = mkRow('Level', STRAT_LEVELS, () => simLevel, v => { simLevel = v; resetResults(); });
+  // A "?" beside the mode buttons: what each of the three runs is actually for
+  // is the first thing anyone needs, and it does not belong crammed into a
+  // button label.
+  const HELP = [
+    ['Multiple Runs',
+     'Pick your game, bankroll, and number of hands you expect to play on your next ' +
+     'casino visit. See likelihood of winning, busting or walking away big.'],
+    ['Fast Play',
+     'Pick strategy and see how actual payback compares to expected payback. Compares ' +
+     'strategy to “full” strategy card. Payback percent will vary wildly at beginning, ' +
+     'then settle down. Viewing “Credits” is less meaningful, but interesting. Longer ' +
+     'runs work better.'],
+    ['Verify Vs Analyzer',
+     'Far slower than Fast Play, but computes payback to actual EV computations for ' +
+     'every hand. I use to check for bugs. “Full” should be higher than 99.9%.'],
+  ];
+  function showSimHelp(){
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,5,25,0.9);display:flex;' +
+                       'align-items:center;justify-content:center;font-family:Arial,Helvetica,sans-serif;';
+    const pn = document.createElement('div');
+    pn.style.cssText = 'background:linear-gradient(180deg,#0d2255,#091840);border:2px solid #2a4a9a;' +
+                       'border-radius:14px;padding:16px 18px;width:min(520px,94vw);max-height:88vh;' +
+                       'overflow-y:auto;display:flex;flex-direction:column;gap:10px;';
+    pn.innerHTML = HELP.map(h =>
+      '<div><div style="font-size:13px;font-weight:bold;color:#f0c040;letter-spacing:1px">' + h[0] + '</div>' +
+      '<div style="font-size:12px;color:#c0c8d8;line-height:1.6;margin-top:3px">' + h[1] + '</div></div>').join('');
+    const ok = document.createElement('button');
+    ok.textContent = 'Close';
+    ok.style.cssText = 'align-self:center;font-family:Arial,Helvetica,sans-serif;font-size:12px;' +
+                       'font-weight:bold;letter-spacing:2px;text-transform:uppercase;padding:7px 24px;' +
+                       'background:linear-gradient(180deg,#2a4aaa,#1a2a7a);border:2px solid #5a7acc;' +
+                       'border-radius:8px;color:#fff;cursor:pointer;touch-action:manipulation;';
+    ok.addEventListener('click', () => { sfx.button(); ov.remove(); });
+    pn.appendChild(ok);
+    ov.addEventListener('click', e => { if(e.target === ov) ov.remove(); });
+    ov.appendChild(pn); document.body.appendChild(ov);
+  }
+  const helpBtn = document.createElement('button');
+  helpBtn.textContent = '?';
+  helpBtn.title = 'What do these do?';
+  helpBtn.setAttribute('aria-label', 'What do these run types do?');
+  helpBtn.style.cssText = [
+    'font-family:Arial,Helvetica,sans-serif','font-size:12px','font-weight:bold',
+    'width:22px','height:22px','padding:0','border-radius:50%','border:2px solid #f0c040',
+    'background:#1a2a60','color:#f0c040','cursor:pointer','touch-action:manipulation','flex:0 0 auto',
+  ].join(';');
+  helpBtn.addEventListener('click', () => { sfx.button(); showSimHelp(); });
+  modeRow.appendChild(helpBtn);
+
   let targetRow  = null;
   const targetSlot = document.createElement('div');
   targetSlot.style.cssText = 'flex-shrink:0;';
@@ -6442,14 +6669,15 @@ function showSimulator(){
     const lbl = customBank ? customBank.toLocaleString() + ' ✎' : 'Custom…';
     // Credits, not dollars, and every hand stakes 5 of them — so 200 buys only
     // 40 hands. These are session-sized: 800 is 160 hands, 2,000 is 400.
-    const row = mkRow('Bankroll', [[0,'None'], [800,'800'], [1200,'1,200'], [2000,'2,000'], [CUSTOM, lbl]],
+    const row = mkRow('Bankroll', [[0,'None'], [800,fmtValPlain(800)], [1200,fmtValPlain(1200)],
+                                   [2000,fmtValPlain(2000)], [CUSTOM, lbl]],
       () => (customBank && bankroll === customBank) ? CUSTOM : bankroll,
       v => {
-        if(v !== CUSTOM){ bankroll = v; estimate(); return; }
+        if(v !== CUSTOM){ bankroll = v; savePrefs(); estimate(); return; }
         showNumPad({ title: 'Bankroll (credits)', initial: customBank || 1200,
                      min: 5, max: 1000000, hint: 'a run stops if it loses this much' }).then(nn => {
           if(nn === null) return;
-          customBank = nn; bankroll = nn; rebuildBankRow(); estimate();
+          customBank = nn; bankroll = nn; savePrefs(); rebuildBankRow(); estimate();
         });
       });
     bankSlot.appendChild(row);
@@ -6473,7 +6701,7 @@ function showSimulator(){
       cap.textContent = txt;
       tgtRow.appendChild(cap);
       const b = document.createElement('button');
-      b.textContent = (val > 0 ? '+' : val < 0 ? '−' : '') + Math.abs(val).toLocaleString();
+      b.textContent = fmtVal(val);
       b.style.cssText = [
         'font-family:Arial,Helvetica,sans-serif','font-size:11px','font-weight:bold','padding:5px 12px',
         'border-radius:6px','border:2px solid #3a5aaa','background:#091840','cursor:pointer',
@@ -6485,7 +6713,7 @@ function showSimulator(){
                      initial: Math.abs(val), min: 0, max: 10000000,
                      hint: lo ? 'counted as a loss of this much' : 'counted as a win of this much' }).then(nn => {
           if(nn === null) return;
-          set(lo ? -nn : nn); paintTargets();
+          set(lo ? -nn : nn); savePrefs(); paintTargets();
           if(multi) renderMulti();          // counts refresh without replaying
         });
       });
@@ -6503,14 +6731,15 @@ function showSimulator(){
   function rebuildWinRow(){
     winSlot.innerHTML = '';
     const lbl = customWin ? customWin.toLocaleString() + ' ✎' : 'Custom…';
-    const row = mkRow('Stop if won', [[0,'None'], [800,'800'], [1200,'1,200'], [2000,'2,000'], [CUSTOM, lbl]],
+    const row = mkRow('Walkaway Winning', [[0,'None'], [800,fmtValPlain(800)], [1200,fmtValPlain(1200)],
+                                          [2000,fmtValPlain(2000)], [CUSTOM, lbl]],
       () => (customWin && winStop === customWin) ? CUSTOM : winStop,
       v => {
-        if(v !== CUSTOM){ winStop = v; estimate(); return; }
+        if(v !== CUSTOM){ winStop = v; savePrefs(); estimate(); return; }
         showNumPad({ title: 'Walk away at (credits won)', initial: customWin || 1200,
                      min: 5, max: 1000000, hint: 'a run stops once it is up this much' }).then(nn => {
           if(nn === null) return;
-          customWin = nn; winStop = nn; rebuildWinRow(); estimate();
+          customWin = nn; winStop = nn; savePrefs(); rebuildWinRow(); estimate();
         });
       });
     winSlot.appendChild(row);
@@ -6589,6 +6818,34 @@ function showSimulator(){
     ov.appendChild(pn); document.body.appendChild(ov);
   }
 
+  const valSlot = document.createElement('div');
+  valSlot.style.cssText = 'flex-shrink:0;';
+  const cvSlot = document.createElement('div');
+  cvSlot.style.cssText = 'flex-shrink:0;';
+  function rebuildValueRows(){
+    valSlot.innerHTML = '';
+    valSlot.appendChild(mkRow('Values', [['credits', 'Credits'], ['currency', 'Currency']],
+      () => valueMode,
+      v => { valueMode = v; savePrefs(); repaintUnits(); }));
+    cvSlot.innerHTML = '';
+    cvSlot.appendChild(mkRow('Credit value', CREDIT_VALUES.map(v => [v, money(v)]),
+      () => creditVal,
+      v => { creditVal = v; savePrefs(); repaintUnits(); }));
+  }
+  rebuildValueRows();
+
+  // Switching unit relabels every control that carries an amount, not just
+  // the results — a bankroll button reading "800" beside a summary in dollars
+  // would be its own kind of wrong.
+  function repaintUnits(){
+    rebuildBankRow(); rebuildWinRow(); paintTargets();
+    syncRows();
+    if(multi) renderMulti();
+  }
+
+  const wagerLine = document.createElement('div');
+  wagerLine.style.cssText = 'font-size:11px;color:#c0c8d8;text-align:center;flex-shrink:0;';
+
   const estLine = document.createElement('div');
   estLine.style.cssText = 'font-size:11px;color:#8899bb;text-align:center;flex-shrink:0;';
   function estimate(){
@@ -6598,8 +6855,8 @@ function showSimulator(){
     estLine.textContent = runCount.toLocaleString() + ' runs × ' + target.toLocaleString() +
       ' hands = ' + total.toLocaleString() + ' hands' +
       (secs >= 1 ? '  ·  roughly ' + (secs < 60 ? secs + 's' : Math.round(secs / 60) + ' min') : '') +
-      (bankroll ? '  ·  bankroll ' + bankroll.toLocaleString() : '') +
-      (winStop ? '  ·  stop at +' + winStop.toLocaleString() : '');
+      (bankroll ? '  ·  bankroll ' + fmtValPlain(bankroll) : '') +
+      (winStop ? '  ·  stop at ' + fmtVal(winStop) : '');
   }
   // Once results are on screen the controls have done their job, so they fold
   // into a single line and hand the space to the graph. CHANGE brings them back.
@@ -6611,8 +6868,8 @@ function showSimulator(){
     const txt = document.createElement('span');
     const bits = [GAMES[gKey].payTables[simPay].label, stratLevelName(simLevel),
                   fmtN(runCount) + ' × ' + fmtN(target) + ' hands'];
-    if(bankroll) bits.push('bankroll ' + fmtN(bankroll));
-    if(winStop)  bits.push('stop at +' + fmtN(winStop));
+    if(bankroll) bits.push('bankroll ' + fmtValPlain(bankroll));
+    if(winStop)  bits.push('stop at ' + fmtVal(winStop));
     txt.textContent = GAMES[gKey].name + '  ·  ' + bits.join('  ·  ');
     foldLine.appendChild(txt);
     const b = document.createElement('button');
@@ -6628,6 +6885,11 @@ function showSimulator(){
   function syncRows(){
     const multiOn = mode === 'multi' && !collapsed;
     const anyOn = !collapsed;
+    valSlot.style.display = multiOn ? '' : 'none';
+    cvSlot.style.display  = (multiOn && cur()) ? '' : 'none';
+    wagerLine.style.display = mode === 'multi' ? '' : 'none';
+    wagerLine.innerHTML = 'Wager is Max Bet: <b style="color:#f0c040">' + wagerText() + '</b>';
+    if(multiOn) rebuildValueRows();
     modeRow.style.display   = anyOn ? 'flex' : 'none';
     levelRow.style.display  = anyOn ? 'flex' : 'none';
     gameSlot.style.display  = anyOn ? 'flex' : 'none';
@@ -6700,6 +6962,9 @@ function showSimulator(){
   panel.appendChild(bankSlot);
   panel.appendChild(winSlot);
   panel.appendChild(tgtRow);
+  panel.appendChild(valSlot);
+  panel.appendChild(cvSlot);
+  panel.appendChild(wagerLine);
   panel.appendChild(estLine);
   panel.appendChild(foldLine);
   panel.appendChild(body);
@@ -6707,10 +6972,6 @@ function showSimulator(){
   overlay.appendChild(panel);
   document.body.appendChild(overlay);
 
-  const fmtPct = v => (v * 100).toFixed(2) + '%';
-  const fmtN   = n => n.toLocaleString();
-  // credits always carry their sign — "0" is a real result, "+0" reads wrong
-  const fmtCred = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(Math.round(v)).toLocaleString();
 
   // ── Fast-play results ──────────────────────────────────────
   // running results after each worker batch: rs/rf are cumulative payback,
@@ -6788,10 +7049,10 @@ function showSimulator(){
     stats.textContent =
       `${fmtN(R.length)}${multi.done ? '' : ' of ' + fmtN(multi.wanted)} runs × ${fmtN(multi.hands)} hands` +
       `   ·   ${fmtN(hands)} hands   ·   ${r.selName} ${fmtPct(r.expSel)} expected\n` +
-      `Net across all runs: ${fmtCred(net)} credits on ${fmtN(BET * hands)} wagered` +
-      (multi.bank ? `   ·   bankroll ${fmtN(multi.bank)}` : '');
+      `Net across all runs: ${fmtVal(net)}${unitWord()} on ${fmtValPlain(BET * hands)} wagered` +
+      (multi.bank ? `   ·   bankroll ${fmtValPlain(multi.bank)}` : '');
 
-    drawHistogram(canvas, fin, tgtHigh, tgtLow, avg);
+    drawHistogram(canvas, fin, tgtHigh, tgtLow, avg, multi.bank, multi.win, fmtVal);
 
     const tile = (lab, val, col) =>
       `<div style="background:#13275c;border:1px solid #2a4a9a;border-radius:8px;padding:7px 10px">` +
@@ -6799,27 +7060,30 @@ function showSimulator(){
       `<div style="font-size:17px;font-weight:bold;color:${col}">${val}</div></div>`;
     const cc = v => v > 0 ? '#7ee08a' : v < 0 ? '#f09595' : '#c0c8d8';
     const pc = n => `<span style="font-size:12px;font-weight:normal;color:#8899bb"> ${(n / R.length * 100).toFixed(1)}%</span>`;
+    const pair = inner => `<div style="border:1px solid #2a4a9a;border-radius:9px;padding:5px;` +
+      `display:grid;grid-template-columns:1fr 1fr;gap:5px">${inner}</div>`;
     detail.innerHTML =
       `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:7px">` +
-        tile('Average', fmtCred(avg), cc(avg)) +
-        tile('Median', fmtCred(med), cc(med)) +
-        tile('Best run', fmtCred(fin[fin.length - 1]), cc(fin[fin.length - 1])) +
-        tile('Worst run', fmtCred(fin[0]), cc(fin[0])) +
-      `</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:7px">` +
-        tile('Ended ≥ ' + fmtCred(tgtHigh), endHi + pc(endHi), '#7ee08a') +
-        tile('Ever reached', evrHi + pc(evrHi), '#7ee08a') +
-        tile('Ended ≤ ' + fmtCred(tgtLow), endLo + pc(endLo), '#f09595') +
-        tile('Ever reached', evrLo + pc(evrLo), '#f09595') +
+        tile('Average', fmtVal(avg), cc(avg)) +
+        tile('Median', fmtVal(med), cc(med)) +
+        tile('Best run', fmtVal(fin[fin.length - 1]), cc(fin[fin.length - 1])) +
+        tile('Worst run', fmtVal(fin[0]), cc(fin[0])) +
+      `</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:7px">` +
+        // each target's "ended past it" and "ever touched it" belong together
+        pair(tile('Ended ≥ ' + fmtVal(tgtHigh), endHi + pc(endHi), '#7ee08a') +
+             tile('Ever reached', evrHi + pc(evrHi), '#7ee08a')) +
+        pair(tile('Ended ≤ ' + fmtVal(tgtLow), endLo + pc(endLo), '#f09595') +
+             tile('Ever reached', evrLo + pc(evrLo), '#f09595')) +
       `</div><div style="display:grid;grid-template-columns:repeat(${2 + (multi.bank ? 1 : 0) + (multi.win ? 1 : 0)},1fr);gap:7px">` +
-        tile('Ended ahead', up + pc(up), '#7ee08a') +
-        tile('Ended behind', down + pc(down) + (evenN ? ` <span style="font-size:11px;font-weight:normal;color:#8899bb">· ${evenN} even</span>` : ''), '#f09595') +
+        tile('Winning sessions', up + pc(up), '#7ee08a') +
+        tile('Losing sessions', down + pc(down) + (evenN ? ` <span style="font-size:11px;font-weight:normal;color:#8899bb">· ${evenN} even</span>` : ''), '#f09595') +
         (multi.bank ? tile('Busted', busted + pc(busted), busted ? '#f09595' : '#8899bb') : '') +
         (multi.win ? tile('Walked away', cashed + pc(cashed), cashed ? '#7ee08a' : '#8899bb') : '') +
-      `</div>` + bigLine(R) +
+      `</div>` + bandKey() + bigLine(R) +
       (r.showFull
         ? `<div style="font-size:11px;color:#8899bb;margin-top:7px;text-align:center">` +
-          `Full strategy over the same deals averaged ${fmtCred(avgF)} per run, ` +
-          `against ${fmtCred(avg)} for ${r.selName}</div>`
+          `Full strategy over the same deals averaged ${fmtVal(avgF)} per run, ` +
+          `against ${fmtVal(avg)} for ${r.selName}</div>`
         : '');
     detail.appendChild(navRow(R));
   }
@@ -6850,6 +7114,21 @@ function showSimulator(){
       }
     }
     return (x._sw = { cb: cb, cbLo: cbLo, cbHi: cbHi, df: dfHi, dfHi: dfHi, dfLo: dfLo });
+  }
+
+  // The histogram's six bands, named. Only the ones in play are listed: no
+  // bankroll means no busted band, no walk-away figure means no purple.
+  function bandKey(){
+    const it = [];
+    if(multi.bank) it.push(['#8e1c1c', 'busted']);
+    it.push(['#d8641f', 'below ' + fmtVal(tgtLow)], ['#c9a227', 'down'],
+            ['#4a9a2a', 'up'], ['#3a7fd5', 'past ' + fmtVal(tgtHigh)]);
+    if(multi.win) it.push(['#8455d6', 'walked away']);
+    return '<div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;' +
+      'font-size:10px;color:#8899bb;margin-top:6px">' +
+      it.map(x => '<span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;' +
+        'background:' + x[0] + ';margin-right:4px;vertical-align:-1px"></span>' + x[1] + '</span>').join('') +
+      '</div>';
   }
 
   // Hands paying better than 50-to-1 — the ones that actually move a session.
@@ -6929,8 +7208,8 @@ function showSimulator(){
     const pts = [];
     for(let i = 0; i < x.pS.length; i++)
       pts.push({ n: Math.min((i + 1) * multi.stepN, x.h), cs: x.pS[i], cf: x.pF[i], rs: 0, rf: 0 });
-    const why = x.end === 1 ? `   ·   BUSTED — lost the ${fmtN(multi.bank)} bankroll`
-              : x.end === 2 ? `   ·   WALKED AWAY — up ${fmtN(multi.win)}` : '';
+    const why = x.end === 1 ? `   ·   BUSTED — lost the ${fmtValPlain(multi.bank)} bankroll`
+              : x.end === 2 ? `   ·   WALKED AWAY — up ${fmtValPlain(multi.win)}` : '';
     // ranked browsing says where you are in the shortlist AND which run it is
     const where = browseLabel
       ? `${browseLabel} #${fmtN(browsePos + 1)} of ${fmtN((browseList || []).length)}` +
@@ -6940,16 +7219,16 @@ function showSimulator(){
     // name the swing that put this run where it is in the list
     const sw = swings(x);
     const swTxt = browseLabel === 'Comeback'
-        ? `   ·   climbed ${fmtN(sw.cb)} from ${fmtCred(sw.cbLo)} to ${fmtCred(sw.cbHi)}`
+        ? `   ·   climbed ${fmtValPlain(sw.cb)} from ${fmtVal(sw.cbLo)} to ${fmtVal(sw.cbHi)}`
       : browseLabel === 'Downfall'
-        ? `   ·   was up ${fmtN(sw.dfHi)}, fell to ${fmtCred(sw.dfLo)}`
+        ? `   ·   was up ${fmtValPlain(sw.dfHi)}, fell to ${fmtVal(sw.dfLo)}`
       : '';
     stats.textContent =
       `${where}   ·   ${fmtN(x.h)} hands` + why + swTxt + `\n` +
-      `Final: ${fmtCred(x.fS)} credits on ${fmtN(BET * x.h)} wagered   ·   ` +
+      `Final: ${fmtVal(x.fS)}${unitWord()} on ${fmtValPlain(BET * x.h)} wagered   ·   ` +
       `${fmtPct((BET * x.h + x.fS) / (BET * x.h))} payback\n` +
-      `Peak ${fmtCred(x.mxS)}   ·   trough ${fmtCred(x.mnS)}   ·   Full ended ${fmtCred(x.fF)}`;
-    drawSimGraph(canvas, pts, Object.assign({}, r, { yMode: 'credits',
+      `Peak ${fmtVal(x.mxS)}   ·   trough ${fmtVal(x.mnS)}   ·   Full ended ${fmtVal(x.fF)}`;
+    drawSimGraph(canvas, pts, Object.assign({}, r, { yMode: 'credits', fmtVal: fmtVal,
       bustAt: multi.bank ? -multi.bank : null, winAt: multi.win || null }));
     detail.innerHTML = bigLine([x], true);
     detail.appendChild(navRow(R));
@@ -7159,7 +7438,19 @@ function showSimulator(){
 // full list (blue) and their expected returns (dashed), optimal in gold.
 // Distribution of the per-run results. The average is pulled around by a
 // single royal, so the median line matters more than it looks; both are drawn.
-function drawHistogram(canvas, finals, hi, lo, avg){
+// Where a session landed, as six bands rather than a three-way split. The
+// order matters: a busted run ends exactly at −bankroll, so it has to be
+// caught before the "below the low target" test would claim it.
+function bandColor(v, hi, lo, bank, win){
+  if(bank && v <= -bank)  return '#8e1c1c';   // busted
+  if(v < lo)              return '#d8641f';   // worse than the low target
+  if(v < 0)               return '#c9a227';   // losing, but inside it
+  if(win && v >= win)     return '#8455d6';   // walked away
+  if(v < hi)              return '#4a9a2a';   // winning, short of the target
+  return '#3a7fd5';                           // past the target, still playing
+}
+
+function drawHistogram(canvas, finals, hi, lo, avg, bank, win, fmt){
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
   const pad = { top: 24, right: 14, bottom: 28, left: 46 };
@@ -7182,7 +7473,12 @@ function drawHistogram(canvas, finals, hi, lo, avg){
     for(const x of [1, 1.5, 2, 2.5, 3, 4, 5, 6, 7.5, 10]) if(x * m10 <= a) c = x;
     return Math.sign(v) * c * m10;
   };
-  const hiCut = niceDown(q(0.95)), loCut = niceDown(q(0.05));
+  // Never pool away a boundary the player set. If the cut landed at or below
+  // the high target or the walk-away figure, the whole blue and purple region
+  // would collapse into one bar and the bands would be invisible — so the cut
+  // is pushed out past them, and only genuine outliers beyond get pooled.
+  const hiCut = Math.max(niceDown(q(0.95)), hi, win || 0);
+  const loCut = Math.min(niceDown(q(0.05)), lo, bank ? -bank : 0);
   const over  = finals.filter(v => v > hiCut).length;
   const under = finals.filter(v => v < loCut).length;
   // only worth pooling when the tail really does run away from the pack
@@ -7210,7 +7506,11 @@ function drawHistogram(canvas, finals, hi, lo, avg){
   for(let i = 0; i < NB; i++){
     if(!bins[i]) continue;
     const a = X(mn + i * bw), b = X(mn + (i + 1) * bw), mid = mn + (i + 0.5) * bw;
-    ctx.fillStyle = mid <= lo ? '#d85a30' : mid >= hi ? '#639922' : '#378add';
+    // Busted runs all land on exactly −bankroll, the very left edge of the
+    // first bin, so that bin is judged by its edge rather than its midpoint —
+    // otherwise the bust band never appears at all.
+    ctx.fillStyle = (bank && mn + i * bw <= -bank + 1e-9)
+      ? '#8e1c1c' : bandColor(mid, hi, lo, bank, win);
     ctx.fillRect(a + 0.5, Y(bins[i]), Math.max(1, b - a - 1), pad.top + cH - Y(bins[i]));
   }
   ctx.textAlign = 'center';
@@ -7221,9 +7521,10 @@ function drawHistogram(canvas, finals, hi, lo, avg){
     ctx.fillText(label, cx, H - pad.bottom + 12);
     ctx.fillText(String(count), cx, Y(count) - 8);
   };
-  const sgn = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(Math.round(v)).toLocaleString();
-  if(useOver)  pooled(x1 + 4 + SLOT / 2, over, '#639922', '≥ ' + sgn(hiCut));
-  if(useUnder) pooled(pad.left + SLOT / 2, under, '#d85a30', '≤ ' + sgn(loCut));
+  // labels follow whatever unit the summary is showing
+  const sgn = fmt || (v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(Math.round(v)).toLocaleString());
+  if(useOver)  pooled(x1 + 4 + SLOT / 2, over, bandColor(hiCut, hi, lo, bank, win), '≥ ' + sgn(hiCut));
+  if(useUnder) pooled(pad.left + SLOT / 2, under, bandColor(loCut, hi, lo, bank, win), '≤ ' + sgn(loCut));
 
   const rule = (v, color, txt, dash, top) => {
     if(v < mn || v > mx) return;
@@ -7237,7 +7538,7 @@ function drawHistogram(canvas, finals, hi, lo, avg){
   rule(0, '#96b4f0', 'break even', false, false);
   rule(lo, '#f09595', sgn(lo), true, false);
   rule(hi, '#7ee08a', sgn(hi), true, false);
-  rule(avg, '#f0c040', 'avg ' + sgn(avg), true, true);
+  rule(avg, '#f0c040', 'avg ' + sgn(Math.round(avg)), true, true);
 }
 
 function drawSimGraph(canvas, samples, r){
@@ -7295,9 +7596,9 @@ function drawSimGraph(canvas, samples, r){
   ctx.fillStyle = '#8899bb'; ctx.font = '11px Arial'; ctx.textAlign = 'right';
   const yStep = CRED ? niceStep((hi - lo) / 5)
                      : nice((hi - lo) / 5, [0.0005,0.001,0.002,0.005,0.01,0.02,0.05,0.1,0.2,0.5,1]);
-  const yTxt = v => CRED
-    ? (v > 0.5 ? '+' : v < -0.5 ? '−' : '') + Math.abs(Math.round(v)).toLocaleString()
-    : (v * 100).toFixed(yStep < 0.001 ? 3 : 2) + '%';
+  const yTxt = v => !CRED ? (v * 100).toFixed(yStep < 0.001 ? 3 : 2) + '%'
+    : r.fmtVal ? r.fmtVal(Math.round(v))
+    : (v > 0.5 ? '+' : v < -0.5 ? '−' : '') + Math.abs(Math.round(v)).toLocaleString();
   for(let v = Math.ceil(lo / yStep) * yStep; v <= hi + 1e-12; v += yStep){
     ctx.beginPath(); ctx.moveTo(pad.left, Y(v)); ctx.lineTo(W - pad.right, Y(v)); ctx.stroke();
     ctx.fillText(yTxt(v), pad.left - 6, Y(v));

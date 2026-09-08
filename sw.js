@@ -10,14 +10,16 @@
 // With this strategy new deploys show up on the next launch without
 // bumping CACHE_NAME — the version only needs to change if you want to
 // force-purge old cached entries.
-// v6: nearly every strategy-data/*.json was regenerated — ways-counting lines
-// dropped from the Basic and Minimal levels, natural royal pinned to the top
-// of the Deuces lists, the "never worth holding" sections removed, and ten new
-// tables added (Loose Deuces ×8, Jacks or Better 7/5 and 6/5). Those files are
-// stale-while-revalidate, so without a purge a returning player would be
-// advised once from the old ones — the bump forces a clean re-fetch.
-// (v5 did the same after the Super Double Double Bonus pay-table correction.)
-const CACHE_NAME     = 'video-poker-v6';
+// v7: all 54 strategy-data/*.json rewritten again — the re-absorption pass
+// recovered 3.56 points across 41 tables, and the line labels now collapse
+// repeated high-card variants into ranges ("4 to an outside straight: 0–3 high
+// cards" instead of the same phrase four times). Those files are
+// stale-while-revalidate, so without a purge a returning player keeps reading
+// the old labels and the old lines — which is exactly what happened in
+// testing, with a corrected file on disk and the stale one on screen.
+// (v6 followed the earlier strategy regeneration; v5 the Super Double Double
+// Bonus pay-table correction.)
+const CACHE_NAME     = 'video-poker-v7';
 const NET_TIMEOUT_MS = 3500;
 const ASSETS = [
   '/',
