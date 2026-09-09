@@ -39,7 +39,28 @@
       --card-back:   #cc2222;
       --card-front:  #fdf6e3;
       --card-radius: 10px;
-      --shadow:      0 4px 18px rgba(0,0,0,0.6);
+      --shadow:      0 3px 9px rgba(0,0,0,0.5);
+
+      /* ── Modern-theme design tokens (v3.1.1) ──────────────────
+         The classic theme keeps its own hard-coded machine colours; these
+         drive the modern screen only. Yellow is the single actionable
+         colour and hierarchy comes from fill weight, not hue:
+         solid = primary, outlined = secondary, muted outline = utility. */
+      --felt:  #0A18A8;   /* the field */
+      --deep:  #050C50;   /* recessed wells: pay-table cells, info row */
+      --brass: #FFD640;   /* the yellow */
+      --ink:   #0B1030;   /* text on yellow */
+      --chalk: #E8ECF7;   /* body text */
+      --ember: #F03A2E;   /* the one accent: wins only */
+      --text:  #C3CCE6;   /* dialog body copy */
+      --dim:   #9EABD2;   /* secondary labels, quiet buttons */
+      --msg-win: var(--ember);   /* colour the win banner flashes to */
+      /* Verdana ships on Windows, macOS and iOS; Android falls back to its
+         own sans (Roboto), which is ~8% narrower but reads cleanly. */
+      --font-title: Verdana, 'DejaVu Sans', Tahoma, Geneva, sans-serif;
+      --font-ui:    'Arial Narrow', 'Helvetica Neue Condensed', 'Roboto Condensed', Arial, sans-serif;
+      --font-num:   ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
       /* Safe-area insets as custom properties so JS can read computed px values */
       --sal: env(safe-area-inset-left,   0px);
       --sar: env(safe-area-inset-right,  0px);
@@ -59,10 +80,14 @@
     #terminal {
       width: 820px;
       padding: 12px 16px 18px;
-      background: linear-gradient(180deg, #0d2255 0%, #091840 100%);
-      border: 3px solid #2a4a9a;
-      border-radius: 18px;
-      box-shadow: 0 0 40px rgba(20,60,180,0.5), inset 0 0 30px rgba(0,0,50,0.4);
+      background: var(--felt);
+      border: 2px solid #2D48A8;
+      border-radius: 14px;
+      box-shadow: none;
+      /* Scoped here, not on <body>, so the analysis dialogs (which are
+         appended to <body>) keep their monospace default until they are
+         restyled — several of them align columns with spaces. */
+      font-family: var(--font-ui);
       display: flex;
       flex-direction: column;
       gap: 10px;
@@ -73,18 +98,32 @@
 
     /* ─── Title Bar ─────────────────────────────────────────── */
     #title-bar {
+      position: relative;
       text-align: center;
-      font-family: Arial, Helvetica, sans-serif;
-      font-size: clamp(18px, 4vw, 28px);
+      font-family: var(--font-title);
+      font-size: clamp(17px, 3.6vw, 26px);
       font-weight: bold;
-      letter-spacing: 4px;
-      text-shadow: 0 2px 0 rgba(0,0,0,0.4);
+      letter-spacing: 3px;
       text-transform: uppercase;
-      padding: 4px 0 2px;
-      border-bottom: 2px solid #2a4a9a;
+      padding: 4px 0 5px;
+      border-bottom: 2px solid rgba(255,214,64,0.38);
     }
-    #title-bar .t-red    { color: #ff3333; text-shadow: 0 0 10px rgba(255,60,60,0.5), 0 2px 0 #6a0000; }
-    #title-bar .t-yellow { color: var(--gold); text-shadow: 0 0 10px rgba(240,192,64,0.6), 0 2px 0 #6a4000; }
+    /* Version, bottom-right of the title bar, just above the blue rule.
+       Same face as the "Denomination" label below it. */
+    #app-version {
+      position: absolute;
+      right: 0;
+      bottom: 3px;
+      font-family: var(--font-ui);
+      font-size: clamp(7px, 1.3vw, 9px);
+      font-weight: normal;
+      color: var(--dim);
+      letter-spacing: 2px;
+      text-shadow: none;
+      text-transform: none;   /* the title bar uppercases; keep "v3.1" as written */
+    }
+    #title-bar .t-red    { color: var(--ember); }
+    #title-bar .t-yellow { color: var(--brass); }
 
     /* ─── Pay Table ─────────────────────────────────────────── */
     #paytable {
@@ -94,41 +133,44 @@
       font-size: clamp(8px, 1.5vw, 11px);
     }
     .pt-hand {
-      background: #0a1a50;
-      border: 1px solid #1a3a8a;
+      background: var(--deep);
+      border: none;
       border-radius: 4px;
-      padding: 3px 2px;
+      padding: 4px 3px;
       text-align: center;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
     }
     .pt-hand.highlight {
-      background: var(--gold);
-      color: #000;
-      border-color: #fff;
+      background: var(--ember);
+      color: var(--ink);
       font-weight: bold;
     }
     .pt-name {
-      font-family: Arial, Helvetica, sans-serif;
-      font-size: clamp(6px, 1.2vw, 9px);
-      color: var(--gold);
+      font-family: var(--font-ui);
+      font-weight: 700;
+      /* buildPayTable steps --pt-name-max down for variants with enough
+         columns that the longest name would otherwise wrap to a third
+         line and push the cards smaller. */
+      font-size: clamp(6px, 1.2vw, var(--pt-name-max, 9px));
+      color: var(--brass);
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-      line-height: 1.1;
+      letter-spacing: 0.2px;
+      line-height: 1.12;
     }
-    .pt-hand.highlight .pt-name { color: #000; }
+    .pt-hand.highlight .pt-name { color: var(--ink); }
     /* Single payout value — only the active bet column is shown */
     .pt-pay {
-      background: #000c30;
-      border-radius: 3px;
-      padding: 2px 3px;
-      color: var(--gold);
+      padding: 2px 0 0;
+      color: var(--chalk);
+      font-family: var(--font-num);
+      font-variant-numeric: tabular-nums;
       font-size: clamp(9px, 1.5vw, 13px);
-      font-weight: bold;
+      font-weight: 600;
       text-align: center;
     }
-    .pt-hand.highlight .pt-pay { background: #ff8c00; color: #fff; }
+    .pt-hand.highlight .pt-pay { color: var(--ink); }
 
     /* ─── Credit & Bet Display ──────────────────────────────── */
     #info-row {
@@ -137,28 +179,46 @@
       align-items: center;
       gap: 8px;
     }
+    /* One well around the whole row rather than a box per reading; the
+       hairlines say where one reading ends and the next begins. */
+    body:not(.classic) #info-row {
+      background: var(--deep);
+      border-radius: 10px;
+      padding: 7px 4px;
+      gap: 0;
+    }
     .info-box {
       flex: 1;
-      background: #000c30;
-      border: 2px solid #2a4a9a;
-      border-radius: 8px;
-      padding: 6px 10px;
       text-align: center;
     }
+    body:not(.classic) .info-box { padding: 0 6px; }
+    body:not(.classic) .info-box + .info-box {
+      border-left: 1px solid rgba(140,154,196,0.22);
+    }
     .info-label {
+      font-family: var(--font-ui);
+      font-weight: 600;
       font-size: clamp(8px, 1.5vw, 10px);
-      color: var(--silver);
-      letter-spacing: 2px;
+      color: var(--dim);
+      letter-spacing: 1px;
       text-transform: uppercase;
     }
     .info-value {
-      font-family: Impact, 'Arial Narrow', sans-serif;
-      font-size: clamp(18px, 4vw, 28px);
-      font-weight: bold;
-      color: var(--gold);
-      text-shadow: 0 0 8px rgba(240,192,64,0.5);
-      letter-spacing: 2px;
+      font-family: var(--font-num);
+      font-variant-numeric: tabular-nums;
+      font-size: clamp(15px, 3.2vw, 23px);
+      font-weight: 600;
+      color: var(--brass);
+      letter-spacing: 0;
+      line-height: 1.15;
     }
+    /* The accent is reserved for an actual win — a zero stays neutral. */
+    .info-box.paid .info-value { color: var(--ember); }
+    /* Denomination reads as a value like the rest; tapping it opens the
+       same picker the classic coin oval uses, which also carries Reset
+       and Add Credits. */
+    #denom-box { cursor: pointer; }
+    body.classic #denom-box { display: none; }
     /* ─── Denomination (right column of info-row) ──────────────── */
     #denomination-row {
       flex: 1.2;
@@ -223,16 +283,16 @@
 
     /* ─── Message Banner ────────────────────────────────────── */
     #message {
-      font-family: Arial, Helvetica, sans-serif;
+      font-family: var(--font-ui);
       text-align: center;
       font-size: clamp(14px, 3vw, 20px);
       font-weight: bold;
-      letter-spacing: 3px;
-      color: var(--gold);
-      text-shadow: 0 0 10px rgba(240,192,64,0.6);
+      letter-spacing: 1.5px;
+      color: var(--chalk);
       min-height: 28px;
       text-transform: uppercase;
     }
+    body:not(.classic) #message.winning { color: var(--ember); }
 
     /* ─── Card Area ─────────────────────────────────────────── */
     #cards-row {
@@ -253,13 +313,17 @@
       font-size: clamp(18px, 3.6vw, 26px);
       font-weight: bold;
       letter-spacing: 2px;
-      color: var(--gold);
-      text-shadow: 0 0 6px rgba(240,192,64,0.8);
+      color: var(--brass);
+      text-shadow: none;
       visibility: hidden;
       text-transform: uppercase;
       min-height: 28px;
     }
     .hold-badge.visible { visibility: visible; }
+    /* The held card lifts 10px, which would otherwise bring its outline up
+       behind the badge. Shift the text with a transform, not a margin, so
+       the row keeps its height and the cards keep their size. */
+    body:not(.classic) .hold-badge { transform: translateY(-12px); }
 
     /* Card face */
     .card {
@@ -276,6 +340,10 @@
     }
     .card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.7); }
     .card.held  { transform: translateY(-10px); box-shadow: 0 12px 30px rgba(240,192,64,0.5); }
+    /* A hard outline reads as "held" without smearing light under the card. */
+    body:not(.classic) .card.held {
+      box-shadow: 0 0 0 3px var(--brass), 0 4px 9px rgba(0,0,0,0.5);
+    }
 
     .card-inner {
       width: 100%; height: 100%;
@@ -398,16 +466,16 @@
     }
 
     .btn {
-      font-family: Impact, 'Arial Narrow', sans-serif;
-      font-size: 13px;
-      font-weight: bold;
-      letter-spacing: 1.5px;
+      font-family: var(--font-ui);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
       text-transform: uppercase;
-      padding: 10px 8px;
-      border-radius: 8px;
+      padding: 11px 8px;
+      border-radius: 12px;
       border: 2px solid;
       cursor: pointer;
-      transition: all 0.15s;
+      transition: background 0.12s, border-color 0.12s, color 0.12s;
       flex: 1 1 auto;
       min-width: 0;
       white-space: nowrap;
@@ -508,8 +576,10 @@
     }
 
     /* ─── Win Flash ─────────────────────────────────────────── */
+    /* Each theme flashes its own win colour: the accent on the modern
+       screen, the machine's red on the classic one. */
     @keyframes winFlash {
-      0%, 100% { color: var(--gold); }
+      0%, 100% { color: var(--msg-win); }
       50%       { color: #fff; text-shadow: 0 0 20px #fff; }
     }
     #message.winning { animation: winFlash 0.5s ease 3; }
@@ -593,7 +663,7 @@
     body.classic { background: #0000b4; }
     body.classic #terminal {
       background: #0000b4;
-      border: 4px solid #ffd700;
+      border: none;
       border-radius: 4px;
       box-shadow: none;
       font-family: Arial, Helvetica, sans-serif;
@@ -603,7 +673,9 @@
        the game name appears small in the bottom-left corner instead */
     body.classic #title-bar { display: none; }
     body.classic #classic-gamename {
-      display: block;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
       font: bold 12px Arial, Helvetica, sans-serif;
       color: #fff;
       letter-spacing: 1px;
@@ -657,6 +729,7 @@
 
     /* ── Arcade text: red fill, yellow outline, hard drop shadow ── */
     body.classic #message {
+      --msg-win: #e02020;
       font-family: Impact, 'Arial Black', sans-serif;
       font-weight: normal;
       font-size: 26px;
@@ -825,32 +898,76 @@
     }
     /* Denomination controls are hidden on the classic main screen —
        tapping the coin oval opens them in a popup instead */
-    body.classic #info-row #denomination-row { display: none; }
+    #info-row #denomination-row { display: none; }
     body.classic .denom-label { display: none; }
     body.classic #cs-coin { font-size: 26px; padding: 6px 18px; cursor: pointer; }
     /* Larger versions of the controls inside the coin popup */
+    .denom-popup .denom-label    { display: none; }
     .denom-popup .denom-btn      { font-size: 15px; padding: 9px 15px; }
     .denom-popup .btn-denom-util { font-size: 13px; padding: 9px 15px; }
 
-    /* One colour for every action button on the main screen — the Analyze
-       yellow. Placed last so it wins over each button's own rule. Segmented
-       option pickers keep their gold highlight: that is what shows which
-       option is selected, so flattening them would hide the current choice. */
-    .btn-reset, .btn-graph, .btn-analyze, .btn-add-credits, .btn-deal,
-    .btn-bet-one, .btn-bet-max, .btn-game, .btn-settings, .btn-denom-util {
-      background: linear-gradient(180deg, #7a6a00, #4a4000);
-      border-color: #ccaa00;
-      color: #ffee88;
+    /* ── Modern main-screen buttons: three tiers, one colour ──────────
+       Yellow is the only actionable colour; weight carries the hierarchy.
+       Solid   = the primary action (Deal/Draw)
+       Outline = game actions (Bet One, Bet Max)
+       Muted   = tools that leave the game (Menu, Graph, Analyze)
+       Every rule is scoped body:not(.classic) so none of it can reach the
+       classic machine regardless of source order or specificity. */
+    body:not(.classic) .btn-reset, body:not(.classic) .btn-graph,
+    body:not(.classic) .btn-analyze, body:not(.classic) .btn-add-credits,
+    body:not(.classic) .btn-deal, body:not(.classic) .btn-bet-one,
+    body:not(.classic) .btn-bet-max, body:not(.classic) .btn-game,
+    body:not(.classic) .btn-menu, body:not(.classic) .btn-settings,
+    body:not(.classic) .btn-denom-util {
+      background: transparent;
+      border-color: rgba(255,214,64,0.62);
+      color: var(--brass);
+      box-shadow: none;
     }
-    .btn-reset:hover:not(:disabled), .btn-graph:hover:not(:disabled),
-    .btn-analyze:hover:not(:disabled), .btn-add-credits:hover:not(:disabled),
-    .btn-deal:hover:not(:disabled), .btn-bet-one:hover:not(:disabled),
-    .btn-bet-max:hover:not(:disabled), .btn-game:hover:not(:disabled),
-    .btn-settings:hover:not(:disabled), .btn-denom-util:hover {
-      background: linear-gradient(180deg, #9a8800, #5a5000);
-      border-color: #ccaa00;
-      color: #ffee88;
-      box-shadow: 0 0 12px rgba(204,170,0,0.5);
+    body:not(.classic) .btn:disabled { opacity: 0.45; }
+    /* Tools sit back — they take you off the machine, so they should not
+       compete with the bet and the draw. */
+    body:not(.classic) .btn-menu, body:not(.classic) .btn-graph,
+    body:not(.classic) .btn-analyze, body:not(.classic) .btn-game,
+    body:not(.classic) .btn-settings, body:not(.classic) .btn-reset {
+      border-color: rgba(140,154,196,0.55);
+      color: var(--dim);
+    }
+    /* The one filled button on the screen. */
+    body:not(.classic) .btn-deal {
+      background: var(--brass);
+      border-color: var(--brass);
+      color: var(--ink);
+      box-shadow: 0 2px 0 #C79E17;
+    }
+    body:not(.classic) .btn-deal:hover:not(:disabled) {
+      background: #FFE071;
+      border-color: #FFE071;
+      box-shadow: 0 2px 0 #C79E17;
+    }
+    body:not(.classic) .btn-bet-one:hover:not(:disabled),
+    body:not(.classic) .btn-bet-max:hover:not(:disabled),
+    body:not(.classic) .btn-denom-util:hover {
+      background: rgba(255,214,64,0.16);
+      border-color: var(--brass);
+      box-shadow: none;
+    }
+    body:not(.classic) .btn-menu:hover:not(:disabled),
+    body:not(.classic) .btn-graph:hover:not(:disabled),
+    body:not(.classic) .btn-analyze:hover:not(:disabled),
+    body:not(.classic) .btn-game:hover:not(:disabled),
+    body:not(.classic) .btn-settings:hover:not(:disabled),
+    body:not(.classic) .btn-reset:hover:not(:disabled) {
+      background: rgba(140,154,196,0.16);
+      border-color: rgba(200,212,240,0.75);
+      color: var(--chalk);
+      box-shadow: none;
+    }
+    /* Pressing moves the key down instead of lighting it up. */
+    body:not(.classic) .btn:active:not(:disabled) { transform: translateY(1px); }
+    body:not(.classic) .btn-deal:active:not(:disabled) {
+      transform: translateY(2px);
+      box-shadow: 0 0 0 #C79E17;
     }
   </style>
 </head>
@@ -876,6 +993,10 @@
     <div class="info-box">
       <div class="info-label">Win</div>
       <div class="info-value" id="win-display">0</div>
+    </div>
+    <div class="info-box" id="denom-box">
+      <div class="info-label">Denomination</div>
+      <div class="info-value" id="denom-display">$1</div>
     </div>
     <div id="denomination-row">
       <div class="denom-label">Denomination</div>
@@ -906,8 +1027,7 @@
   <!-- Buttons: two equal-width groups so the classic coin sits dead center -->
   <div id="buttons-row">
     <div class="btn-group" id="btns-left">
-      <button class="btn btn-settings" id="btn-settings" title="Settings">⚙</button>
-      <button class="btn btn-game"     id="btn-game">Game</button>
+      <button class="btn btn-menu"     id="btn-menu">Menu</button>
       <button class="btn btn-graph"    id="btn-graph">Graph</button>
       <button class="btn btn-analyze" id="btn-analyze" disabled>Analyze</button>
     </div>
@@ -921,7 +1041,7 @@
   </div>
 
   <!-- Classic-mode game name, small in the corner like the real machines -->
-  <div id="classic-gamename">JACKS OR BETTER</div>
+  <div id="classic-gamename"><span id="classic-gamename-text">JACKS OR BETTER</span><span id="classic-version"></span></div>
 
 </div>
 
@@ -929,6 +1049,11 @@
 // ════════════════════════════════════════════════════════════
 //  CONSTANTS
 // ════════════════════════════════════════════════════════════
+// Displayed top-right on the modern screen and bottom-right on the classic
+// one. Bump the last component for ordinary changes (v3.1 -> v3.1.1); the
+// minor and major components are bumped only on request.
+const APP_VERSION = 'v3.1.12';
+
 const SUITS      = ['♠','♥','♦','♣'];
 const RANKS      = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
 const SUIT_COLOR = { '♠':'black','♣':'black','♥':'red','♦':'red','★':'black' };
@@ -2060,6 +2185,10 @@ function buildPayTable(){
 
   const visible = rows.filter(r => r.name !== 'Nothing').length;
   pt.style.gridTemplateColumns = `repeat(${visible}, 1fr)`;
+  // Past 13 columns a cell is narrow enough that "Jacks or Better" wraps to
+  // a third line, which would grow the pay table and shrink the cards. One
+  // step down on the name keeps every variant to two lines.
+  pt.style.setProperty('--pt-name-max', visible > 13 ? '8px' : '9px');
   rows.forEach((row, idx)=>{
     if(row.name === 'Nothing') return; // skip "nothing" row
     const div = document.createElement('div');
@@ -2082,8 +2211,14 @@ function buildPayTable(){
 }
 
 function updateTitleBar(){
-  document.getElementById('title-bar').innerHTML = curGame().titleHTML;
-  document.getElementById('classic-gamename').textContent = curGame().name.toUpperCase();
+  const bar = document.getElementById('title-bar');
+  bar.innerHTML = curGame().titleHTML;
+  const ver = document.createElement('span');
+  ver.id = 'app-version';
+  ver.textContent = APP_VERSION;
+  bar.appendChild(ver);
+  document.getElementById('classic-gamename-text').textContent = curGame().name.toUpperCase();
+  document.getElementById('classic-version').textContent = APP_VERSION;
   document.title = curGame().name;
 }
 
@@ -2167,48 +2302,48 @@ function showPayTableDetail(gameKey, idx, onBack){
   ].join(';');
   const panel = document.createElement('div');
   panel.style.cssText = [
-    'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)',
-    'border:2px solid #2a4a9a','border-radius:14px','box-shadow:0 0 30px rgba(20,60,180,0.6)',
+    'background:var(--felt)',
+    'border:2px solid #2D48A8','border-radius:14px','box-shadow:none',
     'padding:16px','width:min(460px,94vw)','max-height:92vh',
     'display:flex','flex-direction:column','gap:10px',
   ].join(';');
 
   const title = document.createElement('div');
-  title.style.cssText = 'text-align:center;font-size:15px;font-weight:bold;color:#f0c040;letter-spacing:2px;text-transform:uppercase;flex-shrink:0;';
+  title.style.cssText = 'text-align:center;font-size:15px;font-weight:bold;color:var(--brass);letter-spacing:2px;text-transform:uppercase;flex-shrink:0;';
   title.textContent = game.name;
   const sub = document.createElement('div');
-  sub.style.cssText = 'text-align:center;font-size:12px;color:#8899bb;flex-shrink:0;';
+  sub.style.cssText = 'text-align:center;font-size:12px;color:var(--dim);flex-shrink:0;';
   sub.textContent = tbl.label;
 
   const scroll = document.createElement('div');
   scroll.style.cssText = 'overflow-y:auto;flex:1;';
   const t = document.createElement('table');
   t.style.cssText = 'border-collapse:collapse;width:100%;';
-  const th = (txt, al) => `<th style="padding:5px 6px;text-align:${al};border-bottom:2px solid #2a4a9a;` +
-                          `font-size:11px;color:#8899bb;letter-spacing:1px;text-transform:uppercase">${txt}</th>`;
+  const th = (txt, al) => `<th style="padding:5px 6px;text-align:${al};border-bottom:2px solid #2D48A8;` +
+                          `font-size:11px;color:var(--dim);letter-spacing:1px;text-transform:uppercase">${txt}</th>`;
   t.innerHTML = '<tr>' + th('Hand','left') + th('1 Coin','right') + th('Max Bet (5)','right') + '</tr>';
   tbl.rows.forEach((r, i) => {
     if(r.name === 'Nothing') return;
     const tr = t.insertRow();
     tr.style.cssText = i % 2 ? 'background:rgba(255,255,255,0.03);' : '';
     tr.innerHTML =
-      `<td style="padding:4px 6px;font-size:13px;color:#e0e8f8">${r.name}</td>` +
-      `<td style="padding:4px 6px;text-align:right;font-size:13px;color:#c0c8d8">${r.pays[0].toLocaleString()}</td>` +
-      `<td style="padding:4px 6px;text-align:right;font-size:13px;font-weight:bold;color:#f0c040">${r.pays[4].toLocaleString()}</td>`;
+      `<td style="padding:4px 6px;font-size:13px;color:var(--chalk)">${r.name}</td>` +
+      `<td style="padding:4px 6px;text-align:right;font-size:13px;font-family:var(--font-num);font-variant-numeric:tabular-nums; color:var(--text)">${r.pays[0].toLocaleString()}</td>` +
+      `<td style="padding:4px 6px;text-align:right;font-size:13px;font-family:var(--font-num);font-variant-numeric:tabular-nums; font-weight:bold;color:var(--brass)">${r.pays[4].toLocaleString()}</td>`;
   });
   scroll.appendChild(t);
 
   const note = document.createElement('div');
-  note.style.cssText = 'font-size:11px;color:#8899bb;text-align:center;flex-shrink:0;';
+  note.style.cssText = 'font-size:11px;color:var(--dim);text-align:center;flex-shrink:0;';
   note.textContent = 'Max bet pays the royal jackpot — always bet 5 coins.';
 
   const backBtn = document.createElement('button');
   backBtn.textContent = onBack ? 'Back' : 'Close';
   backBtn.style.cssText = [
-    'align-self:center','font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
+    'align-self:center','font-family:var(--font-ui)','font-size:13px','font-weight:bold',
     'letter-spacing:2px','text-transform:uppercase','padding:8px 28px',
-    'background:linear-gradient(180deg,#2a4aaa,#1a2a7a)','border:2px solid #5a7acc',
-    'border-radius:8px','color:#fff','cursor:pointer','touch-action:manipulation','flex-shrink:0',
+    'background:transparent','border:2px solid rgba(255,214,64,0.62)',
+    'border-radius:8px','color:var(--brass)','cursor:pointer','touch-action:manipulation','flex-shrink:0',
   ].join(';');
   const close = () => { if(overlay.parentNode) overlay.parentNode.removeChild(overlay); };
   backBtn.addEventListener('click', () => { sfx.button(); close(); if(onBack) onBack(); });
@@ -2234,17 +2369,17 @@ function showPayTablePicker(gKey = currentGame, onBack){
   ].join(';');
   const panel = document.createElement('div');
   panel.style.cssText = [
-    'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)',
-    'border:2px solid #2a4a9a','border-radius:14px','box-shadow:0 0 30px rgba(20,60,180,0.6)',
+    'background:var(--felt)',
+    'border:2px solid #2D48A8','border-radius:14px','box-shadow:none',
     'padding:18px','width:min(480px,94vw)','max-height:92vh',
     'display:flex','flex-direction:column','gap:10px',
   ].join(';');
 
   const title = document.createElement('div');
-  title.style.cssText = 'text-align:center;font-size:16px;font-weight:bold;color:#f0c040;letter-spacing:2px;text-transform:uppercase;flex-shrink:0;';
+  title.style.cssText = 'text-align:center;font-size:16px;font-weight:bold;color:var(--brass);letter-spacing:2px;text-transform:uppercase;flex-shrink:0;';
   title.textContent = 'Pay Table';
   const sub = document.createElement('div');
-  sub.style.cssText = 'text-align:center;font-size:12px;color:#8899bb;flex-shrink:0;';
+  sub.style.cssText = 'text-align:center;font-size:12px;color:var(--dim);flex-shrink:0;';
   sub.textContent = game.name;
 
   const list = document.createElement('div');
@@ -2262,14 +2397,14 @@ function showPayTablePicker(gKey = currentGame, onBack){
       const pick = document.createElement('button');
       const on = i === payIdxOf(gKey);
       pick.style.cssText = [
-        'flex:1','text-align:left','font-family:Arial,Helvetica,sans-serif','font-size:14px',
+        'flex:1','text-align:left','font-family:var(--font-ui)','font-size:14px',
         'font-weight:bold','padding:9px 12px','border-radius:8px','cursor:pointer',
         'touch-action:manipulation','display:flex','flex-direction:column','gap:2px',
-        on ? 'background:linear-gradient(180deg,#c89a20,#a07a10);border:2px solid #f0c040;color:#000'
-           : 'background:linear-gradient(180deg,#1a2a60,#101a45);border:2px solid #3a5aaa;color:#e0e8f8',
+        on ? 'background:transparent;border:2px solid var(--brass);color:var(--brass)'
+           : 'background:var(--deep);border:2px solid #3554B8;color:var(--chalk)',
       ].join(';');
       const ret = document.createElement('span');
-      ret.style.cssText = `font-size:11px;font-weight:normal;opacity:0.85;color:${on ? '#3a2a00' : '#8fb8e8'};`;
+      ret.style.cssText = `font-size:11px;font-weight:normal;opacity:0.85;color:${on ? 'var(--brass)' : '#8fb8e8'};`;
       ret.textContent = ' ';
       pick.innerHTML = `<span>${pt.label}${on ? '  ✓' : ''}</span>`;
       pick.appendChild(ret);
@@ -2294,9 +2429,9 @@ function showPayTablePicker(gKey = currentGame, onBack){
       info.textContent = 'Payouts';
       info.title = 'See the full payout table';
       info.style.cssText = [
-        'flex:0 0 auto','font-family:Arial,Helvetica,sans-serif','font-size:11px','font-weight:bold',
+        'flex:0 0 auto','font-family:var(--font-ui)','font-size:11px','font-weight:bold',
         'letter-spacing:1px','text-transform:uppercase','padding:9px 11px','border-radius:8px',
-        'background:linear-gradient(180deg,#1a5a7a,#0e3a50)','border:2px solid #4ab0d0',
+        'background:transparent','border:2px solid #4ab0d0',
         'color:#bfefff','cursor:pointer','touch-action:manipulation',
       ].join(';');
       info.addEventListener('click', () => {
@@ -2318,26 +2453,26 @@ function showPayTablePicker(gKey = currentGame, onBack){
   const customBtn = document.createElement('button');
   customBtn.textContent = 'Custom Pay Table…';
   customBtn.style.cssText = [
-    'font-family:Arial,Helvetica,sans-serif','font-size:12px','font-weight:bold',
+    'font-family:var(--font-ui)','font-size:12px','font-weight:bold',
     'letter-spacing:1px','text-transform:uppercase','padding:8px 14px',
-    'background:linear-gradient(180deg,#5a2a8a,#3a1a6a)','border:2px solid #aa66dd',
-    'border-radius:8px','color:#ddb8ff','cursor:pointer','touch-action:manipulation','flex-shrink:0',
+    'background:transparent','border:2px solid rgba(255,214,64,0.62)',
+    'border-radius:8px','color:var(--brass)','cursor:pointer','touch-action:manipulation','flex-shrink:0',
   ].join(';');
   customBtn.addEventListener('click', () => {
     close();
     showCustomEditor(() => showPayTablePicker(gKey, onBack));
   });
   const hint = document.createElement('div');
-  hint.style.cssText = 'text-align:center;font-size:11px;color:#8899bb;flex-shrink:0;';
+  hint.style.cssText = 'text-align:center;font-size:11px;color:var(--dim);flex-shrink:0;';
   hint.textContent = 'Switch to this game to build a custom pay table.';
 
   const closeBtn = document.createElement('button');
   closeBtn.textContent = 'Close';
   closeBtn.style.cssText = [
-    'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
+    'font-family:var(--font-ui)','font-size:13px','font-weight:bold',
     'letter-spacing:2px','text-transform:uppercase','padding:8px 28px',
-    'background:linear-gradient(180deg,#2a4aaa,#1a2a7a)','border:2px solid #5a7acc',
-    'border-radius:8px','color:#fff','cursor:pointer','touch-action:manipulation','flex-shrink:0',
+    'background:transparent','border:2px solid rgba(255,214,64,0.62)',
+    'border-radius:8px','color:var(--brass)','cursor:pointer','touch-action:manipulation','flex-shrink:0',
   ].join(';');
   closeBtn.textContent = onBack ? 'Back' : 'Close';
   closeBtn.addEventListener('click', () => { sfx.button(); done(); });
@@ -2374,9 +2509,9 @@ function showGameSelect(){
 
   const panel = document.createElement('div');
   panel.style.cssText = [
-    'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)',
-    'border:2px solid #2a4a9a','border-radius:14px',
-    'box-shadow:0 0 30px rgba(20,60,180,0.6)',
+    'background:var(--felt)',
+    'border:2px solid #2D48A8','border-radius:14px',
+    'box-shadow:none',
     'padding:20px 24px','width:min(460px,92vw)',
     'max-height:90vh','overflow-y:auto',   // 15 games — panel scrolls
     'display:flex','flex-direction:column','gap:12px',
@@ -2385,8 +2520,8 @@ function showGameSelect(){
   const title = document.createElement('div');
   title.style.cssText = [
     'text-align:center','font-size:18px','font-weight:bold',
-    'color:#f0c040','letter-spacing:4px','text-transform:uppercase',
-    'text-shadow:0 0 8px rgba(240,192,64,0.5)',
+    'color:var(--brass)','letter-spacing:4px','text-transform:uppercase',
+    'text-shadow:none',
   ].join(';');
   title.textContent = 'Select Game';
   panel.appendChild(title);
@@ -2401,12 +2536,12 @@ function showGameSelect(){
     const b = document.createElement('button');
     b.style.cssText = [
       'display:flex','justify-content:space-between','align-items:center','gap:10px',
-      'font-family:Arial,Helvetica,sans-serif','font-size:15px','font-weight:bold',
+      'font-family:var(--font-ui)','font-size:15px','font-weight:bold',
       'letter-spacing:1px','padding:12px 16px','border-radius:8px','cursor:pointer',
       'touch-action:manipulation','text-align:left',
       active
-        ? 'background:linear-gradient(180deg,#c89a20,#a07a10);border:2px solid #f0c040;color:#000'
-        : 'background:linear-gradient(180deg,#1a2a60,#101a45);border:2px solid #3a5aaa;color:#e0e8f8',
+        ? 'background:transparent;border:2px solid var(--brass);color:var(--brass)'
+        : 'background:var(--deep);border:2px solid #3554B8;color:var(--chalk)',
     ].join(';');
     const denomVal = DENOMINATIONS[denomIdx].value;
     const ptIdx = payIdxOf(key);
@@ -2419,7 +2554,7 @@ function showGameSelect(){
       `<span style="display:flex;flex-direction:column;gap:2px;min-width:0">` +
         `<span>${g.name}${active ? ' ✓' : ''}</span>` +
         `<span class="game-ret" style="font-size:11px;font-weight:normal;` +
-        `opacity:0.85;color:${active ? '#3a2a00' : '#8fb8e8'}"> </span>` +
+        `opacity:0.85;color:${active ? 'var(--brass)' : '#8fb8e8'}"> </span>` +
       `</span>` +
       `<span style="font-size:12px;font-weight:normal;opacity:0.85">` +
       `${formatMoney(gs.credits * denomVal)}</span>`;
@@ -2436,12 +2571,12 @@ function showGameSelect(){
     ptBtn.textContent = payTableShort(g.payTables[ptIdx].label);
     ptBtn.title = 'Pay table — ' + g.payTables[ptIdx].label;
     ptBtn.style.cssText = [
-      'flex:0 0 auto','font-family:Arial,Helvetica,sans-serif','font-size:13px',
+      'flex:0 0 auto','font-family:var(--font-ui)','font-size:13px',
       'font-weight:bold','letter-spacing:0','padding:12px 12px','border-radius:8px',
       'cursor:pointer','touch-action:manipulation','white-space:nowrap',
       active
-        ? 'background:linear-gradient(180deg,#7a5000,#4a3000);border:2px solid #f0c040;color:#ffd780'
-        : 'background:linear-gradient(180deg,#24345a,#16223d);border:2px solid #3a5aaa;color:#bfd4f0',
+        ? 'background:transparent;border:2px solid var(--brass);color:#ffd780'
+        : 'background:var(--deep);border:2px solid #3554B8;color:#bfd4f0',
     ].join(';');
     ptBtn.addEventListener('click', () => {
       close();
@@ -2459,9 +2594,9 @@ function showGameSelect(){
   const cancel = document.createElement('button');
   cancel.textContent = 'Cancel';
   cancel.style.cssText = [
-    'align-self:center','font-family:Arial,Helvetica,sans-serif','font-size:13px',
+    'align-self:center','font-family:var(--font-ui)','font-size:13px',
     'font-weight:bold','letter-spacing:2px','text-transform:uppercase','padding:8px 28px',
-    'background:linear-gradient(180deg,#3a3a3a,#1a1a1a)','border:2px solid #666',
+    'background:transparent','border:2px solid rgba(140,154,196,0.55)',
     'border-radius:8px','color:#ccc','cursor:pointer','touch-action:manipulation',
   ].join(';');
   cancel.addEventListener('click', close);
@@ -2496,18 +2631,24 @@ function showDenomPopup(){
     'display:flex','align-items:center','justify-content:center',
   ].join(';');
 
+  const isClassic = theme === 'classic';
+
   const panel = document.createElement('div');
   panel.className = 'denom-popup';
   panel.style.cssText = [
-    'background:#0000b4','border:3px solid #ffd700','border-radius:6px',
+    isClassic ? 'background:#0000b4'          : 'background:var(--felt)',
+    isClassic ? 'border:3px solid #ffd700'    : 'border:2px solid #2D48A8',
+    isClassic ? 'border-radius:6px'           : 'border-radius:14px',
     'padding:20px 26px','display:flex','flex-direction:column',
     'gap:16px','align-items:center',
   ].join(';');
 
   const title = document.createElement('div');
   title.style.cssText = [
-    'font-family:Impact,\'Arial Black\',sans-serif','font-size:22px',
-    'letter-spacing:3px','color:#ffd700',
+    isClassic ? 'font-family:Impact,\'Arial Black\',sans-serif'
+              : 'font-family:var(--font-title)',
+    'font-size:22px','letter-spacing:3px',
+    isClassic ? 'color:#ffd700' : 'color:var(--brass)',
   ].join(';');
   title.textContent = 'DENOMINATION';
 
@@ -2521,10 +2662,16 @@ function showDenomPopup(){
   done.style.cssText = [
     'font-family:\'Arial Narrow\',Arial,sans-serif','font-weight:900',
     'font-size:14px','letter-spacing:2px','padding:9px 34px',
-    'background:linear-gradient(180deg,#fff780 0%,#ffe030 45%,#d8a800 100%)',
-    'border:2px solid #7a5c00','border-radius:4px','color:#000',
     'cursor:pointer','touch-action:manipulation',
-    'box-shadow:inset 1px 1px 0 rgba(255,255,255,0.9), inset -2px -2px 0 rgba(122,92,0,0.5), 2px 3px 0 rgba(0,0,0,0.5)',
+    isClassic
+      ? 'background:linear-gradient(180deg,#fff780 0%,#ffe030 45%,#d8a800 100%)'
+      : 'background:var(--brass)',
+    isClassic ? 'border:2px solid #7a5c00' : 'border:2px solid var(--brass)',
+    isClassic ? 'border-radius:4px'        : 'border-radius:12px',
+    isClassic ? 'color:#000'               : 'color:var(--ink)',
+    isClassic
+      ? 'box-shadow:inset 1px 1px 0 rgba(255,255,255,0.9), inset -2px -2px 0 rgba(122,92,0,0.5), 2px 3px 0 rgba(0,0,0,0.5)'
+      : 'box-shadow:0 2px 0 #C79E17',
   ].join(';');
   done.addEventListener('click', close);
   overlay.addEventListener('click', e => { if(e.target===overlay) close(); });
@@ -2571,6 +2718,10 @@ function updateInfoRow(){
     formatMoney(coinBet * denom);
   document.getElementById('win-display').textContent =
     formatMoney(lastWin * denom);
+  document.getElementById('denom-display').textContent = classicDenomLabel();
+  // The accent belongs to an actual win; a zero stays neutral.
+  document.getElementById('win-display').parentElement
+    .classList.toggle('paid', lastWin > 0);
   // Classic status line shows raw coin counts, like the real machines
   document.getElementById('cs-win').textContent      = 'WIN ' + lastWin;
   document.getElementById('cs-bet-label').textContent = 'BET ' + coinBet;
@@ -3642,26 +3793,26 @@ function showNumPad({ title = 'Enter a number', initial = '', min = 0, max = 999
     ].join(';');
     const panel = document.createElement('div');
     panel.style.cssText = [
-      'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)',
-      'border:2px solid #2a4a9a','border-radius:14px',
-      'box-shadow:0 0 30px rgba(20,60,180,0.6)',
+      'background:var(--felt)',
+      'border:2px solid #2D48A8','border-radius:14px',
+      'box-shadow:none',
       'padding:16px 18px','width:min(300px,90vw)',
       'display:flex','flex-direction:column','gap:10px',
     ].join(';');
 
     const ttl = document.createElement('div');
-    ttl.style.cssText = 'text-align:center;font-size:14px;font-weight:bold;color:#f0c040;letter-spacing:2px;text-transform:uppercase;';
+    ttl.style.cssText = 'text-align:center;font-size:14px;font-weight:bold;color:var(--brass);letter-spacing:2px;text-transform:uppercase;';
     ttl.textContent = title;
 
     const hintEl = document.createElement('div');
-    hintEl.style.cssText = 'text-align:center;font-size:11px;color:#8899bb;min-height:14px;';
+    hintEl.style.cssText = 'text-align:center;font-size:11px;color:var(--dim);min-height:14px;';
     hintEl.textContent = hint;
 
     const disp = document.createElement('div');
     disp.style.cssText = [
-      'background:#0a1a40','border:2px solid #3a5aaa','border-radius:8px',
+      'background:#081540','border:2px solid #3554B8','border-radius:8px',
       'padding:10px 14px','text-align:right','font-size:28px','font-weight:bold',
-      'color:#f0c040','min-height:52px','letter-spacing:1px','font-variant-numeric:tabular-nums',
+      'color:var(--brass)','min-height:52px','letter-spacing:1px','font-variant-numeric:tabular-nums',
     ].join(';');
     const refresh = () => { disp.textContent = val === '' ? ' ' : val; };
     refresh();
@@ -3672,14 +3823,14 @@ function showNumPad({ title = 'Enter a number', initial = '', min = 0, max = 999
       const b = document.createElement('button');
       b.textContent = label;
       b.style.cssText = [
-        'font-family:Arial,Helvetica,sans-serif','font-size:22px','font-weight:bold',
-        'height:54px','background:#0a1a40','border:2px solid #3a5aaa','border-radius:8px',
-        'color:#e0e8f8','cursor:pointer','touch-action:manipulation',
+        'font-family:var(--font-ui)','font-size:22px','font-weight:bold',
+        'height:54px','background:#081540','border:2px solid #3554B8','border-radius:8px',
+        'color:var(--chalk)','cursor:pointer','touch-action:manipulation',
         '-webkit-tap-highlight-color:transparent', extra,
       ].join(';');
-      b.addEventListener('pointerdown', () => { b.style.background = '#1a2a60'; });
-      b.addEventListener('pointerup',   () => { b.style.background = '#0a1a40'; });
-      b.addEventListener('pointerleave',() => { b.style.background = '#0a1a40'; });
+      b.addEventListener('pointerdown', () => { b.style.background = 'var(--deep)'; });
+      b.addEventListener('pointerup',   () => { b.style.background = '#081540'; });
+      b.addEventListener('pointerleave',() => { b.style.background = '#081540'; });
       b.addEventListener('click', () => { sfx.button(); fn(); });
       return b;
     };
@@ -3687,7 +3838,7 @@ function showNumPad({ title = 'Enter a number', initial = '', min = 0, max = 999
       if(fresh){ val = ''; fresh = false; }
       if(val.length >= maxLen) return;
       val = (val === '0') ? d : val + d;
-      hintEl.style.color = '#8899bb'; hintEl.textContent = hint; refresh();
+      hintEl.style.color = 'var(--dim)'; hintEl.textContent = hint; refresh();
     };
     ['1','2','3','4','5','6','7','8','9'].forEach(d => grid.appendChild(mkKey(d, () => digit(d))));
     grid.appendChild(mkKey('C', () => { val = ''; fresh = false; refresh(); }, 'color:#ff8080;font-size:18px'));
@@ -3700,15 +3851,15 @@ function showNumPad({ title = 'Enter a number', initial = '', min = 0, max = 999
       const b = document.createElement('button');
       b.textContent = label;
       b.style.cssText = [
-        'flex:1','font-family:Arial,Helvetica,sans-serif','font-size:14px','font-weight:bold',
+        'flex:1','font-family:var(--font-ui)','font-size:14px','font-weight:bold',
         'letter-spacing:2px','text-transform:uppercase','padding:11px 0',
         `background:${bg}`,`border:2px solid ${border}`,'border-radius:8px',
         `color:${color}`,'cursor:pointer','touch-action:manipulation',
       ].join(';');
       return b;
     };
-    const okBtn     = mkAct('OK','linear-gradient(180deg,#2a8a4a,#1a6a34)','#4acc6a','#fff');
-    const cancelBtn = mkAct('Cancel','linear-gradient(180deg,#3a3a3a,#1a1a1a)','#666','#ccc');
+    const okBtn     = mkAct('OK','var(--brass)', 'var(--brass)', 'var(--ink)');
+    const cancelBtn = mkAct('Cancel','transparent','rgba(140,154,196,0.55)','var(--dim)');
 
     const close = result => {
       document.removeEventListener('keydown', onKey);
@@ -3823,9 +3974,9 @@ function showAnalysis(customHand, customDeck, opts = {}) {
   // ── Panel ──────────────────────────────────────────────────
   const panel = document.createElement('div');
   panel.style.cssText = [
-    'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)',
-    'border:2px solid #2a4a9a','border-radius:14px',
-    'box-shadow:0 0 30px rgba(20,60,180,0.6)',
+    'background:var(--felt)',
+    'border:2px solid #2D48A8','border-radius:14px',
+    'box-shadow:none',
     'padding:16px','width:min(960px,96vw)',
     'display:flex','flex-direction:column','gap:10px',
     'max-height:92vh','overflow:hidden',
@@ -3835,8 +3986,8 @@ function showAnalysis(customHand, customDeck, opts = {}) {
   const title = document.createElement('div');
   title.style.cssText = [
     'text-align:center','font-size:15px','font-weight:bold',
-    'color:#f0c040','letter-spacing:3px','text-transform:uppercase',
-    'text-shadow:0 0 8px rgba(240,192,64,0.5)','flex-shrink:0',
+    'color:var(--brass)','letter-spacing:3px','text-transform:uppercase',
+    'text-shadow:none','flex-shrink:0',
   ].join(';');
   title.textContent = isCustom ? game.name + ' — Hand Analysis' : 'Optimal Hold Analysis';
   title.appendChild(betaTag());
@@ -3845,7 +3996,7 @@ function showAnalysis(customHand, customDeck, opts = {}) {
   const handLine = document.createElement('div');
   handLine.style.cssText = 'display:flex;justify-content:center;align-items:center;gap:6px;flex-shrink:0;';
   const handLbl = document.createElement('span');
-  handLbl.style.cssText = 'font-size:12px;color:#c0c8d8;letter-spacing:1px;margin-right:4px;';
+  handLbl.style.cssText = 'font-size:12px;color:var(--text);letter-spacing:1px;margin-right:4px;';
   handLbl.textContent = 'Hand:';
   handLine.appendChild(handLbl);
   aHand.forEach(c => handLine.appendChild(cardChipEl(c, 17)));
@@ -3856,7 +4007,7 @@ function showAnalysis(customHand, customDeck, opts = {}) {
 
   const content = document.createElement('div');
   const computing = document.createElement('div');
-  computing.style.cssText = 'text-align:center;color:#f0c040;font-size:14px;padding:24px 0;';
+  computing.style.cssText = 'text-align:center;color:var(--brass);font-size:14px;padding:24px 0;';
   computing.textContent   = 'Computing all hold combinations…';
   content.appendChild(computing);
   scroll.appendChild(content);
@@ -3872,21 +4023,21 @@ function showAnalysis(customHand, customDeck, opts = {}) {
       // currently showing payouts → button offers "Odds"
       toggleBtn.textContent = 'Odds';
       toggleBtn.style.cssText = [
-        'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
+        'font-family:var(--font-ui)','font-size:13px','font-weight:bold',
         'letter-spacing:2px','text-transform:uppercase','padding:8px 22px',
-        'background:linear-gradient(180deg,#1a7a3a,#0e4e24)',
-        'border:2px solid #3cdc64','border-radius:8px',
-        'color:#3cdc64','cursor:pointer','touch-action:manipulation',
+        'background:transparent',
+        'border:2px solid rgba(255,214,64,0.62)','border-radius:8px',
+        'color:var(--brass)','cursor:pointer','touch-action:manipulation',
       ].join(';');
     } else {
       // currently showing odds → button offers "Payouts"
       toggleBtn.textContent = 'Payouts';
       toggleBtn.style.cssText = [
-        'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
+        'font-family:var(--font-ui)','font-size:13px','font-weight:bold',
         'letter-spacing:2px','text-transform:uppercase','padding:8px 22px',
-        'background:linear-gradient(180deg,#d0d8e8,#a0aac0)',
-        'border:2px solid #e0e8f8','border-radius:8px',
-        'color:#0a1a3a','cursor:pointer','touch-action:manipulation',
+        'background:transparent',
+        'border:2px solid rgba(255,214,64,0.62)','border-radius:8px',
+        'color:var(--brass)','cursor:pointer','touch-action:manipulation',
       ].join(';');
     }
     // normalising a percentage is meaningless, so the scale toggle only
@@ -3899,11 +4050,11 @@ function showAnalysis(customHand, customDeck, opts = {}) {
   const applyBetStyle = () => {
     betBtn.textContent = perCoin ? 'Current Bet' : 'Per Coin';
     betBtn.style.cssText = [
-      'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
+      'font-family:var(--font-ui)','font-size:13px','font-weight:bold',
       'letter-spacing:2px','text-transform:uppercase','padding:8px 22px','border-radius:8px',
       'cursor:pointer','touch-action:manipulation',
-      perCoin ? 'background:linear-gradient(180deg,#d0d8e8,#a0aac0);border:2px solid #e0e8f8;color:#0a1a3a'
-              : 'background:linear-gradient(180deg,#7a5a00,#4a3600);border:2px solid #ccaa00;color:#ffee88',
+      perCoin ? 'background:transparent;border:2px solid var(--brass);color:var(--brass)'
+              : 'background:transparent;border:2px solid var(--brass);color:var(--brass)',
     ].join(';');
   };
   applyBetStyle();
@@ -3922,9 +4073,9 @@ function showAnalysis(customHand, customDeck, opts = {}) {
     'font-family:Arial,Helvetica,sans-serif',
     'font-size:13px','font-weight:bold','letter-spacing:2px',
     'text-transform:uppercase','padding:8px 28px',
-    'background:linear-gradient(180deg,#2a4aaa,#1a2a7a)',
-    'border:2px solid #5a7acc','border-radius:8px',
-    'color:#fff','cursor:pointer','touch-action:manipulation',
+    'background:transparent',
+    'border:2px solid rgba(255,214,64,0.62)','border-radius:8px',
+    'color:var(--brass)','cursor:pointer','touch-action:manipulation',
   ].join(';');
 
   const close = () => { if(overlay.parentNode) overlay.parentNode.removeChild(overlay); };
@@ -3938,7 +4089,7 @@ function showAnalysis(customHand, customDeck, opts = {}) {
   // The whole strip is capped at a third of the viewport so the hold table
   // keeps the rest; the list scrolls inside whatever is left after the header.
   const stripWrap = document.createElement('div');
-  stripWrap.style.cssText = 'flex-shrink:0;display:none;flex-direction:column;border-top:2px solid #2a4a9a;' +
+  stripWrap.style.cssText = 'flex-shrink:0;display:none;flex-direction:column;border-top:2px solid #2D48A8;' +
                             'padding-top:6px;max-height:33vh;overflow:hidden;';
   const stripHead = document.createElement('div');
   stripHead.style.cssText = 'display:flex;justify-content:space-between;align-items:baseline;padding:0 8px 4px;flex-shrink:0;';
@@ -3952,7 +4103,12 @@ function showAnalysis(customHand, customDeck, opts = {}) {
 
   let stripOn = analyzeStripOn;      // remembered across openings
   let stripBook = null;              // book play shown, for the exception note
-  const ptIdxFor = isCustom ? Math.min(gameState[gKey].payTableIdx, GAMES[gKey].payTables.length - 1) : payTableIdx;
+  // Must be the SAME table the EV columns above were computed from. It used to
+  // read the game's currently-selected pay table, so a hand sent here from
+  // training on 9/5 was priced on 9/5 but judged against the 9/6 card — and
+  // those cards genuinely differ (9/5 plays a 3-high-card inside straight,
+  // 9/6 does not), which reads as the analyzer contradicting the trainer.
+  const ptIdxFor = isCustom ? aPay : payTableIdx;
 
   // "Exception" note: the analyzer's top hold isn't on the book line
   function updateStripWarn(){
@@ -3969,11 +4125,11 @@ function showAnalysis(customHand, customDeck, opts = {}) {
     stripHead.innerHTML = '';
     stripWarn.style.display = 'none';
     if(!key || !cfg){
-      stripList.innerHTML = '<div style="text-align:center;color:#8899bb;font-size:12px;padding:8px">' +
+      stripList.innerHTML = '<div style="text-align:center;color:var(--dim);font-size:12px;padding:8px">' +
         'No strategy guide for this pay table yet.</div>';
       return;
     }
-    stripList.innerHTML = '<div style="text-align:center;color:#f0c040;font-size:12px;padding:8px">Loading strategy…</div>';
+    stripList.innerHTML = '<div style="text-align:center;color:var(--brass);font-size:12px;padding:8px">Loading strategy…</div>';
     loadStrategy(key).then(strat => {
       if(!stripOn) return;
       if(!strat){ stripList.innerHTML = '<div style="text-align:center;color:#ff8080;font-size:12px;padding:8px">Strategy unavailable.</div>'; return; }
@@ -3982,11 +4138,11 @@ function showAnalysis(customHand, customDeck, opts = {}) {
       stripBook = book;
 
       const ptLabel = GAMES[gKey].payTables[ptIdxFor].label;
-      stripHead.innerHTML = `<span style="font-size:11px;font-weight:bold;letter-spacing:1px;color:#3acccc">` +
+      stripHead.innerHTML = `<span style="font-size:11px;font-weight:bold;letter-spacing:1px;color:var(--brass)">` +
                             `STRATEGY (${stratLevelName().toUpperCase()}) — ${ptLabel}</span>`;
       const more = document.createElement('span');
       more.textContent = 'Full screen ›';
-      more.style.cssText = 'font-size:11px;color:#aaffff;cursor:pointer;';
+      more.style.cssText = 'font-size:11px;color:var(--brass);cursor:pointer;';
       more.addEventListener('click', () => showStrategy(book && book.id));
       stripHead.appendChild(more);
 
@@ -3998,10 +4154,10 @@ function showAnalysis(customHand, customDeck, opts = {}) {
         r.style.cssText = [
           'display:flex','align-items:center','gap:8px','padding:4px 6px','border-radius:5px',
           'font-size:13px',
-          isBook ? 'background:rgba(240,192,64,0.20);color:#f0c040;font-weight:bold'
-                 : (i % 2 ? 'background:rgba(255,255,255,0.03);color:#c0c8d8' : 'color:#c0c8d8'),
+          isBook ? 'background:rgba(240,192,64,0.20);color:var(--brass);font-weight:bold'
+                 : (i % 2 ? 'background:rgba(255,255,255,0.03);color:var(--text)' : 'color:var(--text)'),
         ].join(';');
-        r.innerHTML = `<span style="width:22px;text-align:right;color:#f0c040;font-weight:bold">${i + 1}</span>` +
+        r.innerHTML = `<span style="width:22px;text-align:right;color:var(--brass);font-weight:bold">${i + 1}</span>` +
                       `<span style="flex:1">${line.label}</span>` +
                       (isBook ? '<span style="font-size:11px;letter-spacing:1px">← PLAY THIS</span>' : '');
         if(isBook) bookRow = r;
@@ -4019,11 +4175,11 @@ function showAnalysis(customHand, customDeck, opts = {}) {
   const styleStratToggle = () => {
     stratToggle.textContent = 'Strategy';
     stratToggle.style.cssText = [
-      'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
+      'font-family:var(--font-ui)','font-size:13px','font-weight:bold',
       'letter-spacing:2px','text-transform:uppercase','padding:8px 22px','border-radius:8px',
       'cursor:pointer','touch-action:manipulation',
-      stripOn ? 'background:linear-gradient(180deg,#1a6a6a,#0e4444);border:2px solid #3acccc;color:#aaffff'
-              : 'background:linear-gradient(180deg,#24345a,#16223d);border:2px solid #3a5aaa;color:#8fa8c8',
+      stripOn ? 'background:transparent;border:2px solid var(--brass);color:var(--brass)'
+              : 'background:var(--deep);border:2px solid #3554B8;color:#8fa8c8',
     ].join(';');
   };
   styleStratToggle();
@@ -4041,9 +4197,9 @@ function showAnalysis(customHand, customDeck, opts = {}) {
     const backBtn = document.createElement('button');
     backBtn.textContent = 'Back';
     backBtn.style.cssText = [
-      'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
+      'font-family:var(--font-ui)','font-size:13px','font-weight:bold',
       'letter-spacing:2px','text-transform:uppercase','padding:8px 22px',
-      'background:linear-gradient(180deg,#3a3a3a,#1a1a1a)','border:2px solid #666',
+      'background:transparent','border:2px solid rgba(140,154,196,0.55)',
       'border-radius:8px','color:#ccc','cursor:pointer','touch-action:manipulation',
     ].join(';');
     backBtn.addEventListener('click', () => { sfx.button(); close(); opts.onBack(); });
@@ -4075,16 +4231,17 @@ function showAnalysis(customHand, customDeck, opts = {}) {
 
     // ── Cell helpers ──────────────────────────────────────
     const thStyle = (extra='') =>
-      `padding:5px 3px;border-bottom:2px solid #2a4a9a;` +
+      `padding:5px 3px;border-bottom:2px solid #2D48A8;` +
       `font-weight:bold;font-size:17px;white-space:nowrap;text-align:right;` +
-      (oddsMode ? 'color:#3cdc64;' : 'color:#f0c040;') + extra;
+      (oddsMode ? 'color:#3cdc64;' : 'color:var(--brass);') + extra;
 
     // Payout cell (dollar amounts)
     const tdPay = (val, bold) => {
       const td = document.createElement('td');
-      td.style.cssText = `text-align:right;padding:5px 3px;font-size:17px;` +
-        `color:${val > 0 ? '#e0e8f8' : '#3a4a6a'};` +
-        (bold ? 'font-weight:bold;color:#f0c040;' : '');
+      td.style.cssText = `text-align:right;padding:5px 3px;font-size:16px;` +
+        `font-family:var(--font-num);font-variant-numeric:tabular-nums;` +
+        `color:${val > 0 ? 'var(--chalk)' : 'rgba(140,154,196,0.42)'};` +
+        (bold ? 'font-weight:bold;color:var(--brass);' : '');
       if(val <= 0){
         td.textContent = '—';
       } else if(perCoin){
@@ -4106,8 +4263,9 @@ function showAnalysis(customHand, customDeck, opts = {}) {
     // Odds cell (percentage)
     const tdOdds = (val, bold) => {
       const td = document.createElement('td');
-      td.style.cssText = `text-align:right;padding:5px 3px;font-size:17px;` +
-        `color:${val > 0 ? '#3cdc64' : '#1a3a1a'};` +
+      td.style.cssText = `text-align:right;padding:5px 3px;font-size:16px;` +
+        `font-family:var(--font-num);font-variant-numeric:tabular-nums;` +
+        `color:${val > 0 ? '#3cdc64' : 'rgba(140,154,196,0.42)'};` +
         (bold ? 'font-weight:bold;' : '');
       if(val <= 0){
         td.textContent = '—';
@@ -4139,7 +4297,7 @@ function showAnalysis(customHand, customDeck, opts = {}) {
     };
     addTH('#',            'width:24px;text-align:center;');
     addTH('Hold',         'text-align:left;width:1%;');   // hugs its content
-    addTH('Total',        'border-right:1px solid #2a4a9a;');
+    addTH('Total',        'border-right:1px solid #2D48A8;');
     HAND_COLS.forEach(c => addTH(c.label));
 
     const tbody = tbl.createTBody();
@@ -4152,13 +4310,13 @@ function showAnalysis(customHand, customDeck, opts = {}) {
       // # cell — actual rank among all 32 holds
       const rnkTd = row.insertCell();
       rnkTd.textContent = rank;
-      rnkTd.style.cssText = 'text-align:center;padding:5px 4px;font-weight:bold;color:#f0c040;font-size:18px;';
+      rnkTd.style.cssText = 'text-align:center;padding:5px 4px;font-weight:bold;color:var(--brass);font-size:18px;';
 
       // Hold cell — the held cards as compact chips ("Draw 5 new" for none);
       // same row height as plain text so the table stays dense
       const holdTd = row.insertCell();
       holdTd.style.cssText = `padding:4px 6px 4px 3px;white-space:nowrap;width:1%;` +
-        (isPlayer ? 'color:#f0c040;font-weight:bold;' : 'color:#c0c8d8;');
+        (isPlayer ? 'color:var(--brass);font-weight:bold;' : 'color:var(--text);');
       const holdWrap = document.createElement('div');
       holdWrap.style.cssText = 'display:flex;align-items:center;gap:2px;';
       if(combo.mask === 0){
@@ -4182,7 +4340,7 @@ function showAnalysis(customHand, customDeck, opts = {}) {
         ? HAND_COLS.reduce((s, c) => s + combo.handOdds[c.idx], 0)
         : combo.ev;
       const totTd = tdCell(totVal, true);
-      totTd.style.borderRight = '1px solid #2a4a9a';
+      totTd.style.borderRight = '1px solid #2D48A8';
       row.appendChild(totTd);
 
       // Per-hand columns
@@ -4193,7 +4351,7 @@ function showAnalysis(customHand, customDeck, opts = {}) {
 
     // Footer
     const footer = document.createElement('div');
-    footer.style.cssText = 'text-align:center;font-size:15px;color:#8899bb;padding:6px 0 2px;';
+    footer.style.cssText = 'text-align:center;font-size:15px;color:var(--dim);padding:6px 0 2px;';
     if(isCustom){
       footer.textContent = 'Hypothetical hand — best holds ranked from all 32 options';
     } else if(playerRank === 1){
@@ -4253,9 +4411,9 @@ function showSubPlays(){
 
   const panel = document.createElement('div');
   panel.style.cssText = [
-    'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)',
-    'border:2px solid #2a4a9a','border-radius:14px',
-    'box-shadow:0 0 30px rgba(20,60,180,0.6)',
+    'background:var(--felt)',
+    'border:2px solid #2D48A8','border-radius:14px',
+    'box-shadow:none',
     'padding:16px 20px','width:min(860px,97vw)',
     'max-height:92vh','overflow-y:auto',
     'display:flex','flex-direction:column','gap:12px',
@@ -4264,8 +4422,8 @@ function showSubPlays(){
   const title = document.createElement('div');
   title.style.cssText = [
     'text-align:center','font-size:15px','font-weight:bold',
-    'color:#f0c040','letter-spacing:3px','text-transform:uppercase',
-    'text-shadow:0 0 8px rgba(240,192,64,0.5)',
+    'color:var(--brass)','letter-spacing:3px','text-transform:uppercase',
+    'text-shadow:none',
   ].join(';');
   title.textContent = curGame().name + ' — Non-Optimal Plays';
   title.appendChild(betaTag());
@@ -4301,7 +4459,7 @@ function showSubPlays(){
 
   if(subPlays.length === 0){
     const empty = document.createElement('div');
-    empty.style.cssText = 'text-align:center;color:#8899bb;font-size:14px;padding:24px 0;';
+    empty.style.cssText = 'text-align:center;color:var(--dim);font-size:14px;padding:24px 0;';
     empty.textContent = 'No non-optimal plays recorded yet for this game — nice!';
     panel.appendChild(empty);
   } else {
@@ -4317,8 +4475,8 @@ function showSubPlays(){
       const glowPre = [];
       for(let i=0;i<5;i++) if(rec.oheld & (1<<i)) glowPre.push(i);
       const dealtCol = column(
-        `${rec.n ? 'HAND #' + rec.n + ' ' : ''}DEALT — glow = best hold`, '#f0c040',
-        strip(rec.pre, rec.held, glowPre), 'tap to analyze', '#8899bb'
+        `${rec.n ? 'HAND #' + rec.n + ' ' : ''}DEALT — glow = best hold`, 'var(--brass)',
+        strip(rec.pre, rec.held, glowPre), 'tap to analyze', 'var(--dim)'
       );
       dealtCol.style.cursor = 'pointer';
       dealtCol.addEventListener('click', () => {
@@ -4333,10 +4491,10 @@ function showSubPlays(){
       const aCat  = catOf(rec.res);
       const aGlow = rec.win > 0 && aCat >= 0 ? curGame().winCards(aCat, rec.post) : [];
       row.appendChild(column(
-        'YOUR RESULT', '#e0e8f8',
+        'YOUR RESULT', 'var(--chalk)',
         strip(rec.post, rec.held, aGlow),
         `${rec.res}  ${rec.win > 0 ? '+' + rec.win : '0'}`,
-        rec.win > 0 ? '#f0c040' : '#8899bb'
+        rec.win > 0 ? 'var(--brass)' : 'var(--dim)'
       ));
 
       // Col 3: optimal-hold result
@@ -4346,7 +4504,7 @@ function showSubPlays(){
         'OPTIMAL RESULT', '#38b6ff',
         strip(rec.opost, rec.oheld, oGlow),
         `${rec.ores}  ${rec.owin > 0 ? '+' + rec.owin : '0'}`,
-        rec.owin > 0 ? '#38b6ff' : '#8899bb'
+        rec.owin > 0 ? '#38b6ff' : 'var(--dim)'
       ));
 
       panel.appendChild(row);
@@ -4356,10 +4514,10 @@ function showSubPlays(){
   const closeBtn = document.createElement('button');
   closeBtn.textContent = 'Close';
   closeBtn.style.cssText = [
-    'align-self:center','font-family:Arial,Helvetica,sans-serif','font-size:13px',
+    'align-self:center','font-family:var(--font-ui)','font-size:13px',
     'font-weight:bold','letter-spacing:2px','text-transform:uppercase','padding:8px 28px',
-    'background:linear-gradient(180deg,#2a4aaa,#1a2a7a)','border:2px solid #5a7acc',
-    'border-radius:8px','color:#fff','cursor:pointer','touch-action:manipulation',
+    'background:transparent','border:2px solid rgba(255,214,64,0.62)',
+    'border-radius:8px','color:var(--brass)','cursor:pointer','touch-action:manipulation',
   ].join(';');
   const close = () => { if(overlay.parentNode) overlay.parentNode.removeChild(overlay); };
   closeBtn.addEventListener('click', close);
@@ -4414,29 +4572,29 @@ function showWaysHelp(){
   ov.style.cssText = 'position:fixed;inset:0;z-index:10002;background:rgba(0,5,25,0.9);display:flex;' +
                      'align-items:center;justify-content:center;font-family:Arial,Helvetica,sans-serif;';
   const pn = document.createElement('div');
-  pn.style.cssText = 'background:linear-gradient(180deg,#0d2255,#091840);border:2px solid #2a4a9a;' +
+  pn.style.cssText = 'background:var(--felt);border:2px solid #2D48A8;' +
                      'border-radius:14px;padding:16px 18px;width:min(500px,94vw);max-height:88vh;' +
                      'overflow-y:auto;display:flex;flex-direction:column;gap:10px;';
   pn.innerHTML =
-    '<div style="font-size:13px;font-weight:bold;color:#f0c040;letter-spacing:1px">' + WAYS_TITLE + '</div>' +
-    '<div style="font-size:12px;color:#c0c8d8;line-height:1.6">' + WAYS_TEXT + '</div>' +
+    '<div style="font-size:13px;font-weight:bold;color:var(--brass);letter-spacing:1px">' + WAYS_TITLE + '</div>' +
+    '<div style="font-size:12px;color:var(--text);line-height:1.6">' + WAYS_TEXT + '</div>' +
     // white-space:pre keeps the padding, which is what does the aligning
-    '<div style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#c0c8d8;' +
+    '<div style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--text);' +
     'background:#040d22;border-radius:8px;padding:10px 12px;line-height:1.7;white-space:pre;' +
     'overflow-x:auto">' +
     WAYS_ROWS.map(r => {
       const c = waysCols(r);
-      return '<span style="color:#f0c040">' + c[0] + '</span>  \u2192  ' +
+      return '<span style="color:var(--brass)">' + c[0] + '</span>  \u2192  ' +
              '<span style="color:#7ee08a">' + c[1] + '</span>' +
-             (c[2] ? '  <span style="color:#8899bb">' + c[2] + '</span>' : '');
+             (c[2] ? '  <span style="color:var(--dim)">' + c[2] + '</span>' : '');
     }).join('\n') +
     '</div>';
   const ok = document.createElement('button');
   ok.textContent = 'Close';
   ok.style.cssText = 'align-self:center;font-family:Arial,Helvetica,sans-serif;font-size:12px;' +
                      'font-weight:bold;letter-spacing:2px;text-transform:uppercase;padding:7px 24px;' +
-                     'background:linear-gradient(180deg,#2a4aaa,#1a2a7a);border:2px solid #5a7acc;' +
-                     'border-radius:8px;color:#fff;cursor:pointer;touch-action:manipulation;';
+                     'background:transparent;border:2px solid rgba(255,214,64,0.62);' +
+                     'border-radius:8px;color:var(--brass);cursor:pointer;touch-action:manipulation;';
   ok.addEventListener('click', () => { sfx.button(); ov.remove(); });
   pn.appendChild(ok);
   ov.addEventListener('click', e => { if(e.target === ov) ov.remove(); });
@@ -4449,9 +4607,9 @@ function waysHelpBtn(fontSize){
   b.title = 'What does "ways" mean?';
   b.setAttribute('aria-label', 'What does ways mean?');
   b.style.cssText = [
-    'font-family:Arial,Helvetica,sans-serif','font-size:' + fontSize,'font-weight:bold',
+    'font-family:var(--font-ui)','font-size:' + fontSize,'font-weight:bold',
     'line-height:1','width:1.35em','height:1.35em','padding:0','margin-left:6px',
-    'border-radius:50%','border:1px solid #f0c040','background:transparent','color:#f0c040',
+    'border-radius:50%','border:1px solid var(--brass)','background:transparent','color:var(--brass)',
     'cursor:pointer','touch-action:manipulation','vertical-align:middle','flex:0 0 auto',
   ].join(';');
   b.addEventListener('click', e => { e.stopPropagation(); sfx.button(); showWaysHelp(); });
@@ -4471,23 +4629,23 @@ function showStrategy(highlightId){
   ].join(';');
   const panel = document.createElement('div');
   panel.style.cssText = [
-    'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)',
-    'border:2px solid #2a4a9a','border-radius:14px',
-    'box-shadow:0 0 30px rgba(20,60,180,0.6)',
+    'background:var(--felt)',
+    'border:2px solid #2D48A8','border-radius:14px',
+    'box-shadow:none',
     'padding:16px','width:min(560px,95vw)',
     'max-height:92vh','display:flex','flex-direction:column','gap:10px',
   ].join(';');
 
   const title = document.createElement('div');
   title.style.cssText = [
-    'text-align:center','font-size:15px','font-weight:bold','color:#f0c040',
+    'text-align:center','font-size:15px','font-weight:bold','color:var(--brass)',
     'letter-spacing:2px','text-transform:uppercase','flex-shrink:0',
   ].join(';');
   title.textContent = 'Strategy — ' + curGame().name;
   title.appendChild(betaTag());
 
   const sub = document.createElement('div');
-  sub.style.cssText = 'text-align:center;font-size:11px;color:#8899bb;flex-shrink:0;';
+  sub.style.cssText = 'text-align:center;font-size:11px;color:var(--dim);flex-shrink:0;';
 
   const body = document.createElement('div');
   body.style.cssText = 'overflow-y:auto;flex:1;';
@@ -4498,10 +4656,10 @@ function showStrategy(highlightId){
   const closeBtn = document.createElement('button');
   closeBtn.textContent = 'Close';
   closeBtn.style.cssText = [
-    'font-family:Arial,Helvetica,sans-serif','font-size:13px',
+    'font-family:var(--font-ui)','font-size:13px',
     'font-weight:bold','letter-spacing:2px','text-transform:uppercase','padding:8px 28px',
-    'background:linear-gradient(180deg,#2a4aaa,#1a2a7a)','border:2px solid #5a7acc',
-    'border-radius:8px','color:#fff','cursor:pointer','touch-action:manipulation','flex-shrink:0',
+    'background:transparent','border:2px solid rgba(255,214,64,0.62)',
+    'border-radius:8px','color:var(--brass)','cursor:pointer','touch-action:manipulation','flex-shrink:0',
   ].join(';');
   const close = () => { if(overlay.parentNode) overlay.parentNode.removeChild(overlay); };
   closeBtn.addEventListener('click', close);
@@ -4511,10 +4669,10 @@ function showStrategy(highlightId){
   const dlBtn = document.createElement('button');
   dlBtn.textContent = 'Download';
   dlBtn.style.cssText = [
-    'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
+    'font-family:var(--font-ui)','font-size:13px','font-weight:bold',
     'letter-spacing:2px','text-transform:uppercase','padding:8px 22px',
-    'background:linear-gradient(180deg,#1a6a6a,#0e4444)','border:2px solid #3acccc',
-    'border-radius:8px','color:#aaffff','cursor:pointer','touch-action:manipulation','flex-shrink:0',
+    'background:transparent','border:2px solid rgba(255,214,64,0.62)',
+    'border-radius:8px','color:var(--brass)','cursor:pointer','touch-action:manipulation','flex-shrink:0',
   ].join(';');
   dlBtn.style.display = 'none';                 // shown once a strategy loads
   let downloadFor = null;                       // set by render()
@@ -4535,13 +4693,13 @@ function showStrategy(highlightId){
 
   if(!key){
     sub.textContent = curGame().payTables[payTableIdx].label;
-    body.innerHTML = '<div style="text-align:center;color:#8899bb;font-size:13px;padding:26px 10px;line-height:1.6">' +
+    body.innerHTML = '<div style="text-align:center;color:var(--dim);font-size:13px;padding:26px 10px;line-height:1.6">' +
       'No strategy guide for this pay table yet.<br><br>' +
       'Guides are generated per pay table; this one hasn\'t been generated yet.</div>';
     return;
   }
 
-  body.innerHTML = '<div style="text-align:center;color:#f0c040;font-size:13px;padding:26px">Loading strategy…</div>';
+  body.innerHTML = '<div style="text-align:center;color:var(--brass);font-size:13px;padding:26px">Loading strategy…</div>';
   loadStrategy(key).then(strat => {
     if(!overlay.parentNode) return;
     if(!strat){
@@ -4595,11 +4753,11 @@ function showStrategy(highlightId){
         b.textContent = label;
         const on = stratLevel === val;
         b.style.cssText = [
-          'font-family:Arial,Helvetica,sans-serif','font-size:11px','font-weight:bold',
+          'font-family:var(--font-ui)','font-size:11px','font-weight:bold',
           'letter-spacing:1px','text-transform:uppercase','padding:6px 12px','border-radius:6px',
           'cursor:pointer','touch-action:manipulation',
-          on ? 'background:linear-gradient(180deg,#c89a20,#a07a10);border:2px solid #f0c040;color:#000'
-             : 'background:#1a2a60;border:2px solid #3a5aaa;color:#c0c8d8',
+          on ? 'background:transparent;border:2px solid var(--brass);color:var(--brass)'
+             : 'background:var(--deep);border:2px solid #3554B8;color:var(--text)',
         ].join(';');
         b.addEventListener('click', () => { stratLevel = val; saveState(); sfx.button(); render(); });
         levelRow.appendChild(b);
@@ -4619,18 +4777,18 @@ function showStrategy(highlightId){
           : (i % 2 ? 'background:rgba(255,255,255,0.03);' : '');
         const n = row.insertCell();
         n.textContent = i + 1;
-        n.style.cssText = 'width:28px;text-align:center;padding:6px 4px;font-weight:bold;font-size:14px;color:#f0c040;';
+        n.style.cssText = 'width:28px;text-align:center;padding:6px 4px;font-weight:bold;font-size:14px;color:var(--brass);';
         const l = row.insertCell();
         l.textContent = line.label;
         l.style.cssText = 'padding:6px 4px;font-size:14px;' +
-          (isHit ? 'color:#f0c040;font-weight:bold;' : 'color:#e0e8f8;');
+          (isHit ? 'color:var(--brass);font-weight:bold;' : 'color:var(--chalk);');
         if(saysWays(line.label)) l.appendChild(waysHelpBtn('14px'));
       });
       body.appendChild(tbl);
 
       // footnotes
       const note = document.createElement('div');
-      note.style.cssText = 'font-size:11px;color:#8899bb;padding:10px 4px 2px;line-height:1.5;';
+      note.style.cssText = 'font-size:11px;color:var(--dim);padding:10px 4px 2px;line-height:1.5;';
       note.innerHTML = 'Play the <b>first</b> line that matches your hand.  ' +
         'Assumes max coins (5).' +
         (strat.exceptions.length ? `<br>${strat.exceptions.length} rare exception${strat.exceptions.length!==1?'s':''} not shown.` : '');
@@ -4664,33 +4822,43 @@ function showHandPicker(initCards, initGame){
 
   const panel = document.createElement('div');
   panel.style.cssText = [
-    'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)',
-    'border:2px solid #2a4a9a','border-radius:14px',
-    'box-shadow:0 0 30px rgba(20,60,180,0.6)',
+    'background:var(--felt)',
+    'border:2px solid #2D48A8','border-radius:14px',
+    'box-shadow:none',
     'padding:18px 22px','width:min(520px,94vw)',
     'max-height:92vh','overflow-y:auto',
     'display:flex','flex-direction:column','gap:14px','align-items:center',
   ].join(';');
 
   const title = document.createElement('div');
-  title.style.cssText = 'font-size:16px;font-weight:bold;color:#f0c040;letter-spacing:3px;text-transform:uppercase;';
+  title.style.cssText = 'font-size:16px;font-weight:bold;color:var(--brass);letter-spacing:3px;text-transform:uppercase;';
   title.textContent = 'Analyze a Hand';
 
   const hint = document.createElement('div');
-  hint.style.cssText = 'font-size:11px;color:#8899bb;text-align:center;';
-  hint.textContent = 'Tap a rank, then a suit — five times.';
+  hint.style.cssText = 'font-size:11px;color:var(--dim);text-align:center;';
+  hint.textContent = 'Tap a rank, then a suit — five times. Keys work too: 2–9, 0, J, Q, K, A then S H D C. Tap a card to take it back.';
 
   // ── Game rules selector (defaults to the current game) ──
   const gameRow = document.createElement('div');
   gameRow.style.cssText = 'display:flex;align-items:center;gap:8px;';
   const gameLbl = document.createElement('div');
-  gameLbl.style.cssText = 'font-size:12px;font-weight:bold;color:#c0c8d8;letter-spacing:1px;';
+  gameLbl.style.cssText = 'font-size:12px;font-weight:bold;color:var(--text);letter-spacing:1px;';
   gameLbl.textContent = 'Rules:';
+  // A native <select> paints its own gradient and bevel, which is the
+  // shading that made this look unlike anything else on the screen.
+  // appearance:none strips it; the caret is drawn by the wrapper.
+  const selWrap = document.createElement('span');
+  selWrap.style.cssText = 'position:relative;display:inline-flex;align-items:center;';
+  const caret = document.createElement('span');
+  caret.textContent = '\u25BE';
+  caret.style.cssText = 'position:absolute;right:9px;font-size:10px;color:var(--text);pointer-events:none;';
   const gameSel = document.createElement('select');
   gameSel.style.cssText = [
-    'font-family:Arial,Helvetica,sans-serif','font-size:14px','font-weight:bold',
-    'padding:7px 10px','background:#0a1a40','border:2px solid #3a5aaa',
-    'border-radius:6px','color:#f0c040','max-width:260px',
+    '-webkit-appearance:none','appearance:none','background-image:none',
+    'font-family:var(--font-ui)','font-size:11px','font-weight:bold','letter-spacing:1px',
+    'text-transform:uppercase','padding:5px 26px 5px 12px','border-radius:6px',
+    'border:2px solid #3554B8','background:var(--deep)','color:var(--text)',
+    'cursor:pointer','touch-action:manipulation','max-width:260px',
   ].join(';');
   GAME_KEYS.forEach(k => {
     const o = document.createElement('option');
@@ -4711,7 +4879,9 @@ function showHandPicker(initCards, initGame){
     refresh();
   });
   gameRow.appendChild(gameLbl);
-  gameRow.appendChild(gameSel);
+  selWrap.appendChild(gameSel);
+  selWrap.appendChild(caret);
+  gameRow.appendChild(selWrap);
 
   // ── Five card slots ─────────────────────────────────────
   const slotsRow = document.createElement('div');
@@ -4720,10 +4890,21 @@ function showHandPicker(initCards, initGame){
   for(let i=0;i<5;i++){
     const s = document.createElement('div');
     s.style.cssText = [
-      'width:58px','height:78px','border:2px dashed #3a5aaa','border-radius:8px',
-      'background:#0a1a40','display:flex','align-items:center','justify-content:center',
-      'font-size:20px','font-weight:bold','color:#c0c8d8',
+      'width:58px','height:78px','border:2px dashed #3554B8','border-radius:8px',
+      'background:var(--deep)','display:flex','align-items:center','justify-content:center',
+      'font-size:20px','font-weight:bold','color:var(--text)','touch-action:manipulation',
     ].join(';');
+    // Tap a card to take it back — quicker than pressing Back repeatedly
+    // when you return from an analysis to change one card.
+    s.addEventListener('click', () => {
+      if(i < cards.length){
+        cards.splice(i, 1);
+        pendingRank = null;
+        status.textContent = '';
+        sfx.button();
+        refresh();
+      }
+    });
     slots.push(s);
     slotsRow.appendChild(s);
   }
@@ -4732,17 +4913,25 @@ function showHandPicker(initCards, initGame){
   status.style.cssText = 'font-size:12px;color:#ff8080;min-height:15px;';
 
   // ── Rank buttons ────────────────────────────────────────
+  // Two rows on purpose rather than whatever the wrap happens to give:
+  // the nine spot cards, then the four faces (and the joker beside them).
+  const rankWrap = document.createElement('div');
+  rankWrap.style.cssText = 'display:flex;flex-direction:column;gap:5px;align-items:center;';
   const rankRow = document.createElement('div');
-  rankRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;justify-content:center;';
+  rankRow.style.cssText = 'display:flex;gap:5px;justify-content:center;';
+  const faceRow = document.createElement('div');
+  faceRow.style.cssText = 'display:flex;gap:5px;justify-content:center;';
+  rankWrap.appendChild(rankRow); rankWrap.appendChild(faceRow);
+  const FACES = ['J','Q','K','A'];
   const rankBtns = {};
   const mkBtn = (label, wide) => {
     const b = document.createElement('button');
     b.textContent = label;
     b.style.cssText = [
-      'font-family:Arial,Helvetica,sans-serif','font-size:15px','font-weight:bold',
+      'font-family:var(--font-ui)','font-size:15px','font-weight:bold',
       `min-width:${wide ? 64 : 40}px`,'padding:9px 4px',
-      'background:#1a2a60','border:2px solid #3a5aaa','border-radius:7px',
-      'color:#e0e8f8','cursor:pointer','touch-action:manipulation',
+      'background:var(--deep)','border:2px solid #3554B8','border-radius:7px',
+      'color:var(--chalk)','cursor:pointer','touch-action:manipulation',
     ].join(';');
     return b;
   };
@@ -4755,7 +4944,7 @@ function showHandPicker(initCards, initGame){
       refresh();
     });
     rankBtns[r] = b;
-    rankRow.appendChild(b);
+    (FACES.includes(r) ? faceRow : rankRow).appendChild(b);
   });
   {
     // JOKER key is always built; shown only when the selected rules use one
@@ -4771,7 +4960,7 @@ function showHandPicker(initCards, initGame){
       refresh();
     });
     rankBtns.JOKER = b;
-    rankRow.appendChild(b);
+    faceRow.appendChild(b);
   }
 
   // ── Suit buttons ────────────────────────────────────────
@@ -4781,7 +4970,7 @@ function showHandPicker(initCards, initGame){
   SUITS.forEach(s => {
     const b = mkBtn(s, true);
     b.style.fontSize = '26px';
-    b.style.color = SUIT_COLOR[s] === 'red' ? '#ff6060' : '#e0e8f8';
+    b.style.color = SUIT_COLOR[s] === 'red' ? '#ff6060' : 'var(--chalk)';
     b.addEventListener('click', () => {
       if(!pendingRank || cards.length >= 5) return;
       if(cards.some(c => c.rank === pendingRank && c.suit === s)){
@@ -4806,16 +4995,16 @@ function showHandPicker(initCards, initGame){
     const b = document.createElement('button');
     b.textContent = label;
     b.style.cssText = [
-      'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
+      'font-family:var(--font-ui)','font-size:13px','font-weight:bold',
       'letter-spacing:1px','text-transform:uppercase','padding:9px 20px',
       `background:${bg}`,`border:2px solid ${border}`,'border-radius:8px',
       `color:${color}`,'cursor:pointer','touch-action:manipulation',
     ].join(';');
     return b;
   };
-  const backBtn    = mkAct('Back','linear-gradient(180deg,#3a3a3a,#1a1a1a)','#666','#ccc');
-  const analyzeBtn = mkAct('Analyze','linear-gradient(180deg,#7a6a00,#4a4000)','#ccaa00','#ffee88');
-  const cancelBtn  = mkAct('Cancel','linear-gradient(180deg,#6a1a1a,#4a0a0a)','#cc4444','#ffaaaa');
+  const backBtn    = mkAct('Back','transparent','rgba(140,154,196,0.55)','#ccc');
+  const analyzeBtn = mkAct('Analyze','var(--deep)','var(--brass)','var(--brass)');
+  const cancelBtn  = mkAct('Cancel','transparent','rgba(140,154,196,0.55)','#ccc');
 
   const close = () => { if(overlay.parentNode) overlay.parentNode.removeChild(overlay); };
 
@@ -4850,20 +5039,23 @@ function showHandPicker(initCards, initGame){
         s.innerHTML = c.joker
           ? '<span style="font-size:30px">★</span>'
           : `<span style="color:${SUIT_COLOR[c.suit]==='red' ? '#ff6060' : '#fff'}">${c.rank}<br>${c.suit}</span>`;
-        s.style.border = '2px solid #f0c040';
+        s.style.border = '2px solid var(--brass)';
+        s.style.cursor = 'pointer';
       } else if(i === cards.length && pendingRank){
-        s.innerHTML = `<span style="color:#f0c040">${pendingRank}<br>?</span>`;
-        s.style.border = '2px dashed #f0c040';
+        s.style.cursor = 'default';
+        s.innerHTML = `<span style="color:var(--brass)">${pendingRank}<br>?</span>`;
+        s.style.border = '2px dashed var(--brass)';
       } else {
         s.innerHTML = '';
-        s.style.border = '2px dashed #3a5aaa';
+        s.style.border = '2px dashed #3554B8';
+        s.style.cursor = 'default';
       }
     });
     Object.entries(rankBtns).forEach(([r, b]) => {
       const active = r === pendingRank;
-      b.style.background  = active ? 'linear-gradient(180deg,#c89a20,#a07a10)' : '#1a2a60';
-      b.style.color       = active ? '#000' : (r === 'JOKER' ? '#ffd780' : '#e0e8f8');
-      b.style.borderColor = active ? '#f0c040' : '#3a5aaa';
+      b.style.background  = active ? 'transparent' : 'var(--deep)';
+      b.style.color       = active ? 'var(--brass)' : (r === 'JOKER' ? '#ffd780' : 'var(--chalk)');
+      b.style.borderColor = active ? 'var(--brass)' : '#3554B8';
       b.disabled = cards.length >= 5;
       b.style.opacity = cards.length >= 5 ? 0.4 : 1;
     });
@@ -4873,9 +5065,51 @@ function showHandPicker(initCards, initGame){
       b.style.opacity = usable ? 1 : 0.35;
     });
     analyzeBtn.disabled = cards.length !== 5;
-    analyzeBtn.style.opacity = cards.length === 5 ? 1 : 0.4;
+    analyzeBtn.style.opacity = cards.length === 5 ? 1 : 0.55;
   }
   refresh();
+
+  // Keyboard: a rank key then a suit key builds a card, the same order the
+  // buttons ask for. Backspace takes one back, Enter analyses a full hand.
+  const RANK_KEYS = { '0':'10', 'T':'10', 'J':'J', 'Q':'Q', 'K':'K', 'A':'A' };
+  for(let d = 2; d <= 9; d++) RANK_KEYS[String(d)] = String(d);
+  const SUIT_KEYS = { 'S':'\u2660', 'H':'\u2665', 'D':'\u2666', 'C':'\u2663' };
+  const onKey = e => {
+    if(e.metaKey || e.ctrlKey || e.altKey) return;
+    if(!document.body.contains(overlay)) { document.removeEventListener('keydown', onKey); return; }
+    // a dialog opened on top of this one owns the keyboard
+    const tops = [...document.body.children].filter(el =>
+      el.nodeType === 1 && getComputedStyle(el).position === 'fixed' && +getComputedStyle(el).zIndex >= 9000);
+    if(tops.length && tops[tops.length - 1] !== overlay) return;
+    if(e.target && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+
+    const k = e.key.length === 1 ? e.key.toUpperCase() : e.key;
+    if(k === 'Backspace'){
+      e.preventDefault();
+      if(pendingRank) pendingRank = null; else cards.pop();
+      status.textContent = ''; refresh(); return;
+    }
+    if(k === 'Enter'){
+      if(cards.length === 5){ e.preventDefault(); analyzeBtn.click(); }
+      return;
+    }
+    if(cards.length >= 5) return;
+    if(RANK_KEYS[k]){
+      e.preventDefault();
+      pendingRank = RANK_KEYS[k]; status.textContent = ''; sfx.hold(); refresh(); return;
+    }
+    if(SUIT_KEYS[k] && pendingRank){
+      e.preventDefault();
+      const suit = SUIT_KEYS[k];
+      if(cards.some(c => c.rank === pendingRank && c.suit === suit)){
+        status.textContent = pendingRank + suit + ' is already in the hand.';
+        sfx.thump(); return;
+      }
+      cards.push({ rank: pendingRank, suit });
+      pendingRank = null; status.textContent = ''; sfx.hold(); refresh();
+    }
+  };
+  document.addEventListener('keydown', onKey);
 
   actRow.appendChild(backBtn);
   actRow.appendChild(analyzeBtn);
@@ -4885,7 +5119,7 @@ function showHandPicker(initCards, initGame){
   panel.appendChild(gameRow);
   panel.appendChild(slotsRow);
   panel.appendChild(status);
-  panel.appendChild(rankRow);
+  panel.appendChild(rankWrap);
   panel.appendChild(suitRow);
   panel.appendChild(actRow);
   overlay.appendChild(panel);
@@ -4915,16 +5149,16 @@ function showCustomEditor(onSaved){
 
   const panel = document.createElement('div');
   panel.style.cssText = [
-    'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)',
-    'border:2px solid #2a4a9a','border-radius:14px',
-    'box-shadow:0 0 30px rgba(20,60,180,0.6)',
+    'background:var(--felt)',
+    'border:2px solid #2D48A8','border-radius:14px',
+    'box-shadow:none',
     'padding:18px 24px','width:min(420px,94vw)',
     'max-height:92vh','overflow-y:auto',
     'display:flex','flex-direction:column','gap:10px',
   ].join(';');
 
   const title = document.createElement('div');
-  title.style.cssText = 'text-align:center;font-size:15px;font-weight:bold;color:#f0c040;letter-spacing:2px;text-transform:uppercase;';
+  title.style.cssText = 'text-align:center;font-size:15px;font-weight:bold;color:var(--brass);letter-spacing:2px;text-transform:uppercase;';
   title.textContent = 'Custom Pay Table — ' + curGame().name;
   panel.appendChild(title);
 
@@ -4932,14 +5166,14 @@ function showCustomEditor(onSaved){
   const nameRow = document.createElement('div');
   nameRow.style.cssText = 'display:flex;align-items:center;gap:8px;';
   const nameLbl = document.createElement('div');
-  nameLbl.style.cssText = 'font-size:13px;font-weight:bold;color:#c0c8d8;';
+  nameLbl.style.cssText = 'font-size:13px;font-weight:bold;color:var(--text);';
   nameLbl.textContent = 'Name:';
   const nameInput = document.createElement('input');
   nameInput.type = 'text';
   nameInput.maxLength = 24;
   nameInput.style.cssText = [
     'flex:1','padding:7px 10px','font-size:14px','font-weight:bold',
-    'background:#0a1a40','border:2px solid #3a5aaa','border-radius:6px','color:#fff',
+    'background:#081540','border:2px solid #3554B8','border-radius:6px','color:#fff',
   ].join(';');
   nameInput.value = curTable.custom
     ? curTable.label.replace(/^★ /, '')
@@ -4955,7 +5189,7 @@ function showCustomEditor(onSaved){
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:8px;';
     const lbl = document.createElement('div');
-    lbl.style.cssText = 'flex:1;font-size:13px;color:#e0e8f8;';
+    lbl.style.cssText = 'flex:1;font-size:13px;color:var(--chalk);';
     const jkMult = r.pays[0] > 0 ? r.pays[4] / r.pays[0] : 5;
     lbl.textContent = r.name + (jkMult !== 5 ? '  (×' + jkMult + ' at 5 coins)' : '');
     // Read-only field: tapping opens the number pad instead of the iOS keyboard
@@ -4966,7 +5200,7 @@ function showCustomEditor(onSaved){
     inp.value = cur[i].pays[0];
     inp.style.cssText = [
       'width:84px','padding:6px 8px','font-size:14px','font-weight:bold','text-align:right',
-      'background:#0a1a40','border:2px solid #3a5aaa','border-radius:6px','color:#f0c040',
+      'background:#081540','border:2px solid #3554B8','border-radius:6px','color:var(--brass)',
       'cursor:pointer',
     ].join(';');
     inp.addEventListener('click', async () => {
@@ -4981,7 +5215,7 @@ function showCustomEditor(onSaved){
   });
 
   const note = document.createElement('div');
-  note.style.cssText = 'font-size:11px;color:#8899bb;text-align:center;';
+  note.style.cssText = 'font-size:11px;color:var(--dim);text-align:center;';
   note.textContent = 'Payouts are per coin. Up to 3 custom tables per game; saving with an existing name overwrites it.';
   panel.appendChild(note);
 
@@ -4992,16 +5226,16 @@ function showCustomEditor(onSaved){
     const b = document.createElement('button');
     b.textContent = label;
     b.style.cssText = [
-      'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
+      'font-family:var(--font-ui)','font-size:13px','font-weight:bold',
       'letter-spacing:1px','text-transform:uppercase','padding:8px 20px',
       `background:${bg}`,`border:2px solid ${border}`,'border-radius:8px',
       `color:${color}`,'cursor:pointer','touch-action:manipulation',
     ].join(';');
     return b;
   };
-  const saveBtn   = mkBtn('Save','linear-gradient(180deg,#2a8a4a,#1a6a34)','#4acc6a','#fff');
-  const delBtn    = mkBtn('Delete','linear-gradient(180deg,#8a2020,#601414)','#cc4444','#ffaaaa');
-  const cancelBtn = mkBtn('Cancel','linear-gradient(180deg,#3a3a3a,#1a1a1a)','#666','#ccc');
+  const saveBtn   = mkBtn('Save','var(--brass)', 'var(--brass)', 'var(--ink)');
+  const delBtn    = mkBtn('Delete','transparent','rgba(240,90,80,0.62)','#F09595');
+  const cancelBtn = mkBtn('Cancel','transparent','rgba(140,154,196,0.55)','var(--dim)');
 
   const close = () => { if(overlay.parentNode) overlay.parentNode.removeChild(overlay); };
   cancelBtn.addEventListener('click', close);
@@ -5066,6 +5300,121 @@ function showCustomEditor(onSaved){
 // ════════════════════════════════════════════════════════════
 //  SETTINGS MODAL
 // ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
+//  MAIN MENU
+// ════════════════════════════════════════════════════════════
+// Everything that used to be reached through the gear or the Game button. The
+// tools sit above the machine's own preferences, because that is the order
+// people want them: pick a game, study it, and only occasionally change how
+// the app behaves.
+function showMenu(){
+  sfx.button();
+  const overlay = document.createElement('div');
+  overlay.style.cssText = [
+    'position:fixed','inset:0','z-index:9999','background:rgba(0,5,25,0.92)',
+    'display:flex','align-items:center','justify-content:center','font-family:Arial,Helvetica,sans-serif',
+  ].join(';');
+  const panel = document.createElement('div');
+  panel.style.cssText = [
+    'background:var(--felt)','border:2px solid #2D48A8',
+    'border-radius:14px','box-shadow:none','padding:14px 16px',
+    'width:min(430px,94vw)','max-height:92vh','display:flex','flex-direction:column','gap:9px',
+    'overflow-y:auto','-webkit-overflow-scrolling:touch',
+  ].join(';');
+  const close = () => { if(overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+
+  const title = document.createElement('div');
+  title.style.cssText = 'text-align:center;font-size:15px;font-weight:bold;color:var(--brass);' +
+                        'letter-spacing:2px;text-transform:uppercase;flex-shrink:0;';
+  title.textContent = 'Menu';
+  panel.appendChild(title);
+
+  // Same three tiers as the machine: outlined for the tools, muted for
+  // Settings, one solid button for the way out.
+  const TIER = {
+    tool:  ['background:transparent','border:2px solid rgba(255,214,64,0.62)','color:var(--brass)'],
+    quiet: ['background:transparent','border:2px solid rgba(140,154,196,0.55)','color:var(--dim)'],
+    solid: ['background:var(--brass)','border:2px solid var(--brass)','color:var(--ink)',
+            'box-shadow:0 2px 0 #C79E17'],
+  };
+  const item = (text, fn, tier = 'tool') => {
+    const b = document.createElement('button');
+    b.style.cssText = [
+      'font-family:var(--font-ui)','font-size:13px','font-weight:bold',
+      'letter-spacing:1px','text-transform:uppercase','padding:10px 12px',
+      'border-radius:12px','cursor:pointer','touch-action:manipulation','flex-shrink:0',
+      ...TIER[tier],
+    ].join(';');
+    b.textContent = text;
+    b.addEventListener('click', () => { sfx.button(); fn(); });
+    panel.appendChild(b);
+    return b;
+  };
+
+  // Layered, not swapped: the picker closes itself and leaves the menu behind,
+  // so choosing a game does not throw you back to the machine.
+  item('Game Variants', () => showGameSelect());
+  item('Analyze a Hand', () => showHandPicker());
+  item('Strategy Guide', () => showStrategy());
+  item('Strategy Simulator', () => showSimulator());
+
+  // The one row that is not a button, and deliberately not green — its gold
+  // highlight is what shows which level is selected.
+  const lvlWrap = document.createElement('div');
+  lvlWrap.style.cssText = 'flex-shrink:0;padding:2px 0 4px;';
+  const lvlLbl = document.createElement('div');
+  lvlLbl.style.cssText = 'font-size:11px;font-weight:bold;color:var(--text);letter-spacing:1px;margin-bottom:5px;';
+  lvlLbl.textContent = 'Strategy Card Complexity';
+  lvlWrap.appendChild(lvlLbl);
+  // Five across one row: they share the width equally and drop the uppercase
+  // transform, because "INTERMEDIATE" set in caps needs about 126px on its own
+  // and five of those cannot fit the panel at any readable size.
+  const lvlRow = document.createElement('div');
+  lvlRow.style.cssText = 'display:flex;gap:5px;flex-wrap:nowrap;';
+  function paintLevels(){
+    lvlRow.innerHTML = '';
+    STRAT_LEVELS.forEach(([value, label]) => {
+      const b = document.createElement('button');
+      b.textContent = label;
+      const on = stratLevel === value;
+      b.style.cssText = [
+        'font-family:Arial,Helvetica,sans-serif','font-weight:bold',
+        'letter-spacing:0','padding:6px 4px','border-radius:6px','white-space:nowrap','text-align:center',
+        // sized to content, not equal shares: equal shares starve
+        // "Intermediate" while "Full" sits in twice the room it needs. They
+        // still grow to fill the row, and the font eases down on a narrow
+        // phone so the longest label never has to be clipped.
+        'flex:1 1 auto','font-size:clamp(9px, 2.5vw, 11px)',
+        'cursor:pointer','touch-action:manipulation',
+        on ? 'background:transparent;border:2px solid var(--brass);color:var(--brass)'
+           : 'background:var(--deep);border:2px solid #3554B8;color:var(--text)',
+      ].join(';');
+      b.addEventListener('click', () => {
+        if(stratLevel === value) return;
+        sfx.button(); stratLevel = value; saveState(); paintLevels();
+      });
+      lvlRow.appendChild(b);
+    });
+  }
+  paintLevels();
+  lvlWrap.appendChild(lvlRow);
+  panel.appendChild(lvlWrap);
+
+  item('Training Mode', () => showTraining());
+  item('Payout Comparison', () => window.open('video-poker-payouts.html', '_blank'));
+
+  const spacer = document.createElement('div');
+  spacer.style.cssText = 'height:2px;border-top:1px solid #2D48A8;margin:4px 0;flex-shrink:0;';
+  panel.appendChild(spacer);
+
+  item('Settings', () => showSettings(), 'quiet');
+  item('Done', close, 'solid');
+
+  overlay.addEventListener('click', e => { if(e.target === overlay) close(); });
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+}
+
 function showSettings() {
   // Slider range mapping helpers
   // Card Flip Speed: 0–100 maps to 0–800 ms  (at 70% → 560 ms default)
@@ -5087,9 +5436,9 @@ function showSettings() {
   // ── Panel ────────────────────────────────────────────────
   const panel = document.createElement('div');
   panel.style.cssText = [
-    'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)',
-    'border:2px solid #2a4a9a','border-radius:14px',
-    'box-shadow:0 0 30px rgba(20,60,180,0.6)',
+    'background:var(--felt)',
+    'border:2px solid #2D48A8','border-radius:14px',
+    'box-shadow:none',
     'padding:20px 28px','width:min(480px,92vw)',
     'max-height:92vh','overflow-y:auto',   // scrolls on short screens (phone landscape)
     'display:flex','flex-direction:column','gap:22px',
@@ -5099,8 +5448,8 @@ function showSettings() {
   const title = document.createElement('div');
   title.style.cssText = [
     'text-align:center','font-size:18px','font-weight:bold',
-    'color:#f0c040','letter-spacing:4px','text-transform:uppercase',
-    'text-shadow:0 0 8px rgba(240,192,64,0.5)',
+    'color:var(--brass)','letter-spacing:4px','text-transform:uppercase',
+    'text-shadow:none',
   ].join(';');
   title.textContent = '⚙  Settings';
 
@@ -5114,11 +5463,11 @@ function showSettings() {
     topRow.style.cssText = 'display:flex;justify-content:space-between;align-items:baseline;';
 
     const lbl = document.createElement('div');
-    lbl.style.cssText = 'font-size:15px;font-weight:bold;color:#c0c8d8;letter-spacing:1px;';
+    lbl.style.cssText = 'font-size:15px;font-weight:bold;color:var(--text);letter-spacing:1px;';
     lbl.textContent = labelText;
 
     const valDisplay = document.createElement('div');
-    valDisplay.style.cssText = 'font-size:13px;color:#f0c040;font-weight:bold;min-width:60px;text-align:right;';
+    valDisplay.style.cssText = 'font-size:13px;color:var(--brass);font-weight:bold;min-width:60px;text-align:right;';
     valDisplay.textContent = currentVal === 0 ? 'Instant' : currentVal + ' ms';
 
     topRow.appendChild(lbl);
@@ -5131,7 +5480,7 @@ function showSettings() {
     slider.max   = '100';
     slider.value = String(toSlider(currentVal, max));
     slider.style.cssText = [
-      'width:100%','accent-color:#f0c040','height:6px',
+      'width:100%','accent-color:var(--brass)','height:6px',
       'cursor:pointer','touch-action:manipulation',
     ].join(';');
 
@@ -5146,7 +5495,7 @@ function showSettings() {
     endRow.style.cssText = 'display:flex;justify-content:space-between;';
     const mkEnd = t => {
       const s = document.createElement('span');
-      s.style.cssText = 'font-size:11px;color:#6a7a9a;';
+      s.style.cssText = 'font-size:11px;color:#94A2C6;';
       s.textContent = t;
       return s;
     };
@@ -5165,7 +5514,7 @@ function showSettings() {
     wrap.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;';
 
     const lbl = document.createElement('div');
-    lbl.style.cssText = 'font-size:15px;font-weight:bold;color:#c0c8d8;letter-spacing:1px;';
+    lbl.style.cssText = 'font-size:15px;font-weight:bold;color:var(--text);letter-spacing:1px;';
     lbl.textContent = labelText;
 
     const btns = document.createElement('div');
@@ -5174,17 +5523,17 @@ function showSettings() {
     const els = [];
     const refresh = () => els.forEach(({b, value}) => {
       const on = getVal() === value;
-      b.style.background  = on ? 'linear-gradient(180deg,#c89a20,#a07a10)' : '#1a2a60';
-      b.style.color       = on ? '#000' : '#c0c8d8';
-      b.style.borderColor = on ? '#f0c040' : '#3a5aaa';
+      b.style.background  = on ? 'transparent' : 'var(--deep)';
+      b.style.color       = on ? 'var(--brass)' : 'var(--text)';
+      b.style.borderColor = on ? 'var(--brass)' : '#3554B8';
     });
     options.forEach(o => {
       const b = document.createElement('button');
       b.textContent = o.label;
       b.style.cssText = [
-        'font-family:Arial,Helvetica,sans-serif','font-size:12px','font-weight:bold',
-        'padding:6px 12px','border:2px solid #3a5aaa','border-radius:6px',
-        'background:#1a2a60','color:#c0c8d8','cursor:pointer','touch-action:manipulation',
+        'font-family:var(--font-ui)','font-size:12px','font-weight:bold',
+        'padding:6px 12px','border:2px solid #3554B8','border-radius:6px',
+        'background:var(--deep)','color:var(--text)','cursor:pointer','touch-action:manipulation',
       ].join(';');
       b.addEventListener('click', () => { setVal(o.value); refresh(); });
       els.push({ b, value: o.value });
@@ -5201,7 +5550,7 @@ function showSettings() {
   histSection.style.cssText = 'display:flex;flex-direction:column;gap:10px;';
 
   const histLabel = document.createElement('div');
-  histLabel.style.cssText = 'font-size:15px;font-weight:bold;color:#c0c8d8;letter-spacing:1px;';
+  histLabel.style.cssText = 'font-size:15px;font-weight:bold;color:var(--text);letter-spacing:1px;';
   histLabel.textContent = 'History';
   histSection.appendChild(histLabel);
 
@@ -5212,10 +5561,10 @@ function showSettings() {
   const dlBtn = document.createElement('button');
   dlBtn.textContent = 'Download History';
   dlBtn.style.cssText = [
-    'flex:1','font-family:Arial,Helvetica,sans-serif','font-size:13px',
+    'flex:1','font-family:var(--font-ui)','font-size:13px',
     'font-weight:bold','letter-spacing:1px','text-transform:uppercase',
     'padding:8px 12px',
-    'background:linear-gradient(180deg,#1a6a2a,#0e4018)',
+    'background:var(--brass)',
     'border:2px solid #3acc5a','border-radius:8px',
     'color:#aaffbb','cursor:pointer','touch-action:manipulation',
   ].join(';');
@@ -5243,10 +5592,10 @@ function showSettings() {
   const ulBtn = document.createElement('button');
   ulBtn.textContent = 'Upload History';
   ulBtn.style.cssText = [
-    'flex:1','font-family:Arial,Helvetica,sans-serif','font-size:13px',
+    'flex:1','font-family:var(--font-ui)','font-size:13px',
     'font-weight:bold','letter-spacing:1px','text-transform:uppercase',
     'padding:8px 12px',
-    'background:linear-gradient(180deg,#5a4a1a,#3a2e0a)',
+    'background:transparent',
     'border:2px solid #ccaa3a','border-radius:8px',
     'color:#ffe880','cursor:pointer','touch-action:manipulation',
   ].join(';');
@@ -5310,12 +5659,12 @@ function showSettings() {
   doneBtn.textContent = 'Done';
   doneBtn.style.cssText = [
     'align-self:center',
-    'font-family:Arial,Helvetica,sans-serif','font-size:14px',
+    'font-family:var(--font-ui)','font-size:14px',
     'font-weight:bold','letter-spacing:2px','text-transform:uppercase',
     'padding:9px 32px',
-    'background:linear-gradient(180deg,#2a4aaa,#1a2a7a)',
-    'border:2px solid #5a7acc','border-radius:8px',
-    'color:#fff','cursor:pointer','touch-action:manipulation',
+    'background:transparent',
+    'border:2px solid rgba(255,214,64,0.62)','border-radius:8px',
+    'color:var(--brass)','cursor:pointer','touch-action:manipulation',
   ].join(';');
 
   const close = () => {
@@ -5395,13 +5744,6 @@ function showSettings() {
     () => holdJudge,
     v => { holdJudge = v; saveState(); if(v === 'strategy') loadStrategy(stratKeyFor()); }
   ));
-  panel.appendChild(makeToggleRow(
-    'Strategy Level',
-    STRAT_LEVELS.map(([value, label]) => ({ label, value })),
-    () => stratLevel,
-    v => { stratLevel = v; saveState(); }
-  ));
-
   // Graph: show all added cash as if it were added at the start of the
   // visible range (display only — history data is never modified)
   panel.appendChild(makeToggleRow(
@@ -5411,81 +5753,6 @@ function showSettings() {
     v => { graphCombineAdds = v; saveState(); }
   ));
 
-  // ── Analyze a Hand: pick any five cards, see the full EV table ──
-  const pickBtn = document.createElement('button');
-  pickBtn.textContent = 'Analyze a Hand';
-  pickBtn.style.cssText = [
-    'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
-    'letter-spacing:1px','text-transform:uppercase','padding:9px 12px',
-    'background:linear-gradient(180deg,#7a6a00,#4a4000)',
-    'border:2px solid #ccaa00','border-radius:8px',
-    'color:#ffee88','cursor:pointer','touch-action:manipulation',
-  ].join(';');
-  // wrapped: the raw click event must not reach showHandPicker's initCards param
-  pickBtn.addEventListener('click', () => showHandPicker());
-
-  // ── Strategy Guide: the full ordered hold list for this pay table ──
-  const stratBtn = document.createElement('button');
-  stratBtn.textContent = 'Strategy Guide';
-  stratBtn.style.cssText = [
-    'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
-    'letter-spacing:1px','text-transform:uppercase','padding:9px 12px',
-    'background:linear-gradient(180deg,#1a6a6a,#0e4444)',
-    'border:2px solid #3acccc','border-radius:8px',
-    'color:#aaffff','cursor:pointer','touch-action:manipulation',
-  ].join(';');
-  stratBtn.addEventListener('click', () => showStrategy());
-
-  const toolRow = document.createElement('div');
-  toolRow.style.cssText = 'display:flex;gap:8px;';
-  pickBtn.style.flex = '1';
-  stratBtn.style.flex = '1';
-  toolRow.appendChild(pickBtn);
-  toolRow.appendChild(stratBtn);
-  panel.appendChild(toolRow);
-
-  // ── Simulator: play a strategy at full speed, or check it against the analyzer ──
-  const simBtn = document.createElement('button');
-  simBtn.textContent = 'Strategy Simulator';
-  simBtn.style.cssText = [
-    'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
-    'letter-spacing:1px','text-transform:uppercase','padding:9px 12px',
-    'background:linear-gradient(180deg,#5a2a8a,#3a1a5a)',
-    'border:2px solid #b070ff','border-radius:8px',
-    'color:#e0c8ff','cursor:pointer','touch-action:manipulation',
-  ].join(';');
-  simBtn.addEventListener('click', () => showSimulator());
-  panel.appendChild(simBtn);
-
-  // ── Training: drill the strategy card itself, no credits and no bet ──
-  const trainBtn = document.createElement('button');
-  trainBtn.textContent = 'Training Mode';
-  trainBtn.style.cssText = [
-    'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
-    'letter-spacing:1px','text-transform:uppercase','padding:9px 12px',
-    'background:linear-gradient(180deg,#1a6a5a,#0d4438)',
-    'border:2px solid #4accb0','border-radius:8px',
-    'color:#c8fff0','cursor:pointer','touch-action:manipulation',
-  ].join(';');
-  trainBtn.addEventListener('click', () => showTraining());
-  panel.appendChild(trainBtn);
-
-  // ── Payout Comparison: the generated side-by-side sheet of every pay table ──
-  // Opens in a new tab (a separate static page, not part of the game shell)
-  const cmpBtn = document.createElement('button');
-  cmpBtn.textContent = 'Payout Comparison';
-  cmpBtn.style.cssText = [
-    'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold',
-    'letter-spacing:1px','text-transform:uppercase','padding:9px 12px',
-    'background:linear-gradient(180deg,#1a5a7a,#0e3a50)',
-    'border:2px solid #4ab0d0','border-radius:8px',
-    'color:#bfefff','cursor:pointer','touch-action:manipulation',
-  ].join(';');
-  cmpBtn.addEventListener('click', () => {
-    sfx.button();
-    window.open('video-poker-payouts.html', '_blank');
-  });
-  panel.appendChild(cmpBtn);
 
   panel.appendChild(histSection);
   panel.appendChild(doneBtn);
@@ -5493,12 +5760,17 @@ function showSettings() {
   // Same Analyze yellow as the main screen. Only the action buttons: the
   // segmented option pickers above keep their own gold, which is how you can
   // see which option is currently chosen.
-  [pickBtn, stratBtn, simBtn, trainBtn, cmpBtn, dlBtn, ulBtn, doneBtn].forEach(b => {
+  [dlBtn, ulBtn].forEach(b => {
     if(!b) return;
-    b.style.background = 'linear-gradient(180deg,#7a6a00,#4a4000)';
-    b.style.borderColor = '#ccaa00';
-    b.style.color = '#ffee88';
+    b.style.background  = 'transparent';
+    b.style.borderColor = 'rgba(255,214,64,0.62)';
+    b.style.color       = 'var(--brass)';
   });
+  if(doneBtn){
+    doneBtn.style.background  = 'var(--brass)';
+    doneBtn.style.borderColor = 'var(--brass)';
+    doneBtn.style.color       = 'var(--ink)';
+  }
 
   overlay.appendChild(panel);
   document.body.appendChild(overlay);
@@ -5532,8 +5804,15 @@ function showTraining(){
   // a slider that silently jumped back to the middle each time would quietly
   // undo the setting the player had chosen.
   let mix = trainMixLoad();
+  // correct plays in a row before a replayed hand is considered learned
+  const REPLAY_STREAK = 3;
   let rec = { per: {}, misses: [] };
   let reviewing = false, reviewQueue = [];
+  // hands left before the current pass through the queue is done
+  let passLeft = 0;
+  // the stored card list a replayed hand came from, before its suits were
+  // relabelled — what "forget" and the queue match on
+  let qOrigin = null;
   let qHand = null, qDeck = null, held = 0, answered = false, lastWrong = false;
   let evBusy = 0;                 // pricings still running
 
@@ -5552,26 +5831,26 @@ function showTraining(){
   ].join(';');
   const panel = document.createElement('div');
   panel.style.cssText = [
-    'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)','border:2px solid #2a4a9a',
-    'border-radius:14px','box-shadow:0 0 30px rgba(20,60,180,0.6)','padding:14px 16px',
+    'background:var(--felt)','border:2px solid #2D48A8',
+    'border-radius:14px','box-shadow:none','padding:14px 16px',
     'width:min(620px,96vw)','max-height:92vh','display:flex','flex-direction:column','gap:8px',
     'overflow-y:auto','-webkit-overflow-scrolling:touch',
   ].join(';');
   const mkDiv = css => { const d = document.createElement('div'); d.style.cssText = css; return d; };
-  const title   = mkDiv('text-align:center;font-size:15px;font-weight:bold;color:#f0c040;letter-spacing:2px;text-transform:uppercase;flex-shrink:0;');
-  const sub     = mkDiv('text-align:center;font-size:11px;color:#8899bb;flex-shrink:0;');
-  const score   = mkDiv('text-align:center;font-size:12px;color:#c0c8d8;flex-shrink:0;');
+  const title   = mkDiv('text-align:center;font-size:15px;font-weight:bold;color:var(--brass);letter-spacing:2px;text-transform:uppercase;flex-shrink:0;');
+  const sub     = mkDiv('text-align:center;font-size:11px;color:var(--dim);flex-shrink:0;');
+  const score   = mkDiv('text-align:center;font-size:12px;color:var(--text);flex-shrink:0;');
   const cardRow = mkDiv('display:flex;justify-content:center;gap:8px;flex-wrap:wrap;flex-shrink:0;margin:6px 0;');
   // min-heights here and on the verdict and tally keep the panel a fixed size:
   // answering a question must not move the buttons out from under the cursor
-  const hint    = mkDiv('text-align:center;font-size:11px;color:#8899bb;flex-shrink:0;min-height:15px;');
+  const hint    = mkDiv('text-align:center;font-size:11px;color:var(--dim);flex-shrink:0;min-height:15px;');
   // Reserved height: the box appears the moment you answer, and a panel that
   // grows under the cursor makes the Next button jump out from under it.
   const verdict = mkDiv('flex-shrink:0;min-height:96px;');
   const btnRow  = mkDiv('display:flex;justify-content:center;gap:10px;flex-wrap:wrap;flex-shrink:0;margin-top:4px;');
   const gameRow = mkDiv('display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex-shrink:0;');
   const optRow  = mkDiv('display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex-shrink:0;');
-  const mixRow  = mkDiv('display:flex;align-items:center;gap:8px;flex-shrink:0;font-size:11px;color:#8899bb;');
+  const mixRow  = mkDiv('display:flex;align-items:center;gap:8px;flex-shrink:0;font-size:11px;color:var(--dim);');
   const tally   = mkDiv('flex-shrink:0;min-height:104px;');
   const toolRow = mkDiv('display:flex;justify-content:center;gap:10px;flex-wrap:wrap;flex-shrink:0;');
 
@@ -5579,21 +5858,23 @@ function showTraining(){
     const b = document.createElement('button');
     b.textContent = text;
     b.style.cssText = [
-      'font-family:Arial,Helvetica,sans-serif','font-size:12px','font-weight:bold','letter-spacing:1px',
+      'font-family:var(--font-ui)','font-size:12px','font-weight:bold','letter-spacing:1px',
       'text-transform:uppercase','padding:7px 18px','background:' + bg,'border:2px solid ' + border,
       'border-radius:8px','color:' + color,'cursor:pointer','touch-action:manipulation',
     ].join(';');
     return b;
   };
-  const mainBtn  = mkBtn('Check', 'linear-gradient(180deg,#2a8a4a,#1a6a34)', '#4acc6a', '#fff');
-  const skipBtn  = mkBtn('Skip', '#1a2a60', '#3a5aaa', '#c0c8d8');
-  const fullBtn  = mkBtn('Full analysis', '#1a2a60', '#3a5aaa', '#c0c8d8');
-  const closeBtn = mkBtn('Close', 'linear-gradient(180deg,#2a4aaa,#1a2a7a)', '#5a7acc', '#fff');
-  const forgetBtn = mkBtn('Forget this one', '#3a1520', '#a03a4a', '#f09595');
+  const mainBtn  = mkBtn('Check', 'var(--brass)', 'var(--brass)', 'var(--ink)');
+  const skipBtn  = mkBtn('Skip', 'var(--deep)', '#3554B8', 'var(--text)');
+  const fullBtn  = mkBtn('Full analysis', 'var(--deep)', '#3554B8', 'var(--text)');
+  const closeBtn = mkBtn('Close', 'transparent', 'rgba(140,154,196,0.55)', 'var(--dim)');
+  // Blue fill with a red border and red label — same shape as the other
+  // filled buttons, but red because it discards a recorded miss.
+  const forgetBtn = mkBtn('Forget this one', 'var(--deep)', '#FF6A5A', '#FF6A5A');
   forgetBtn.style.fontSize = '11px';
   forgetBtn.style.padding = '5px 12px';
-  const reviewBtn = mkBtn('Replay misses', '#1a2a60', '#3a5aaa', '#c0c8d8');
-  const resetBtn  = mkBtn('Reset', '#1a2a60', '#3a5aaa', '#c0c8d8');
+  const reviewBtn = mkBtn('Replay misses', 'var(--deep)', '#3554B8', 'var(--text)');
+  const resetBtn  = mkBtn('Reset', 'var(--deep)', '#3554B8', 'var(--text)');
   btnRow.appendChild(mainBtn); btnRow.appendChild(skipBtn);
   btnRow.appendChild(fullBtn); btnRow.appendChild(forgetBtn); btnRow.appendChild(closeBtn);
   toolRow.appendChild(reviewBtn); toolRow.appendChild(resetBtn);
@@ -5601,10 +5882,10 @@ function showTraining(){
   const mixSlider = document.createElement('input');
   mixSlider.type = 'range'; mixSlider.min = '0'; mixSlider.max = '100'; mixSlider.step = '1';
   mixSlider.value = String(Math.round(mix * 100));
-  mixSlider.style.cssText = 'flex:1;min-width:110px;accent-color:#f0c040;';
+  mixSlider.style.cssText = 'flex:1;min-width:110px;accent-color:var(--brass);';
   mixSlider.addEventListener('input', () => { mix = +mixSlider.value / 100; trainMixSave(mix); });
   const mixLab = document.createElement('span');
-  mixLab.style.cssText = 'font-size:11px;font-weight:bold;color:#c0c8d8;letter-spacing:1px;width:46px;';
+  mixLab.style.cssText = 'font-size:11px;font-weight:bold;color:var(--text);letter-spacing:1px;width:46px;';
   mixLab.textContent = 'Mix';
   const loLab = document.createElement('span'); loLab.textContent = 'realistic';
   const hiLab = document.createElement('span'); hiLab.textContent = 'rare';
@@ -5656,15 +5937,15 @@ function showTraining(){
   function paintGameRow(){
     gameRow.innerHTML = '';
     const lab = document.createElement('span');
-    lab.style.cssText = 'font-size:11px;font-weight:bold;color:#c0c8d8;letter-spacing:1px;width:46px;';
+    lab.style.cssText = 'font-size:11px;font-weight:bold;color:var(--text);letter-spacing:1px;width:46px;';
     lab.textContent = 'Game';
     gameRow.appendChild(lab);
     const b = document.createElement('button');
     b.textContent = GAMES[gKey].name + ' — ' + GAMES[gKey].payTables[ptIdx].label;
     b.style.cssText = [
-      'font-family:Arial,Helvetica,sans-serif','font-size:11px','font-weight:bold','letter-spacing:1px',
-      'text-transform:uppercase','padding:5px 12px','border-radius:6px','border:2px solid #3a5aaa',
-      'background:#1a2a60','color:#c0c8d8','cursor:pointer','touch-action:manipulation',
+      'font-family:var(--font-ui)','font-size:11px','font-weight:bold','letter-spacing:1px',
+      'text-transform:uppercase','padding:5px 12px','border-radius:6px','border:2px solid #3554B8',
+      'background:var(--deep)','color:var(--text)','cursor:pointer','touch-action:manipulation',
     ].join(';');
     b.addEventListener('click', () => { sfx.button(); pickTrainGame(); });
     gameRow.appendChild(b);
@@ -5676,23 +5957,23 @@ function showTraining(){
     ov.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,5,25,0.9);display:flex;' +
                        'align-items:center;justify-content:center;font-family:Arial,Helvetica,sans-serif;';
     const pn = document.createElement('div');
-    pn.style.cssText = 'background:linear-gradient(180deg,#0d2255,#091840);border:2px solid #2a4a9a;' +
+    pn.style.cssText = 'background:var(--felt);border:2px solid #2D48A8;' +
                        'border-radius:14px;padding:14px 16px;width:min(440px,94vw);max-height:88vh;' +
                        'overflow-y:auto;display:flex;flex-direction:column;gap:6px;';
     const shut = () => ov.remove();
     const head = t => {
       const h = document.createElement('div');
-      h.style.cssText = 'text-align:center;font-size:14px;font-weight:bold;color:#f0c040;letter-spacing:2px;text-transform:uppercase;';
+      h.style.cssText = 'text-align:center;font-size:14px;font-weight:bold;color:var(--brass);letter-spacing:2px;text-transform:uppercase;';
       h.textContent = t; return h;
     };
     const opt = (txt, on, fn) => {
       const b = document.createElement('button');
       b.textContent = txt;
       b.style.cssText = [
-        'font-family:Arial,Helvetica,sans-serif','font-size:12px','font-weight:bold','text-align:left',
+        'font-family:var(--font-ui)','font-size:12px','font-weight:bold','text-align:left',
         'padding:8px 12px','border-radius:8px','cursor:pointer','touch-action:manipulation',
-        on ? 'background:linear-gradient(180deg,#c89a20,#a07a10);border:2px solid #f0c040;color:#000'
-           : 'background:#1a2a60;border:2px solid #3a5aaa;color:#e0e8f8',
+        on ? 'background:transparent;border:2px solid var(--brass);color:var(--brass)'
+           : 'background:var(--deep);border:2px solid #3554B8;color:var(--chalk)',
       ].join(';');
       b.addEventListener('click', () => { sfx.button(); fn(); });
       return b;
@@ -5731,7 +6012,7 @@ function showTraining(){
   function paintLevels(){
     optRow.innerHTML = '';
     const lab = document.createElement('span');
-    lab.style.cssText = 'font-size:11px;font-weight:bold;color:#c0c8d8;letter-spacing:1px;width:46px;';
+    lab.style.cssText = 'font-size:11px;font-weight:bold;color:var(--text);letter-spacing:1px;width:46px;';
     lab.textContent = 'Level';
     optRow.appendChild(lab);
     STRAT_LEVELS.filter(([v]) => v === 'full' || (strat && strat.simplified[v])).forEach(([v, label]) => {
@@ -5739,10 +6020,10 @@ function showTraining(){
       b.textContent = label;
       const on = v === level;
       b.style.cssText = [
-        'font-family:Arial,Helvetica,sans-serif','font-size:11px','font-weight:bold','letter-spacing:1px',
+        'font-family:var(--font-ui)','font-size:11px','font-weight:bold','letter-spacing:1px',
         'text-transform:uppercase','padding:5px 10px','border-radius:6px','cursor:pointer','touch-action:manipulation',
-        on ? 'background:linear-gradient(180deg,#c89a20,#a07a10);border:2px solid #f0c040;color:#000'
-           : 'background:#1a2a60;border:2px solid #3a5aaa;color:#c0c8d8',
+        on ? 'background:transparent;border:2px solid var(--brass);color:var(--brass)'
+           : 'background:var(--deep);border:2px solid #3554B8;color:var(--text)',
       ].join(';');
       b.addEventListener('click', () => {
         if(v === level) return;
@@ -5805,6 +6086,28 @@ function showTraining(){
     b.sort((x, y) => x.g - y.g);
     return b[Math.floor(Math.pow(Math.random(), 2) * b.length)];
   }
+  // Suits are interchangeable in video poker: relabelling all four across a
+  // whole hand leaves every ranking, every draw and the book play identical.
+  // Replayed hands get a fresh labelling so you re-solve them rather than
+  // recognise them. The joker (index 52) has no suit and is left alone.
+  function reSuit(cards){
+    const apply = perm => cards.map(i => i === 52 ? 52 : perm[Math.floor(i / 13)] * 13 + (i % 13));
+    const before = cards.join(',');
+    // Keep drawing until the labelling actually changes what is on screen —
+    // one permutation in twenty-four is the identity, and some others leave a
+    // particular hand's suits where they were.
+    for(let attempt = 0; attempt < 12; attempt++){
+      const perm = [0, 1, 2, 3];
+      for(let i = 3; i > 0; i--){
+        const j = Math.floor(Math.random() * (i + 1));
+        const t = perm[i]; perm[i] = perm[j]; perm[j] = t;
+      }
+      const out = apply(perm);
+      if(out.join(',') !== before) return out;
+    }
+    return cards.slice();
+  }
+
   function setHandFrom(cards){
     qHand = cards.map(cardOf);
     const ND = GAMES[gKey].joker ? 53 : 52;
@@ -5818,8 +6121,21 @@ function showTraining(){
   function nextQuestion(){
     answered = false; held = 0; lastWrong = false; verdict.innerHTML = '';
     if(reviewing && reviewQueue.length){
-      setHandFrom(reviewQueue[0].c); paintAll(); return;
+      // A completed pass is reshuffled so the second time through is not the
+      // same running order.
+      if(passLeft <= 0){
+        for(let i = reviewQueue.length - 1; i > 0; i--){
+          const j = Math.floor(Math.random() * (i + 1));
+          const t = reviewQueue[i]; reviewQueue[i] = reviewQueue[j]; reviewQueue[j] = t;
+        }
+        passLeft = reviewQueue.length;
+      }
+      passLeft--;
+      qOrigin = reviewQueue[0].c;          // identity for saving/forgetting
+      setHandFrom(reSuit(reviewQueue[0].c));
+      paintAll(); return;
     }
+    qOrigin = null;
     reviewing = reviewing && reviewQueue.length > 0;
     const L = pickLine();
     if(L < 0){ paintAll(); return; }
@@ -5835,16 +6151,16 @@ function showTraining(){
       const b = document.createElement('button');
       const red = c.suit === '♥' || c.suit === '♦';
       const dim = answered && !on;
-      const ink = dim ? '#8899bb' : red ? '#c0392b' : '#1a1a1a';
+      const ink = dim ? 'var(--dim)' : red ? '#c0392b' : '#1a1a1a';
       // Fixed box, bigger type inside it: the card stays the same size on the
       // row while the rank and suit are readable at a glance.
       b.style.cssText = [
-        'font-family:Arial,Helvetica,sans-serif','font-size:25px','font-weight:bold',
+        'font-family:var(--font-ui)','font-size:25px','font-weight:bold',
         'width:58px','height:52px','padding:0','border-radius:6px','cursor:pointer',
         'touch-action:manipulation','position:relative','line-height:1',
         'display:flex','align-items:center','justify-content:center',
         'background:' + (dim ? '#33405e' : '#fff'),'color:' + ink,
-        on ? 'border:2px solid #f0c040;outline:2px solid #f0c040' : 'border:2px solid #33405e',
+        on ? 'border:2px solid var(--brass);outline:2px solid var(--brass)' : 'border:2px solid #33405e',
       ].join(';');
       // "JOKER★" cannot fit at this size; the star alone is unmistakable, and
       // the WILD label below already says what it does.
@@ -5872,11 +6188,11 @@ function showTraining(){
     for(const k in rec.per){ n += rec.per[k].n; ok += rec.per[k].ok; }
     score.innerHTML = '<span style="color:#7ee08a">' + ok + ' correct</span>&nbsp;&nbsp; ' +
       '<span style="color:#f09595">' + (n - ok) + ' missed</span>&nbsp;&nbsp; ' +
-      '<span style="color:#c0c8d8">' + (n ? Math.round(ok / n * 100) : 0) + '%</span>';
+      '<span style="color:var(--text)">' + (n ? Math.round(ok / n * 100) : 0) + '%</span>';
   }
   function paintTally(){
     const prog = factoryDone ? '' :
-      '<div style="font-size:10px;color:#8899bb;text-align:center;margin-top:4px">' +
+      '<div style="font-size:10px;color:var(--dim);text-align:center;margin-top:4px">' +
       'building the training deck — ' + fmtInt(dealt) + ' hands dealt</div>';
     const rs = [];
     for(let L = 0; L < lines.length; L++){
@@ -5884,19 +6200,27 @@ function showTraining(){
       if(st.n) rs.push({ L: L, n: st.n, ok: st.ok, r: st.ok / st.n });
     }
     rs.sort((a, b) => a.r - b.r || b.n - a.n);
-    const worst = rs.slice(0, 5);
+    // Every line you have attempted, not just the worst five — the block
+    // keeps a fixed height and scrolls, so the window never changes size.
+    const worst = rs;
     if(!worst.length){ tally.innerHTML = prog; return; }
-    let h = '<table style="width:100%;font-size:11px;color:#c0c8d8;border-collapse:collapse;margin-top:6px">' +
-      '<tr style="color:#8899bb"><td>Weakest lines</td><td style="text-align:right">seen</td>' +
-      '<td style="text-align:right">right</td><td style="text-align:right">rate</td></tr>';
+    let h = '<div style="height:98px;overflow-y:auto;-webkit-overflow-scrolling:touch;margin-top:6px">' +
+      '<table style="width:100%;font-size:11px;color:var(--text);border-collapse:collapse">' +
+      '<tr style="color:var(--dim)">' +
+      '<td style="position:sticky;top:0;background:var(--felt)">Weakest lines</td>' +
+      '<td style="text-align:right;padding-left:10px;position:sticky;top:0;background:var(--felt)">seen</td>' +
+      '<td style="text-align:right;padding-left:10px;position:sticky;top:0;background:var(--felt)">right</td>' +
+      '<td style="text-align:right;padding-left:10px;position:sticky;top:0;background:var(--felt)">rate</td></tr>';
     for(const x of worst){
-      const col = x.r < 0.5 ? '#f09595' : x.r < 0.85 ? '#f0c040' : '#7ee08a';
-      h += '<tr><td style="padding:2px 0"><span style="color:#8899bb">' + (x.L + 1) + '.</span> ' +
+      const col = x.r < 0.5 ? '#f09595' : x.r < 0.85 ? 'var(--brass)' : '#7ee08a';
+      h += '<tr><td style="padding:2px 0"><span style="color:var(--dim)">' + (x.L + 1) + '.</span> ' +
            esc2(lines[x.L].label).slice(0, 42) + '</td>' +
-           '<td style="text-align:right">' + x.n + '</td><td style="text-align:right">' + x.ok + '</td>' +
-           '<td style="text-align:right;color:' + col + '">' + Math.round(x.r * 100) + '%</td></tr>';
+           '<td style="text-align:right;padding-left:10px;font-variant-numeric:tabular-nums">' + x.n + '</td>' +
+           '<td style="text-align:right;padding-left:10px;font-variant-numeric:tabular-nums">' + x.ok + '</td>' +
+           '<td style="text-align:right;padding-left:10px;font-variant-numeric:tabular-nums;color:' + col + '">' +
+           Math.round(x.r * 100) + '%</td></tr>';
     }
-    tally.innerHTML = h + '</table>' + prog;
+    tally.innerHTML = h + '</table></div>' + prog;
   }
   function paintAll(){
     title.textContent = 'Training — ' + GAMES[gKey].name;
@@ -5927,11 +6251,20 @@ function showTraining(){
     st.n++; if(right) st.ok++;
     rec.per[id] = st;
     if(reviewing && reviewQueue.length){
-      // a reviewed hand leaves the queue only once it is finally played right
+      // A hand retires from the queue only after three correct plays in a
+      // row; one slip puts the streak back to zero. Either way it goes to the
+      // back, so the run interleaves rather than repeating the same hand.
+      const cur = reviewQueue.shift();
       if(right){
-        const done = reviewQueue.shift();
-        rec.misses = rec.misses.filter(x => String(x.c) !== String(done.c));
-      } else reviewQueue.push(reviewQueue.shift());
+        cur.k = (cur.k || 0) + 1;
+        if(cur.k >= REPLAY_STREAK){
+          rec.misses = rec.misses.filter(x => String(x.c) !== String(cur.c));
+          passLeft = Math.min(passLeft, reviewQueue.length);
+        } else reviewQueue.push(cur);
+      } else {
+        cur.k = 0;
+        reviewQueue.push(cur);
+      }
     } else if(!right){
       rec.misses.unshift({ c: qHand.map(cardIndex), u: held, b: book.mask, id: id });
       if(rec.misses.length > 300) rec.misses.length = 300;
@@ -5969,16 +6302,16 @@ function showTraining(){
       ? 'Line ' + (book.rank + 1) + ' — <span style="color:#7ee08a">' + esc2(book.label) + '</span>'
       : 'Line ' + (book.rank + 1) + ' says <span style="color:#7ee08a">' + esc2(nameOf(book.mask)) +
         '</span> — ' + esc2(book.label) + '<br>' +
-        'You held <span style="color:#f0c040">' + esc2(nameOf(held)) + '</span>' +
+        'You held <span style="color:var(--brass)">' + esc2(nameOf(held)) + '</span>' +
         (mine >= 0 ? ', which is ' + lineTxt(mine) : ', which the card does not list');
     const col = right ? '#7ee08a' : '#f09595';
     const bg  = right ? '#153a20' : '#3a1520';
     const brd = right ? '#3a8a4a' : '#a03a4a';
     verdict.innerHTML =
       '<div style="background:' + bg + ';border:1px solid ' + brd + ';border-radius:8px;padding:9px 12px">' +
-      '<div style="font-size:13px;font-weight:bold;color:' + col + ';margin-bottom:3px">' +
+      '<div class="tv-title" style="font-size:13px;font-weight:bold;color:' + col + ';margin-bottom:3px">' +
       (right ? 'Correct — matches the card' : 'Not the book play') + '</div>' +
-      '<div class="tv-body" style="font-size:12px;color:#c0c8d8;line-height:1.6">' + body +
+      '<div class="tv-body" style="font-size:12px;color:var(--text);line-height:1.6">' + body +
       // the exact cost needs a full 32-hold EV pass (~2s); say so rather than
       // letting the line appear out of nowhere a beat later
       '<br><span style="color:#5a6a8a">working out what it cost…</span></div></div>';
@@ -6009,8 +6342,17 @@ function showTraining(){
       const bookAvg = tied.length ? tied.reduce((a2, b2) => a2 + b2, 0) / tied.length : null;
       const bookMax = tied.length ? Math.max.apply(null, tied) : null;
       let extra = '';
-      if(!right && myEV !== null && bookAvg !== null)
-        extra += '<br><span style="color:#8899bb">Cost: ' + (bookAvg - myEV).toFixed(3) + ' coins.</span>';
+      if(!right && myEV !== null && bookAvg !== null){
+        const d = bookAvg - myEV;
+        // A negative "cost" is a hold that beat the card — say that plainly
+        // rather than printing a minus sign and leaving it to be decoded.
+        extra += d > 1e-9
+          ? '<br><span style="color:var(--dim)">Cost: ' + d.toFixed(3) + ' coins.</span>'
+          : d < -1e-9
+            ? '<br><span style="color:var(--dim)">No cost — your hold was worth ' +
+              (-d).toFixed(3) + ' more than the card\'s line here.</span>'
+            : '<br><span style="color:var(--dim)">No cost — worth the same as the card\'s line.</span>';
+      }
       // On a correct answer, name what was passed over and what it would have
       // cost — confirmation that the right play was reasoned, not lucky.
       if(right && bookMax !== null){
@@ -6020,21 +6362,39 @@ function showTraining(){
           const alt = evs.length ? Math.max.apply(null, evs) : null;
           const best2 = nd.masks[evs.indexOf(alt)];
           if(alt !== null)
-            extra += '<br><span style="color:#8899bb">Next line down was ' +
+            extra += '<br><span style="color:var(--dim)">Next line down was ' +
               lineTxt(nd.rank) + ' (' + esc2(nameOf(best2)) + ') — ' +
               (bookMax - alt).toFixed(3) + ' worse.</span>';
         }
       }
       if(bookMax !== null && bestEV - bookMax > 1e-9)
-        extra += '<br><span style="color:#f0c040">Known exception:</span> ' +
-          '<span style="color:#8899bb">the analyzer prefers ' + esc2(nameOf(res[0].mask)) +
+        extra += '<br><span style="color:var(--brass)">Known exception:</span> ' +
+          '<span style="color:var(--dim)">the analyzer prefers ' + esc2(nameOf(res[0].mask)) +
           ', worth ' + (bestEV - bookMax).toFixed(3) + ' more. ' + stratLevelName(level) +
           ' gives this up to stay short.</span>';
       // right answer, but the line held a stronger member the card cannot name
       else if(right && tied.length > 1 && myEV !== null && bookMax - myEV > 1e-9)
-        extra += '<br><span style="color:#8899bb">The card does not choose between these: ' +
+        extra += '<br><span style="color:var(--dim)">The card does not choose between these: ' +
           esc2(nameOf(res[0].mask)) + ' is the strongest of them here, by ' +
           (bookMax - myEV).toFixed(3) + '.</span>';
+      // Upgrade wrong-answer highlight to yellow when the miss is small (< 0.2
+      // coins) or the player held the analyzer's preferred exception play.
+      // Yellow signals "technically wrong but barely matters" vs. red "real error".
+      if(!right && myEV !== null && bookAvg !== null){
+        const d = bookAvg - myEV;
+        const isException = bookMax !== null && bestEV - bookMax > 1e-9 && Math.abs(myEV - bestEV) < 1e-9;
+        if(d < 0.2 || isException){
+          const wrap = verdict.querySelector('div');
+          if(wrap){ wrap.style.background = '#28200a'; wrap.style.border = '1px solid #7a5a10'; }
+          const ttl = verdict.querySelector('.tv-title');
+          if(ttl){
+            ttl.style.color = 'var(--brass)';
+            ttl.textContent = isException ? 'Exception — you played the better hold'
+                            : d < -1e-9   ? 'Beats the book here'
+                                           : 'Close miss';
+          }
+        }
+      }
       const el = verdict.querySelector('.tv-body');
       if(el) el.innerHTML = body + extra;
     }, resume);
@@ -6055,7 +6415,7 @@ function showTraining(){
   forgetBtn.addEventListener('click', () => {
     if(!qHand) return;
     sfx.button();
-    const key = qHand.map(cardIndex).join(',');
+    const key = (qOrigin || qHand.map(cardIndex)).join(',');
     rec.misses = rec.misses.filter(x => x.c.join(',') !== key);
     reviewQueue = reviewQueue.filter(x => x.c.join(',') !== key);
     if(answered && lastWrong){
@@ -6073,7 +6433,12 @@ function showTraining(){
     if(reviewing) reviewing = false;
     else {
       if(!rec.misses.length) return;
-      reviewQueue = rec.misses.slice(); reviewing = true;
+      reviewQueue = rec.misses.map(x => ({ ...x, k: 0 }));
+      for(let i = reviewQueue.length - 1; i > 0; i--){
+        const j = Math.floor(Math.random() * (i + 1));
+        const t = reviewQueue[i]; reviewQueue[i] = reviewQueue[j]; reviewQueue[j] = t;
+      }
+      reviewing = true; passLeft = reviewQueue.length;
     }
     qHand = null; nextQuestion();
   });
@@ -6411,7 +6776,7 @@ let simWorker = null;
 function betaTag(){
   const s = document.createElement('span');
   s.textContent = 'BETA';
-  s.style.cssText = 'font-size:9px;font-weight:normal;letter-spacing:1px;color:#6a86c0;' +
+  s.style.cssText = 'font-size:9px;font-weight:normal;letter-spacing:1px;color:#9FB0DC;' +
                     'margin-left:8px;vertical-align:2px;text-transform:none;';
   return s;
 }
@@ -6443,9 +6808,9 @@ function showSimulator(){
   ].join(';');
   const panel = document.createElement('div');
   panel.style.cssText = [
-    'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)',
-    'border:2px solid #2a4a9a','border-radius:14px',
-    'box-shadow:0 0 30px rgba(20,60,180,0.6)',
+    'background:var(--felt)',
+    'border:2px solid #2D48A8','border-radius:14px',
+    'box-shadow:none',
     'padding:14px 16px','width:min(760px,96vw)',
     // The panel itself scrolls, so Start and Close stay reachable on a short
     // landscape phone where the option rows alone are taller than the screen.
@@ -6454,10 +6819,10 @@ function showSimulator(){
   ].join(';');
 
   const title = document.createElement('div');
-  title.style.cssText = 'text-align:center;font-size:15px;font-weight:bold;color:#f0c040;letter-spacing:2px;text-transform:uppercase;flex-shrink:0;';
+  title.style.cssText = 'text-align:center;font-size:15px;font-weight:bold;color:var(--brass);letter-spacing:2px;text-transform:uppercase;flex-shrink:0;';
   title.textContent = 'Strategy Simulator';
   const sub = document.createElement('div');
-  sub.style.cssText = 'text-align:center;font-size:11px;color:#8899bb;flex-shrink:0;';
+  sub.style.cssText = 'text-align:center;font-size:11px;color:var(--dim);flex-shrink:0;';
   function paintHeader(){
     title.textContent = 'Strategy Simulator — ' + GAMES[gKey].name;
     title.appendChild(betaTag());
@@ -6470,23 +6835,26 @@ function showSimulator(){
     const wrap = document.createElement('div');
     wrap.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex-shrink:0;';
     const lbl = document.createElement('span');
-    lbl.style.cssText = 'font-size:11px;font-weight:bold;color:#c0c8d8;letter-spacing:1px;width:58px;';
+    // Condensed and slightly tighter tracking so the longest labels
+    // ("Hands/run", "Walkaway Winning") stop clipping in the 58px column.
+    lbl.style.cssText = 'font-family:var(--font-ui);font-size:11px;font-weight:bold;' +
+                        'color:var(--text);letter-spacing:0.5px;width:58px;';
     lbl.textContent = label;
     wrap.appendChild(lbl);
     const els = [];
     const refresh = () => els.forEach(({ b, value }) => {
       const on = getVal() === value;
-      b.style.background  = on ? 'linear-gradient(180deg,#c89a20,#a07a10)' : '#1a2a60';
-      b.style.color       = on ? '#000' : '#c0c8d8';
-      b.style.borderColor = on ? '#f0c040' : '#3a5aaa';
+      b.style.background  = on ? 'transparent' : 'var(--deep)';
+      b.style.color       = on ? 'var(--brass)' : 'var(--text)';
+      b.style.borderColor = on ? 'var(--brass)' : '#3554B8';
     });
     options.forEach(([value, text]) => {
       const b = document.createElement('button');
       b.textContent = text;
       b.style.cssText = [
-        'font-family:Arial,Helvetica,sans-serif','font-size:11px','font-weight:bold',
+        'font-family:var(--font-ui)','font-size:11px','font-weight:bold',
         'letter-spacing:1px','text-transform:uppercase','padding:5px 10px','border-radius:6px',
-        'border:2px solid #3a5aaa','background:#1a2a60','color:#c0c8d8','cursor:pointer','touch-action:manipulation',
+        'border:2px solid #3554B8','background:var(--deep)','color:var(--text)','cursor:pointer','touch-action:manipulation',
       ].join(';');
       b.addEventListener('click', () => {
         // most rows change what a run WOULD do, so they lock while one is in
@@ -6586,18 +6954,18 @@ function showSimulator(){
     ov.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,5,25,0.9);display:flex;' +
                        'align-items:center;justify-content:center;font-family:Arial,Helvetica,sans-serif;';
     const pn = document.createElement('div');
-    pn.style.cssText = 'background:linear-gradient(180deg,#0d2255,#091840);border:2px solid #2a4a9a;' +
+    pn.style.cssText = 'background:var(--felt);border:2px solid #2D48A8;' +
                        'border-radius:14px;padding:16px 18px;width:min(520px,94vw);max-height:88vh;' +
                        'overflow-y:auto;display:flex;flex-direction:column;gap:10px;';
     pn.innerHTML = HELP.map(h =>
-      '<div><div style="font-size:13px;font-weight:bold;color:#f0c040;letter-spacing:1px">' + h[0] + '</div>' +
-      '<div style="font-size:12px;color:#c0c8d8;line-height:1.6;margin-top:3px">' + h[1] + '</div></div>').join('');
+      '<div><div style="font-size:13px;font-weight:bold;color:var(--brass);letter-spacing:1px">' + h[0] + '</div>' +
+      '<div style="font-size:12px;color:var(--text);line-height:1.6;margin-top:3px">' + h[1] + '</div></div>').join('');
     const ok = document.createElement('button');
     ok.textContent = 'Close';
     ok.style.cssText = 'align-self:center;font-family:Arial,Helvetica,sans-serif;font-size:12px;' +
                        'font-weight:bold;letter-spacing:2px;text-transform:uppercase;padding:7px 24px;' +
-                       'background:linear-gradient(180deg,#2a4aaa,#1a2a7a);border:2px solid #5a7acc;' +
-                       'border-radius:8px;color:#fff;cursor:pointer;touch-action:manipulation;';
+                       'background:transparent;border:2px solid rgba(255,214,64,0.62);' +
+                       'border-radius:8px;color:var(--brass);cursor:pointer;touch-action:manipulation;';
     ok.addEventListener('click', () => { sfx.button(); ov.remove(); });
     pn.appendChild(ok);
     ov.addEventListener('click', e => { if(e.target === ov) ov.remove(); });
@@ -6608,9 +6976,9 @@ function showSimulator(){
   helpBtn.title = 'What do these do?';
   helpBtn.setAttribute('aria-label', 'What do these run types do?');
   helpBtn.style.cssText = [
-    'font-family:Arial,Helvetica,sans-serif','font-size:12px','font-weight:bold',
-    'width:22px','height:22px','padding:0','border-radius:50%','border:2px solid #f0c040',
-    'background:#1a2a60','color:#f0c040','cursor:pointer','touch-action:manipulation','flex:0 0 auto',
+    'font-family:var(--font-ui)','font-size:12px','font-weight:bold',
+    'width:22px','height:22px','padding:0','border-radius:50%','border:2px solid var(--brass)',
+    'background:var(--deep)','color:var(--brass)','cursor:pointer','touch-action:manipulation','flex:0 0 auto',
   ].join(';');
   helpBtn.addEventListener('click', () => { sfx.button(); showSimHelp(); });
   modeRow.appendChild(helpBtn);
@@ -6692,19 +7060,19 @@ function showSimulator(){
   function paintTargets(){
     tgtRow.innerHTML = '';
     const lab = document.createElement('span');
-    lab.style.cssText = 'font-size:11px;font-weight:bold;color:#c0c8d8;letter-spacing:1px;width:58px;';
+    lab.style.cssText = 'font-size:11px;font-weight:bold;color:var(--text);letter-spacing:1px;width:58px;';
     lab.textContent = 'Targets';
     tgtRow.appendChild(lab);
     const mk = (txt, val, color, set, lo) => {
       const cap = document.createElement('span');
-      cap.style.cssText = 'font-size:11px;color:#8899bb;';
+      cap.style.cssText = 'font-size:11px;color:var(--dim);';
       cap.textContent = txt;
       tgtRow.appendChild(cap);
       const b = document.createElement('button');
       b.textContent = fmtVal(val);
       b.style.cssText = [
-        'font-family:Arial,Helvetica,sans-serif','font-size:11px','font-weight:bold','padding:5px 12px',
-        'border-radius:6px','border:2px solid #3a5aaa','background:#091840','cursor:pointer',
+        'font-family:var(--font-ui)','font-size:11px','font-weight:bold','padding:5px 12px',
+        'border-radius:6px','border:2px solid #3554B8','background:var(--deep)','cursor:pointer',
         'touch-action:manipulation','color:' + color,
       ].join(';');
       b.addEventListener('click', () => {
@@ -6752,15 +7120,15 @@ function showSimulator(){
   function paintGameRow(){
     gameSlot.innerHTML = '';
     const lab = document.createElement('span');
-    lab.style.cssText = 'font-size:11px;font-weight:bold;color:#c0c8d8;letter-spacing:1px;width:58px;';
+    lab.style.cssText = 'font-size:11px;font-weight:bold;color:var(--text);letter-spacing:1px;width:58px;';
     lab.textContent = 'Game';
     gameSlot.appendChild(lab);
     const b = document.createElement('button');
     b.textContent = GAMES[gKey].name + ' — ' + GAMES[gKey].payTables[simPay].label;
     b.style.cssText = [
-      'font-family:Arial,Helvetica,sans-serif','font-size:11px','font-weight:bold','letter-spacing:1px',
-      'text-transform:uppercase','padding:5px 12px','border-radius:6px','border:2px solid #3a5aaa',
-      'background:#1a2a60','color:#c0c8d8','cursor:pointer','touch-action:manipulation',
+      'font-family:var(--font-ui)','font-size:11px','font-weight:bold','letter-spacing:1px',
+      'text-transform:uppercase','padding:5px 12px','border-radius:6px','border:2px solid #3554B8',
+      'background:var(--deep)','color:var(--text)','cursor:pointer','touch-action:manipulation',
     ].join(';');
     b.addEventListener('click', () => { if(running) return; sfx.button(); pickSimGame(); });
     gameSlot.appendChild(b);
@@ -6774,23 +7142,23 @@ function showSimulator(){
     ov.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,5,25,0.9);display:flex;' +
                        'align-items:center;justify-content:center;font-family:Arial,Helvetica,sans-serif;';
     const pn = document.createElement('div');
-    pn.style.cssText = 'background:linear-gradient(180deg,#0d2255,#091840);border:2px solid #2a4a9a;' +
+    pn.style.cssText = 'background:var(--felt);border:2px solid #2D48A8;' +
                        'border-radius:14px;padding:14px 16px;width:min(460px,94vw);max-height:88vh;' +
                        'overflow-y:auto;display:flex;flex-direction:column;gap:6px;';
     const close = () => ov.remove();
     const head = (t) => {
       const h = document.createElement('div');
-      h.style.cssText = 'text-align:center;font-size:14px;font-weight:bold;color:#f0c040;letter-spacing:2px;text-transform:uppercase;';
+      h.style.cssText = 'text-align:center;font-size:14px;font-weight:bold;color:var(--brass);letter-spacing:2px;text-transform:uppercase;';
       h.textContent = t; return h;
     };
     const opt = (txt, on, fn) => {
       const b = document.createElement('button');
       b.textContent = txt;
       b.style.cssText = [
-        'font-family:Arial,Helvetica,sans-serif','font-size:12px','font-weight:bold','text-align:left',
+        'font-family:var(--font-ui)','font-size:12px','font-weight:bold','text-align:left',
         'padding:8px 12px','border-radius:8px','cursor:pointer','touch-action:manipulation',
-        on ? 'background:linear-gradient(180deg,#c89a20,#a07a10);border:2px solid #f0c040;color:#000'
-           : 'background:#1a2a60;border:2px solid #3a5aaa;color:#e0e8f8',
+        on ? 'background:transparent;border:2px solid var(--brass);color:var(--brass)'
+           : 'background:var(--deep);border:2px solid #3554B8;color:var(--chalk)',
       ].join(';');
       b.addEventListener('click', () => { sfx.button(); fn(); });
       return b;
@@ -6811,7 +7179,16 @@ function showSimulator(){
       pn.innerHTML = '';
       pn.appendChild(head('Simulate which game'));
       GAME_KEYS.forEach(g => pn.appendChild(opt(GAMES[g].name, g === gKey, () => tables(g))));
-      pn.appendChild(opt('Cancel', false, close));
+      const cx = document.createElement('button');
+      cx.textContent = 'Cancel';
+      cx.style.cssText = [
+        'align-self:center','font-family:var(--font-ui)','font-size:13px',
+        'font-weight:bold','letter-spacing:2px','text-transform:uppercase','padding:8px 28px',
+        'margin-top:4px','background:transparent','border:2px solid rgba(140,154,196,0.55)',
+        'border-radius:8px','color:#ccc','cursor:pointer','touch-action:manipulation',
+      ].join(';');
+      cx.addEventListener('click', () => { sfx.button(); close(); });
+      pn.appendChild(cx);
     };
     list();
     ov.addEventListener('click', e => { if(e.target === ov) close(); });
@@ -6844,10 +7221,10 @@ function showSimulator(){
   }
 
   const wagerLine = document.createElement('div');
-  wagerLine.style.cssText = 'font-size:11px;color:#c0c8d8;text-align:center;flex-shrink:0;';
+  wagerLine.style.cssText = 'font-size:11px;color:var(--text);text-align:center;flex-shrink:0;';
 
   const estLine = document.createElement('div');
-  estLine.style.cssText = 'font-size:11px;color:#8899bb;text-align:center;flex-shrink:0;';
+  estLine.style.cssText = 'font-size:11px;color:var(--dim);text-align:center;flex-shrink:0;';
   function estimate(){
     if(mode !== 'multi'){ estLine.textContent = ''; return; }
     const total = runCount * target;
@@ -6862,7 +7239,7 @@ function showSimulator(){
   // into a single line and hand the space to the graph. CHANGE brings them back.
   const foldLine = document.createElement('div');
   foldLine.style.cssText = 'display:none;align-items:center;justify-content:center;gap:10px;' +
-                           'flex-wrap:wrap;flex-shrink:0;font-size:11px;color:#c0c8d8;';
+                           'flex-wrap:wrap;flex-shrink:0;font-size:11px;color:var(--text);';
   function paintFold(){
     foldLine.innerHTML = '';
     const txt = document.createElement('span');
@@ -6875,9 +7252,9 @@ function showSimulator(){
     const b = document.createElement('button');
     b.textContent = 'CHANGE';
     b.style.cssText = [
-      'font-family:Arial,Helvetica,sans-serif','font-size:11px','font-weight:bold','letter-spacing:1px',
-      'padding:4px 12px','border-radius:6px','border:2px solid #3a5aaa','background:#1a2a60',
-      'color:#c0c8d8','cursor:pointer','touch-action:manipulation',
+      'font-family:var(--font-ui)','font-size:11px','font-weight:bold','letter-spacing:1px',
+      'padding:4px 12px','border-radius:6px','border:2px solid #3554B8','background:var(--deep)',
+      'color:var(--text)','cursor:pointer','touch-action:manipulation',
     ].join(';');
     b.addEventListener('click', () => { sfx.button(); collapsed = false; syncRows(); });
     foldLine.appendChild(b);
@@ -6888,7 +7265,7 @@ function showSimulator(){
     valSlot.style.display = multiOn ? '' : 'none';
     cvSlot.style.display  = (multiOn && cur()) ? '' : 'none';
     wagerLine.style.display = mode === 'multi' ? '' : 'none';
-    wagerLine.innerHTML = 'Wager is Max Bet: <b style="color:#f0c040">' + wagerText() + '</b>';
+    wagerLine.innerHTML = 'Wager is Max Bet: <b style="color:var(--brass)">' + wagerText() + '</b>';
     if(multiOn) rebuildValueRows();
     modeRow.style.display   = anyOn ? 'flex' : 'none';
     levelRow.style.display  = anyOn ? 'flex' : 'none';
@@ -6910,7 +7287,7 @@ function showSimulator(){
   // no scroll of its own — the panel scrolls as one column
   body.style.cssText = 'display:flex;flex-direction:column;gap:8px;flex-shrink:0;';
   const stats = document.createElement('div');
-  stats.style.cssText = 'font-size:12px;color:#c0c8d8;line-height:1.6;padding:2px 4px;flex-shrink:0;white-space:pre-wrap;';
+  stats.style.cssText = 'font-size:12px;color:var(--text);line-height:1.6;padding:2px 4px;flex-shrink:0;white-space:pre-wrap;';
   const graphRow = mkRow('Graph', [['payback', 'Payback %'], ['credits', 'Credits']],
                          () => graphY, v => { graphY = v; redrawGraph(); }, true);
   graphRow.style.cssText += 'padding:2px 4px;';
@@ -6936,18 +7313,20 @@ function showSimulator(){
     const b = document.createElement('button');
     b.textContent = text;
     b.style.cssText = [
-      'font-family:Arial,Helvetica,sans-serif','font-size:13px','font-weight:bold','letter-spacing:2px',
+      'font-family:var(--font-ui)','font-size:13px','font-weight:bold','letter-spacing:2px',
       'text-transform:uppercase','padding:8px 26px',`background:${bg}`,`border:2px solid ${border}`,
       'border-radius:8px',`color:${color}`,'cursor:pointer','touch-action:manipulation',
     ].join(';');
     return b;
   };
-  const startBtn = mkBtn('Start', 'linear-gradient(180deg,#2a8a4a,#1a6a34)', '#4acc6a', '#fff');
-  const closeBtn = mkBtn('Close', 'linear-gradient(180deg,#2a4aaa,#1a2a7a)', '#5a7acc', '#fff');
+  const startBtn = mkBtn('Start', 'var(--brass)', 'var(--brass)', 'var(--ink)');
+  const closeBtn = mkBtn('Close', 'transparent', 'rgba(140,154,196,0.55)', 'var(--dim)');
   const styleStart = () => {
     startBtn.textContent = running ? 'Stop' : 'Start';
-    startBtn.style.background = running ? 'linear-gradient(180deg,#aa2a2a,#7a1a1a)' : 'linear-gradient(180deg,#2a8a4a,#1a6a34)';
-    startBtn.style.borderColor = running ? '#ff6a6a' : '#4acc6a';
+    startBtn.style.background = running ? '#B0231B' : 'var(--brass)';
+    startBtn.style.borderColor = running ? '#F05A50' : 'var(--brass)';
+    // Ink reads on brass but vanishes on the red Stop fill.
+    startBtn.style.color = running ? '#FFFFFF' : 'var(--ink)';
   };
   btnRow.appendChild(startBtn);
   btnRow.appendChild(closeBtn);
@@ -6988,10 +7367,10 @@ function showSimulator(){
     browseList = null; collapsed = false; syncRows();
     stats.textContent = '';
     detail.innerHTML = '';
-    canvas.style.display = mode === 'verify' ? 'none' : 'block';
-    graphRow.style.display = mode === 'fast' ? 'flex' : 'none';
-    if(mode === 'fast') drawSimGraph(canvas, samples, {});
-    if(mode === 'multi') drawSimGraph(canvas, [], {});
+    // An empty plot frame just crowds the settings and pushes Start down the
+    // screen; the graph appears when a run actually has something to show.
+    canvas.style.display = 'none';
+    graphRow.style.display = 'none';
   }
 
   // ── Multiple runs ──────────────────────────────────────────
@@ -7055,12 +7434,12 @@ function showSimulator(){
     drawHistogram(canvas, fin, tgtHigh, tgtLow, avg, multi.bank, multi.win, fmtVal);
 
     const tile = (lab, val, col) =>
-      `<div style="background:#13275c;border:1px solid #2a4a9a;border-radius:8px;padding:7px 10px">` +
-      `<div style="font-size:11px;color:#8899bb">${lab}</div>` +
+      `<div style="background:#13275c;border:1px solid #2D48A8;border-radius:8px;padding:7px 10px">` +
+      `<div style="font-size:11px;color:var(--dim)">${lab}</div>` +
       `<div style="font-size:17px;font-weight:bold;color:${col}">${val}</div></div>`;
-    const cc = v => v > 0 ? '#7ee08a' : v < 0 ? '#f09595' : '#c0c8d8';
-    const pc = n => `<span style="font-size:12px;font-weight:normal;color:#8899bb"> ${(n / R.length * 100).toFixed(1)}%</span>`;
-    const pair = inner => `<div style="border:1px solid #2a4a9a;border-radius:9px;padding:5px;` +
+    const cc = v => v > 0 ? '#7ee08a' : v < 0 ? '#f09595' : 'var(--text)';
+    const pc = n => `<span style="font-size:12px;font-weight:normal;color:var(--dim)"> ${(n / R.length * 100).toFixed(1)}%</span>`;
+    const pair = inner => `<div style="border:1px solid #2D48A8;border-radius:9px;padding:5px;` +
       `display:grid;grid-template-columns:1fr 1fr;gap:5px">${inner}</div>`;
     detail.innerHTML =
       `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:7px">` +
@@ -7076,12 +7455,12 @@ function showSimulator(){
              tile('Ever reached', evrLo + pc(evrLo), '#f09595')) +
       `</div><div style="display:grid;grid-template-columns:repeat(${2 + (multi.bank ? 1 : 0) + (multi.win ? 1 : 0)},1fr);gap:7px">` +
         tile('Winning sessions', up + pc(up), '#7ee08a') +
-        tile('Losing sessions', down + pc(down) + (evenN ? ` <span style="font-size:11px;font-weight:normal;color:#8899bb">· ${evenN} even</span>` : ''), '#f09595') +
-        (multi.bank ? tile('Busted', busted + pc(busted), busted ? '#f09595' : '#8899bb') : '') +
-        (multi.win ? tile('Walked away', cashed + pc(cashed), cashed ? '#7ee08a' : '#8899bb') : '') +
+        tile('Losing sessions', down + pc(down) + (evenN ? ` <span style="font-size:11px;font-weight:normal;color:var(--dim)">· ${evenN} even</span>` : ''), '#f09595') +
+        (multi.bank ? tile('Busted', busted + pc(busted), busted ? '#f09595' : 'var(--dim)') : '') +
+        (multi.win ? tile('Walked away', cashed + pc(cashed), cashed ? '#7ee08a' : 'var(--dim)') : '') +
       `</div>` + bandKey() + bigLine(R) +
       (r.showFull
-        ? `<div style="font-size:11px;color:#8899bb;margin-top:7px;text-align:center">` +
+        ? `<div style="font-size:11px;color:var(--dim);margin-top:7px;text-align:center">` +
           `Full strategy over the same deals averaged ${fmtVal(avgF)} per run, ` +
           `against ${fmtVal(avg)} for ${r.selName}</div>`
         : '');
@@ -7125,7 +7504,7 @@ function showSimulator(){
             ['#4a9a2a', 'up'], ['#3a7fd5', 'past ' + fmtVal(tgtHigh)]);
     if(multi.win) it.push(['#8455d6', 'walked away']);
     return '<div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;' +
-      'font-size:10px;color:#8899bb;margin-top:6px">' +
+      'font-size:10px;color:var(--dim);margin-top:6px">' +
       it.map(x => '<span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;' +
         'background:' + x[0] + ';margin-right:4px;vertical-align:-1px"></span>' + x[1] + '</span>').join('') +
       '</div>';
@@ -7136,12 +7515,12 @@ function showSimulator(){
   function bigLine(R, small){
     if(!multi.bigIdx.length) return '';
     const tot = multi.bigIdx.map((_, i) => sum(R.map(x => (x.bg && x.bg[i]) || 0)));
-    if(!tot.some(v => v)) return `<div style="font-size:${small ? 10 : 11}px;color:#8899bb;margin-top:7px;` +
+    if(!tot.some(v => v)) return `<div style="font-size:${small ? 10 : 11}px;color:var(--dim);margin-top:7px;` +
       `text-align:center">No hand paid more than 50 to 1</div>`;
     const parts = multi.bigIdx.map((ci, i) => tot[i]
-      ? `<span style="color:#f0c040">${multi.rows[ci].name}</span> ×${fmtN(tot[i])} ` +
-        `<span style="color:#8899bb">(${fmtN(multi.pays[ci])} each)</span>` : null).filter(Boolean);
-    return `<div style="font-size:${small ? 10 : 11}px;color:#c0c8d8;margin-top:7px;text-align:center">` +
+      ? `<span style="color:var(--brass)">${multi.rows[ci].name}</span> ×${fmtN(tot[i])} ` +
+        `<span style="color:var(--dim)">(${fmtN(multi.pays[ci])} each)</span>` : null).filter(Boolean);
+    return `<div style="font-size:${small ? 10 : 11}px;color:var(--text);margin-top:7px;text-align:center">` +
       `Paying over 50 to 1:  ${parts.join('   ·   ')}</div>`;
   }
 
@@ -7153,9 +7532,9 @@ function showSimulator(){
       const b = document.createElement('button');
       b.innerHTML = txt;
       b.style.cssText = [
-        'font-family:Arial,Helvetica,sans-serif','font-size:12px','font-weight:bold','letter-spacing:1px',
-        'padding:6px ' + (wide ? '16px' : '12px'),'border-radius:8px','border:2px solid #3a5aaa',
-        'background:#1a2a60','color:#c0c8d8','cursor:pointer','touch-action:manipulation',
+        'font-family:var(--font-ui)','font-size:12px','font-weight:bold','letter-spacing:1px',
+        'padding:6px ' + (wide ? '16px' : '12px'),'border-radius:8px','border:2px solid #3554B8',
+        'background:var(--deep)','color:var(--text)','cursor:pointer','touch-action:manipulation',
       ].join(';');
       b.addEventListener('click', () => { sfx.button(); fn(); });
       wrap.appendChild(b);
@@ -7267,13 +7646,16 @@ function showSimulator(){
     // hand frequencies
     const tbl = document.createElement('table');
     tbl.style.cssText = 'border-collapse:collapse;width:100%;font-size:11px;';
-    const th = (t, al = 'right') => `<th style="padding:3px 6px;text-align:${al};color:#8899bb;border-bottom:1px solid #2a4a9a;font-weight:bold">${t}</th>`;
-    const td = (t, al = 'right', c = '#c0c8d8') => `<td style="padding:2px 6px;text-align:${al};color:${c}">${t}</td>`;
+    const th = (t, al = 'right') => `<th style="padding:3px 6px;text-align:${al};color:var(--dim);border-bottom:1px solid #2D48A8;font-weight:bold">${t}</th>`;
+    const td = (t, al = 'right', c = 'var(--text)') =>
+      `<td style="padding:2px 6px;text-align:${al};color:${c};` +
+      (al === 'right' ? 'font-family:var(--font-num);font-variant-numeric:tabular-nums;' : '') +
+      `">${t}</td>`;
     tbl.innerHTML = '<tr>' + th('Hand', 'left') + th('Pays') + th(r.selName + ' #') + th('%') +
                     (r.showFull ? th('Full #') + th('%') : '') + '</tr>';
     for(let i = 0; i < rows.length; i++){
       if(rows[i].name === 'Nothing') continue;
-      tbl.innerHTML += '<tr>' + td(rows[i].name, 'left', '#e0e8f8') + td(pays[i]) +
+      tbl.innerHTML += '<tr>' + td(rows[i].name, 'left', 'var(--chalk)') + td(pays[i]) +
         td(fmtN(m.cntSel[i])) + td((m.cntSel[i] / m.n * 100).toFixed(3)) +
         (r.showFull ? td(fmtN(m.cntFull[i])) + td((m.cntFull[i] / m.n * 100).toFixed(3)) : '') + '</tr>';
     }
@@ -7325,7 +7707,7 @@ function showSimulator(){
     detail.innerHTML = '';
     if(!v.list.length) return;
     const hdr = document.createElement('div');
-    hdr.style.cssText = 'font-size:11px;color:#8899bb;letter-spacing:1px;padding:4px 4px 2px;';
+    hdr.style.cssText = 'font-size:11px;color:var(--dim);letter-spacing:1px;padding:4px 4px 2px;';
     hdr.textContent = 'HANDS WHERE THE BOOK PLAY WAS NOT THE TOP-EV HOLD  (tap for full analysis)';
     detail.appendChild(hdr);
     v.list.forEach(d => {
@@ -7335,15 +7717,15 @@ function showSimulator(){
       chips.style.cssText = 'display:flex;gap:3px;';
       d.hand.forEach((c, i) => {
         const ch = cardChipEl(c, 13);
-        if(d.bestMask & (1 << i)) ch.style.boxShadow = '0 0 0 2px #f0c040';   // analyzer's hold
+        if(d.bestMask & (1 << i)) ch.style.boxShadow = '0 0 0 2px var(--brass)';   // analyzer's hold
         chips.appendChild(ch);
       });
       const txt = document.createElement('div');
-      txt.style.cssText = 'font-size:11px;color:#c0c8d8;flex:1;min-width:200px;line-height:1.4;';
+      txt.style.cssText = 'font-size:11px;color:var(--text);flex:1;min-width:200px;line-height:1.4;';
       const bookHold = d.hand.filter((_, i) => d.bookMask & (1 << i)).map(c => c.rank + c.suit).join(' ') || 'discard all';
       const bestHold = d.hand.filter((_, i) => d.bestMask & (1 << i)).map(c => c.rank + c.suit).join(' ') || 'discard all';
       txt.innerHTML = `Book: <b style="color:#ffcc66">${d.bookLabel}</b> → hold ${bookHold}  (EV ${d.bookEV.toFixed(3)})<br>` +
-                      `Analyzer: hold <b style="color:#f0c040">${bestHold}</b>  (EV ${d.bestEV.toFixed(3)}, +${(d.bestEV - d.bookEV).toFixed(3)})`;
+                      `Analyzer: hold <b style="color:var(--brass)">${bestHold}</b>  (EV ${d.bestEV.toFixed(3)}, +${(d.bestEV - d.bookEV).toFixed(3)})`;
       row.appendChild(chips);
       row.appendChild(txt);
       row.addEventListener('click', () => { sfx.button(); showAnalysis(d.hand, d.deck, { gameKey: gKey }); });
@@ -7397,6 +7779,10 @@ function showSimulator(){
     running = true;
     styleStart();
     resetResults();
+    canvas.style.display = mode === 'verify' ? 'none' : 'block';
+    graphRow.style.display = mode === 'fast' ? 'flex' : 'none';
+    if(mode === 'fast') drawSimGraph(canvas, samples, {});
+    if(mode === 'multi') drawSimGraph(canvas, [], {});
     if(mode === 'fast') startFast();
     else if(mode === 'multi') startMulti();
     else runVerify();
@@ -7450,6 +7836,25 @@ function bandColor(v, hi, lo, bank, win){
   return '#3a7fd5';                           // past the target, still playing
 }
 
+// Canvas 2D takes real colour values — a CSS custom property is not valid
+// there, and assigning one silently leaves the previous colour in place, which
+// is why the actual-return line drew in the optimal line's blue and the axis
+// labels disappeared. The tokens are resolved out of the stylesheet once.
+const GC = (() => {
+  let c = null;
+  return () => {
+    if(c) return c;
+    const g = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+    c = {
+      brass: g('--brass') || '#FFD640', dim:   g('--dim')   || '#9EABD2',
+      text:  g('--text')  || '#C3CCE6', chalk: g('--chalk') || '#E8ECF7',
+      ember: g('--ember') || '#F03A2E', felt:  g('--felt')  || '#0A18A8',
+      deep:  g('--deep')  || '#050C50', ink:   g('--ink')   || '#0B1030',
+    };
+    return c;
+  };
+})();
+
 function drawHistogram(canvas, finals, hi, lo, avg, bank, win, fmt){
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
@@ -7500,7 +7905,7 @@ function drawHistogram(canvas, finals, hi, lo, avg, bank, win, fmt){
   const X = v => x0 + (v - mn) / span * (x1 - x0);
   const Y = c => pad.top + (1 - c / peak) * cH;
   ctx.font = '11px Arial'; ctx.textBaseline = 'middle'; ctx.textAlign = 'right';
-  ctx.fillStyle = '#8899bb';
+  ctx.fillStyle = GC().dim;
   ctx.fillText(String(peak), pad.left - 5, Y(peak));
   ctx.fillText('0', pad.left - 5, Y(0));
   for(let i = 0; i < NB; i++){
@@ -7517,7 +7922,7 @@ function drawHistogram(canvas, finals, hi, lo, avg, bank, win, fmt){
   const pooled = (cx, count, color, label) => {
     ctx.fillStyle = color;
     ctx.fillRect(cx - SLOT / 2, Y(count), SLOT, pad.top + cH - Y(count));
-    ctx.fillStyle = '#8899bb';
+    ctx.fillStyle = GC().dim;
     ctx.fillText(label, cx, H - pad.bottom + 12);
     ctx.fillText(String(count), cx, Y(count) - 8);
   };
@@ -7538,7 +7943,7 @@ function drawHistogram(canvas, finals, hi, lo, avg, bank, win, fmt){
   rule(0, '#96b4f0', 'break even', false, false);
   rule(lo, '#f09595', sgn(lo), true, false);
   rule(hi, '#7ee08a', sgn(hi), true, false);
-  rule(avg, '#f0c040', 'avg ' + sgn(Math.round(avg)), true, true);
+  rule(avg, GC().brass, 'avg ' + sgn(Math.round(avg)), true, true);
 }
 
 function drawSimGraph(canvas, samples, r){
@@ -7552,13 +7957,13 @@ function drawSimGraph(canvas, samples, r){
   ctx.textBaseline = 'middle';
   const CRED = r.yMode === 'credits';
   if(samples.length < 2){
-    ctx.fillStyle = '#8899bb'; ctx.textAlign = 'center';
+    ctx.fillStyle = GC().dim; ctx.textAlign = 'center';
     ctx.fillText(samples.length ? 'Running…'
       : CRED ? 'Credits won or lost over hands played will appear here'
              : 'Return % over hands played will appear here', W / 2, H / 2);
     return;
   }
-  const SEL = '#ff9f40', FULL = '#5ab0ff', OPT = '#f0c040';
+  const SEL = '#ff9f40', FULL = '#5ab0ff', OPT = GC().brass;
   const BET  = r.bet || 5;
   const nMax = samples[samples.length - 1].n;
   const val  = s => CRED ? s.cs : s.rs;
@@ -7593,7 +7998,7 @@ function drawSimGraph(canvas, samples, r){
 
   // gridlines
   ctx.strokeStyle = 'rgba(80,110,180,0.35)'; ctx.lineWidth = 1;
-  ctx.fillStyle = '#8899bb'; ctx.font = '11px Arial'; ctx.textAlign = 'right';
+  ctx.fillStyle = GC().dim; ctx.font = '11px Arial'; ctx.textAlign = 'right';
   const yStep = CRED ? niceStep((hi - lo) / 5)
                      : nice((hi - lo) / 5, [0.0005,0.001,0.002,0.005,0.01,0.02,0.05,0.1,0.2,0.5,1]);
   const yTxt = v => !CRED ? (v * 100).toFixed(yStep < 0.001 ? 3 : 2) + '%'
@@ -7694,10 +8099,10 @@ function showGraph(){
   // ── Panel ────────────────────────────────────────────────
   const panel = document.createElement('div');
   panel.style.cssText = [
-    'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)',
-    'border:2px solid #2a4a9a',
+    'background:var(--felt)',
+    'border:2px solid #2D48A8',
     'border-radius:14px',
-    'box-shadow:0 0 30px rgba(20,60,180,0.6)',
+    'box-shadow:none',
     'padding:16px',
     'width:min(1040px,96vw)',
     'display:flex','flex-direction:column','gap:10px',
@@ -7712,8 +8117,8 @@ function showGraph(){
   const title = document.createElement('div');
   title.style.cssText = [
     'text-align:center','font-size:16px','font-weight:bold',
-    'color:#f0c040','letter-spacing:3px','text-transform:uppercase',
-    'text-shadow:0 0 8px rgba(240,192,64,0.5)',
+    'color:var(--brass)','letter-spacing:3px','text-transform:uppercase',
+    'text-shadow:none',
   ].join(';');
 
   function updateTitle(){
@@ -7844,7 +8249,7 @@ function showGraph(){
   }
 
   // Range button
-  const rangeBtn = makeModalBtn('Range','linear-gradient(180deg,#1a6a6a,#0e4444)','#3acccc','#aaffff');
+  const rangeBtn = makeModalBtn('Range','transparent','rgba(255,214,64,0.62)',GC().brass);
   rangeBtn.addEventListener('click', async () => {
     const total = history.length;
     if(total === 0){ alert('No entries to filter.'); return; }
@@ -7862,7 +8267,7 @@ function showGraph(){
   });
 
   // Reset range button (show all)
-  const allBtn = makeModalBtn('Show All','linear-gradient(180deg,#2a4aaa,#1a2a7a)','#5a7acc','#fff');
+  const allBtn = makeModalBtn('Show All','transparent','rgba(255,214,64,0.62)',GC().brass);
   allBtn.addEventListener('click', () => {
     rangeStart = 1;
     rangeEnd   = history.length || 1;
@@ -7872,7 +8277,7 @@ function showGraph(){
   });
 
   // Pay-table comparison button — pick alternate tables to overlay
-  const cmpBtn = makeModalBtn('Pay Tables','linear-gradient(180deg,#5a2a8a,#3a1a6a)','#aa66dd','#ddb8ff');
+  const cmpBtn = makeModalBtn('Pay Tables','transparent','rgba(255,214,64,0.62)',GC().brass);
   cmpBtn.addEventListener('click', () => {
     const tables = curGame().payTables;
     const ov2 = document.createElement('div');
@@ -7884,17 +8289,17 @@ function showGraph(){
     ].join(';');
     const p2 = document.createElement('div');
     p2.style.cssText = [
-      'background:linear-gradient(180deg,#0d2255 0%,#091840 100%)',
-      'border:2px solid #2a4a9a','border-radius:12px',
+      'background:var(--felt)',
+      'border:2px solid #2D48A8','border-radius:12px',
       'box-shadow:0 0 24px rgba(20,60,180,0.6)',
       'padding:18px 22px','width:min(360px,90vw)',
       'display:flex','flex-direction:column','gap:12px',
     ].join(';');
     const t2 = document.createElement('div');
-    t2.style.cssText = 'text-align:center;font-size:14px;font-weight:bold;color:#f0c040;letter-spacing:2px;text-transform:uppercase;';
+    t2.style.cssText = 'text-align:center;font-size:14px;font-weight:bold;color:var(--brass);letter-spacing:2px;text-transform:uppercase;';
     t2.textContent = 'Compare Pay Tables';
     const note = document.createElement('div');
-    note.style.cssText = 'font-size:11px;color:#8899bb;text-align:center;';
+    note.style.cssText = 'font-size:11px;color:var(--dim);text-align:center;';
     note.textContent = 'Overlay what your credits would be under other ' +
                        curGame().name + ' pay tables casinos offer, from the first visible point.';
     p2.appendChild(t2);
@@ -7903,11 +8308,11 @@ function showGraph(){
     const ALT_COLORS = ['#ff4fd8','#ffa040','#8dff5a','#c084fc'];
     tables.forEach((t, i) => {
       const row = document.createElement('label');
-      row.style.cssText = 'display:flex;align-items:center;gap:10px;color:#e0e8f8;font-size:14px;cursor:pointer;';
+      row.style.cssText = 'display:flex;align-items:center;gap:10px;color:var(--chalk);font-size:14px;cursor:pointer;';
       const cb = document.createElement('input');
       cb.type = 'checkbox';
       cb.checked = altSel.includes(i);
-      cb.style.cssText = 'width:17px;height:17px;accent-color:#aa66dd;';
+      cb.style.cssText = 'width:17px;height:17px;accent-color:#FFD640;';
       cb.addEventListener('change', () => {
         altSel = cb.checked ? [...altSel, i] : altSel.filter(x => x !== i);
         redraw();
@@ -7922,7 +8327,7 @@ function showGraph(){
       p2.appendChild(row);
     });
 
-    const done2 = makeModalBtn('Done','linear-gradient(180deg,#2a4aaa,#1a2a7a)','#5a7acc','#fff');
+    const done2 = makeModalBtn('Done',GC().brass,GC().brass,GC().ink);
     done2.style.alignSelf = 'center';
     const close2 = () => { if(ov2.parentNode) ov2.parentNode.removeChild(ov2); };
     done2.addEventListener('click', close2);
@@ -7933,11 +8338,11 @@ function showGraph(){
   });
 
   // Non-Optimal Plays replay viewer (opens above this window)
-  const subBtn = makeModalBtn('Sub-Opt Plays','linear-gradient(180deg,#8a4a10,#5a2e08)','#ff8c30','#ffc890');
+  const subBtn = makeModalBtn('Sub-Opt Plays','transparent','rgba(255,214,64,0.62)',GC().brass);
   subBtn.addEventListener('click', showSubPlays);
 
   // Optimal-line toggle
-  const optBtn = makeModalBtn('', 'linear-gradient(180deg,#155a8a,#0c3a5c)', '#38b6ff', '#a8dcff');
+  const optBtn = makeModalBtn('', 'transparent', '#38b6ff', '#a8dcff');
   const optLabel = () => { optBtn.textContent = graphShowOpt ? 'Optimal: On' : 'Optimal: Off'; };
   optLabel();
   optBtn.addEventListener('click', () => {
@@ -7948,7 +8353,7 @@ function showGraph(){
   });
 
   // Clear history button
-  const clearBtn = makeModalBtn('Reset Log','linear-gradient(180deg,#8a2020,#601414)','#cc4444','#ffaaaa');
+  const clearBtn = makeModalBtn('Reset Log','transparent','rgba(240,90,80,0.62)','#F09595');
   clearBtn.addEventListener('click', () => {
     if(!confirm('Clear all session history? This cannot be undone.')) return;
     handHistory = [];
@@ -7962,7 +8367,7 @@ function showGraph(){
   });
 
   // Close button
-  const closeBtn = makeModalBtn('Close','linear-gradient(180deg,#3a3a3a,#1a1a1a)','#666','#ccc');
+  const closeBtn = makeModalBtn('Close','transparent','rgba(140,154,196,0.55)',GC().dim);
   const close = () => { if(overlay.parentNode) overlay.parentNode.removeChild(overlay); };
   closeBtn.addEventListener('click', close);
   overlay.addEventListener('click', e => { if(e.target===overlay) close(); });
@@ -8003,7 +8408,7 @@ function drawGraph(canvas, history, offset=0, hoverIdx=null, altIdxs=[]){
   ctx.fillRect(0, 0, W, H);
 
   if(history.length === 0){
-    ctx.fillStyle    = '#f0c040';
+    ctx.fillStyle    = GC().brass;
     ctx.font         = 'bold 15px Arial';
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
@@ -8106,7 +8511,7 @@ function drawGraph(canvas, history, offset=0, hoverIdx=null, altIdxs=[]){
     ctx.lineWidth   = 1;
     ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left+cW, y); ctx.stroke();
 
-    ctx.fillStyle    = '#8899bb';
+    ctx.fillStyle    = GC().dim;
     ctx.font         = '11px Arial';
     ctx.textAlign    = 'right';
     ctx.textBaseline = 'middle';
@@ -8115,7 +8520,7 @@ function drawGraph(canvas, history, offset=0, hoverIdx=null, altIdxs=[]){
 
   // ── X-axis labels (1-based, adjusted for range offset) ─
   const lblCount = Math.min(history.length, 10);
-  ctx.fillStyle    = '#8899bb';
+  ctx.fillStyle    = GC().dim;
   ctx.font         = '11px Arial';
   ctx.textAlign    = 'center';
   ctx.textBaseline = 'top';
@@ -8125,7 +8530,7 @@ function drawGraph(canvas, history, offset=0, hoverIdx=null, altIdxs=[]){
   }
 
   // ── Axis label ─────────────────────────────────────────
-  ctx.fillStyle    = '#c0c8d8';
+  ctx.fillStyle    = GC().text;
   ctx.font         = 'bold 10px Arial';
   ctx.textAlign    = 'center';
   ctx.textBaseline = 'bottom';
@@ -8169,11 +8574,11 @@ function drawGraph(canvas, history, offset=0, hoverIdx=null, altIdxs=[]){
   const isEvent = i => history[i] && (history[i].type==='add' || history[i].type==='reset');
   ctx.lineWidth = 2;
   ctx.lineJoin  = 'round';
-  let currentColor = isEvent(0) ? '#3cdc64' : '#f0c040';
+  let currentColor = isEvent(0) ? '#3cdc64' : GC().brass;
   ctx.beginPath();
   ctx.moveTo(toX(0), toY(values[0]));
   for(let i=1; i<values.length; i++){
-    const segColor = isEvent(i) ? '#3cdc64' : '#f0c040';
+    const segColor = isEvent(i) ? '#3cdc64' : GC().brass;
     if(segColor !== currentColor){
       ctx.strokeStyle = currentColor;
       ctx.stroke();
@@ -8206,7 +8611,7 @@ function drawGraph(canvas, history, offset=0, hoverIdx=null, altIdxs=[]){
     }
     ctx.beginPath();
     ctx.arc(toX(i), toY(values[i]), (ev || sub) ? dotR+1 : dotR, 0, Math.PI*2);
-    ctx.fillStyle = ev ? '#3cdc64' : sub ? '#ff5050' : '#f0c040';
+    ctx.fillStyle = ev ? '#3cdc64' : sub ? '#ff5050' : GC().brass;
     ctx.fill();
   }
 
@@ -8217,7 +8622,7 @@ function drawGraph(canvas, history, offset=0, hoverIdx=null, altIdxs=[]){
   const ly = pad.top - 12;
   // Items are measured and laid out sequentially, so any combination of
   // labels (including the long "ADDS AT START" variant) fits without overlap
-  const legend = [{ kind:'line', color:'#f0c040',
+  const legend = [{ kind:'line', color:GC().brass,
                     text: graphCombineAdds ? 'ACTUAL · ADDS AT START' : 'ACTUAL' }];
   if(showOpt) legend.push({ kind:'line', color:'#38b6ff', text:'OPTIMAL' });
   if(hasSub)  legend.push({ kind:'dot',  color:'#ff5050', text:'SUBOPT.' });
@@ -8237,7 +8642,7 @@ function drawGraph(canvas, history, offset=0, hoverIdx=null, altIdxs=[]){
       ctx.beginPath(); ctx.arc(lx + 4, ly, 3, 0, Math.PI*2);
       ctx.fillStyle = it.color; ctx.fill();
     }
-    ctx.fillStyle = '#c0c8d8';
+    ctx.fillStyle = GC().text;
     ctx.fillText(it.text, lx + it.mark + 4, ly);
     lx += it.w + LGAP;
   });
@@ -8250,7 +8655,7 @@ function drawGraph(canvas, history, offset=0, hoverIdx=null, altIdxs=[]){
     if(ax + w > legendLeft - 10) return;
     ctx.strokeStyle = a.color; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(ax, ly); ctx.lineTo(ax+16, ly); ctx.stroke();
-    ctx.fillStyle = '#c0c8d8';
+    ctx.fillStyle = GC().text;
     ctx.fillText(a.label, ax+20, ly);
     ax += w;
   });
@@ -8295,7 +8700,7 @@ function drawGraph(canvas, history, offset=0, hoverIdx=null, altIdxs=[]){
 
     // Colored readout lines; append the alternate-table values at this point
     const tipLines = lines.map((t, i) => ({
-      t, c: i === 0 ? '#f0c040' : (t.startsWith('Optimal:') ? '#38b6ff' : '#e0e8f8'),
+      t, c: i === 0 ? GC().brass : (t.startsWith('Optimal:') ? '#38b6ff' : GC().chalk),
     }));
     altLines.forEach(a => tipLines.push({
       t: `${a.label}: ${formatMoney(a.vals[hoverIdx]*denom)}`, c: a.color,
@@ -8350,13 +8755,13 @@ function init(){
   // Render empty card backs as placeholders
   renderCardsBack();
 
-  document.getElementById('btn-game').addEventListener('click',        showGameSelect);
+  document.getElementById('btn-menu').addEventListener('click',        showMenu);
   document.getElementById('btn-deal').addEventListener('click',        deal);
   document.getElementById('btn-bet-one').addEventListener('click',     betOne);
   document.getElementById('btn-bet-max').addEventListener('click',     betMax);
+  document.getElementById('denom-box').addEventListener('click',       showDenomPopup);
   document.getElementById('btn-add-credits').addEventListener('click', addCredits);
   document.getElementById('btn-reset').addEventListener('click',       resetCredits);
-  document.getElementById('btn-settings').addEventListener('click',    showSettings);
   document.getElementById('btn-graph').addEventListener('click',       showGraph);
   // Dispatcher: live-hand analysis while holding, sub-opt viewer otherwise.
   // (Wrapped: the click event must not reach showAnalysis's customHand param.)
@@ -8398,7 +8803,35 @@ function init(){
   rescale();
 
   // Keyboard shortcuts
+  // Every dialog in the app is a fixed, high z-index child of body, so one
+  // check covers Training, the number pad, the simulator and the rest.
+  // Without it the machine's own bindings stayed live underneath a dialog:
+  // Enter in Training Mode was drawing the real hand behind it, and 1-5 were
+  // toggling holds on the hand on the table.
+  window.addEventListener('keydown', e => {
+  if(e.key !== 'Escape' || e.defaultPrevented) return;
+  if(e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+  const tops = [...document.body.children].filter(el => {
+    if(el.nodeType !== 1) return false;
+    const cs = getComputedStyle(el);
+    return cs.position === 'fixed' && +cs.zIndex >= 9000 && cs.display !== 'none';
+  });
+  if(!tops.length) return;
+  const top = tops[tops.length - 1];
+  e.preventDefault();
+  top.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+});
+
+function modalOpen(){
+    for(const el of document.body.children){
+      if(el.nodeType !== 1) continue;
+      const cs = getComputedStyle(el);
+      if(cs.position === 'fixed' && +cs.zIndex >= 9000 && cs.display !== 'none') return true;
+    }
+    return false;
+  }
   document.addEventListener('keydown', e=>{
+    if(modalOpen()) return;
     if(e.code==='Space' || e.code==='Enter') { e.preventDefault(); deal(); }
     if(e.code==='KeyB') betOne();
     if(e.code==='KeyM') betMax();
@@ -8513,16 +8946,16 @@ function showUpdateBanner(){
     'position:fixed','top:0','left:0','right:0','z-index:20000',
     'display:flex','align-items:center','justify-content:center','gap:14px',
     'padding:10px 14px','padding-top:calc(10px + env(safe-area-inset-top, 0px))',
-    'background:linear-gradient(180deg,#1a3a8a,#0d2255)','border-bottom:2px solid #f0c040',
-    'font-family:Arial,Helvetica,sans-serif','font-size:14px','font-weight:bold',
-    'color:#f0c040','letter-spacing:1px','cursor:pointer',
+    'background:var(--felt)','border-bottom:2px solid var(--brass)',
+    'font-family:var(--font-ui)','font-size:14px','font-weight:bold',
+    'color:var(--brass)','letter-spacing:1px','cursor:pointer',
     'box-shadow:0 4px 18px rgba(0,0,0,0.6)',
   ].join(';');
   const msg = document.createElement('span');
   msg.textContent = 'New version available — tap to update';
   const dismiss = document.createElement('span');
   dismiss.textContent = '✕';
-  dismiss.style.cssText = 'color:#8899bb;padding:0 6px;font-size:16px;';
+  dismiss.style.cssText = 'color:var(--dim);padding:0 6px;font-size:16px;';
   dismiss.addEventListener('click', e => { e.stopPropagation(); bar.remove(); });
   bar.appendChild(msg);
   bar.appendChild(dismiss);
