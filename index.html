@@ -1052,7 +1052,7 @@
 // Displayed top-right on the modern screen and bottom-right on the classic
 // one. Bump the last component for ordinary changes (v3.1 -> v3.1.1); the
 // minor and major components are bumped only on request.
-const APP_VERSION = 'v3.1.12';
+const APP_VERSION = 'v3.1.13';
 
 const SUITS      = ['♠','♥','♦','♣'];
 const RANKS      = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
@@ -2382,6 +2382,10 @@ function showPayTablePicker(gKey = currentGame, onBack){
   sub.style.cssText = 'text-align:center;font-size:12px;color:var(--dim);flex-shrink:0;';
   sub.textContent = game.name;
 
+  // Refusals have to appear here — this dialog covers the main screen.
+  const note = document.createElement('div');
+  note.style.cssText = 'text-align:center;font-size:12px;font-weight:bold;min-height:0;';
+
   const list = document.createElement('div');
   list.style.cssText = 'overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:7px;';
 
@@ -2416,7 +2420,9 @@ function showPayTablePicker(gKey = currentGame, onBack){
       pick.addEventListener('click', () => {
         // only the game in play has a hand that could be disturbed
         if(gKey === currentGame && phase === 'holding'){
-          setMessage('Finish the hand before changing the pay table', false);
+          // this dialog covers the main screen, so say it here
+          note.textContent = 'Finish the hand in play before changing its pay table.';
+          note.style.color = 'var(--ember)';
           sfx.thump();
           return;
         }
@@ -2483,7 +2489,7 @@ function showPayTablePicker(gKey = currentGame, onBack){
   if(isCur) btnRow.appendChild(customBtn);
   btnRow.appendChild(closeBtn);
 
-  panel.appendChild(title); panel.appendChild(sub); panel.appendChild(list);
+  panel.appendChild(title); panel.appendChild(sub); panel.appendChild(note); panel.appendChild(list);
   if(!isCur) panel.appendChild(hint);
   panel.appendChild(btnRow);
   overlay.appendChild(panel);
@@ -2491,12 +2497,8 @@ function showPayTablePicker(gKey = currentGame, onBack){
 }
 
 function showGameSelect(){
-  if(phase === 'holding'){
-    setMessage('Finish this hand before changing games', false);
-    sfx.thump();
-    return;
-  }
-  sfx.button();
+  const midHand = phase === 'holding';
+  if(midHand) sfx.thump(); else sfx.button();
   syncToGameState();   // so per-game credit balances shown below are current
 
   const overlay = document.createElement('div');
@@ -2526,6 +2528,19 @@ function showGameSelect(){
   title.textContent = 'Select Game';
   panel.appendChild(title);
 
+  // Say why the games are unavailable, here rather than on the screen
+  // underneath, and leave the way out in reach.
+  if(midHand){
+    const warn = document.createElement('div');
+    warn.style.cssText = [
+      'text-align:center','font-size:12px','font-weight:bold','line-height:1.5',
+      'color:var(--ember)','background:rgba(240,58,46,0.12)',
+      'border:2px solid rgba(240,58,46,0.55)','border-radius:8px','padding:8px 10px',
+    ].join(';');
+    warn.textContent = 'Finish the hand in play before changing games — draw or discard first.';
+    panel.appendChild(warn);
+  }
+
   const close = () => { if(overlay.parentNode) overlay.parentNode.removeChild(overlay); };
 
   const ptBtns = [];               // squared up to one width once laid out
@@ -2542,7 +2557,9 @@ function showGameSelect(){
       active
         ? 'background:transparent;border:2px solid var(--brass);color:var(--brass)'
         : 'background:var(--deep);border:2px solid #3554B8;color:var(--chalk)',
+      midHand ? 'opacity:0.45;cursor:not-allowed' : '',
     ].join(';');
+    if(midHand) b.disabled = true;
     const denomVal = DENOMINATIONS[denomIdx].value;
     const ptIdx = payIdxOf(key);
     b.style.flex = '1';
